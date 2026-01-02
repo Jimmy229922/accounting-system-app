@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة العملاء والموردين</title>
+    <link rel="stylesheet" href="../../assets/styles/main.css">
+    <link rel="stylesheet" href="../../css/navbar.css">
+    <link rel="stylesheet" href="customers.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="../../assets/js/theme.js"></script>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="top-nav">
+        <div class="nav-brand">نظام المحاسبة</div>
+        <ul class="nav-links">
+            <li><a href="../dashboard/index.html">لوحة التحكم</a></li>
+            <li class="dropdown">
+                <a href="#" class="active">البيانات الأساسية</a>
+                <div class="dropdown-content">
+                    <a href="../items/units.html">الوحدات</a>
+                    <a href="../items/items.html">الأصناف</a>
+                    <a href="index.html">العملاء والموردين</a>
+                    <a href="../opening-balance/index.html">بيانات أول المدة</a>
+                </div>
+            </li>
+            <li><a href="../sales/index.html">المبيعات</a></li>
+            <li><a href="../purchases/index.html">المشتريات</a></li>
+            <li><a href="../inventory/index.html">المخزن</a></li>
+            <li><a href="../finance/index.html">المالية</a></li>
+            <li class="dropdown">
+                <a href="#">التقارير</a>
+                <div class="dropdown-content">
+                    <a href="../reports/index.html">التقارير العامة</a>
+                    <a href="../customer-reports/index.html">تقارير العملاء</a>
+                </div>
+            </li>
+            <li><a href="../settings/index.html">الإعدادات</a></li>
+        </ul>
+    </nav>
+
+    <div class="page-container">
+        <!-- Header Section -->
+        <div class="header-section">
+            <h1 class="page-title">إدارة العملاء والموردين</h1>
+            <button id="add-customer-btn" class="btn btn-primary">
+                <i class="fas fa-plus"></i> إضافة جديد
+            </button>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <!-- Total Receivables (Customers owe us) -->
+            <div class="stat-card receivables">
+                <div class="stat-icon">
+                    <i class="fas fa-hand-holding-usd"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>إجمالي الديون (لنا)</h3>
+                    <div class="value" id="total-receivables">0</div>
+                </div>
+            </div>
+
+            <!-- Total Payables (We owe suppliers) -->
+            <div class="stat-card payables">
+                <div class="stat-icon">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>إجمالي المستحقات (علينا)</h3>
+                    <div class="value" id="total-payables">0</div>
+                </div>
+            </div>
+
+            <!-- Total Count -->
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>عدد العملاء والموردين</h3>
+                    <div class="value" id="total-count">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Section -->
+        <div class="table-section">
+            <div class="table-controls">
+                <div class="table-header-title">
+                    <h3><i class="fas fa-list"></i> قائمة العملاء والموردين</h3>
+                </div>
+                
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">الكل</button>
+                    <button class="filter-btn" data-filter="customer">العملاء</button>
+                    <button class="filter-btn" data-filter="supplier">الموردين</button>
+                    <button class="filter-btn" data-filter="both">عملاء وموردين</button>
+                </div>
+
+                <div class="search-box">
+                    <input type="text" id="search-input" class="search-input" placeholder="بحث بالاسم أو الهاتف...">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>النوع</th>
+                            <th>رقم الهاتف</th>
+                            <th>العنوان</th>
+                            <th>الرصيد</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customers-table-body">
+                        <!-- Rows will be populated by JS -->
+                    </tbody>
+                </table>
+                
+                <div id="empty-state" class="empty-state" style="display: none;">
+                    <i class="fas fa-users-slash empty-icon"></i>
+                    <p>لا يوجد عملاء أو موردين مطابقين للبحث</p>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-container" id="pagination-controls">
+                <!-- Pagination buttons will be generated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="customer-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">إضافة عميل/مورد جديد</h3>
+                <button class="close-modal" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="customer-form">
+                    <input type="hidden" id="customer-id">
+                    
+                    <div class="modal-form-grid">
+                        <div class="form-group">
+                            <label for="customer-name">الاسم <span>*</span></label>
+                            <input type="text" id="customer-name" class="form-control" required placeholder="أدخل الاسم">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="customer-type">النوع <span>*</span></label>
+                            <select id="customer-type" class="form-control" required>
+                                <option value="customer">عميل</option>
+                                <option value="supplier">مورد</option>
+                                <option value="both">عميل ومورد</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="customer-phone">رقم الهاتف</label>
+                            <input type="text" id="customer-phone" class="form-control" placeholder="أدخل رقم الهاتف">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="customer-balance">الرصيد الافتتاحي</label>
+                            <input type="number" id="customer-balance" class="form-control" value="0" step="0.01">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="customer-address">العنوان</label>
+                            <input type="text" id="customer-address" class="form-control" placeholder="أدخل العنوان">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="customer-notes">ملاحظات</label>
+                            <input type="text" id="customer-notes" class="form-control" placeholder="ملاحظات إضافية">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="cancel-modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="save-customer-btn">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="customers.js"></script>
+</body>
+</html>

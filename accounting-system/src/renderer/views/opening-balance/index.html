@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بيانات أول المدة</title>
+    <link rel="stylesheet" href="../../assets/styles/main.css">
+    <link rel="stylesheet" href="../../css/navbar.css">
+    <link rel="stylesheet" href="../../assets/styles/autocomplete.css">
+    <link rel="stylesheet" href="../../assets/styles/toast.css">
+    <script src="../../assets/js/theme.js"></script>
+    <style>
+        .content { padding: 30px; max-width: 1600px; margin: 0 auto; }
+        
+        /* Header & Stats */
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .page-title { font-size: 1.8rem; color: var(--primary-color); margin: 0; font-weight: 700; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--table-border); display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .stat-icon { width: 50px; height: 50px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .stat-info h4 { margin: 0 0 5px 0; color: var(--muted-text); font-size: 0.9rem; }
+        .stat-info .value { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-color); }
+        
+        /* Main Layout */
+        .main-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 25px; margin-bottom: 30px; }
+        @media (max-width: 1200px) { .main-grid { grid-template-columns: 1fr; } }
+
+        .card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--table-border); box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .card-header { padding: 20px; border-bottom: 1px solid var(--table-border); display: flex; justify-content: space-between; align-items: center; background: var(--table-header-bg); }
+        .card-header h3 { margin: 0; font-size: 1.1rem; color: var(--text-color); font-weight: 600; }
+        .card-body { padding: 20px; flex: 1; }
+
+        /* Warehouse List */
+        .warehouse-list { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; }
+        .warehouse-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--table-border); transition: background 0.2s; }
+        .warehouse-item:last-child { border-bottom: none; }
+        .warehouse-item:hover { background: var(--bg-color); }
+        .warehouse-name { font-weight: 500; color: var(--text-color); }
+        .warehouse-badge { background: var(--accent-color); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
+
+        /* Entry Table */
+        .entry-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .entry-table th { background: var(--table-header-bg); padding: 15px; text-align: right; font-weight: 700; color: var(--text-color); border-bottom: 2px solid var(--table-border); }
+        .entry-table td { padding: 12px; border-bottom: 1px solid var(--table-border); vertical-align: middle; }
+        .entry-table tr:last-child td { border-bottom: none; }
+        .entry-table tr:hover { background-color: var(--bg-color); }
+        
+        .form-control { width: 100%; padding: 10px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text-color); transition: all 0.2s; }
+        .form-control:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); outline: none; }
+        
+        /* Table Input Styling */
+        .entry-table .form-control { border: 1px solid transparent; background: transparent; padding: 8px; }
+        .entry-table .form-control:hover { border-color: var(--input-border); background: var(--input-bg); }
+        .entry-table .form-control:focus { border-color: var(--accent-color); background: var(--input-bg); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        
+        /* Buttons */
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+        .btn-primary { background: var(--accent-color); color: white; box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
+        .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+        .btn-outline { background: transparent; border: 1px solid var(--input-border); color: var(--text-color); }
+        .btn-outline:hover { background: var(--bg-color); border-color: var(--accent-color); color: var(--accent-color); }
+        .btn-icon { padding: 8px; border-radius: 6px; color: var(--danger-color); background: rgba(225, 29, 72, 0.1); cursor: pointer; border: none; transition: all 0.2s; }
+        .btn-icon:hover { background: var(--danger-color); color: white; }
+
+        /* History Table */
+        .history-table th { background: var(--table-header-bg); color: var(--text-color); padding: 15px; }
+        .history-table td { padding: 15px; border-bottom: 1px solid var(--table-border); color: var(--text-color); }
+        .history-table tr:hover { background: var(--bg-color); }
+
+        .empty-state { text-align: center; padding: 40px; color: var(--muted-text); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--input-border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--muted-text); }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    
+    <script src="../../assets/js/autocomplete.js"></script>
+    <script src="../../assets/js/toast.js"></script>
+    <script src="./opening-balance.js"></script>
+</body>
+</html>
