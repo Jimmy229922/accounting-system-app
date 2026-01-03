@@ -167,6 +167,10 @@ class Autocomplete {
         this.selectedIndex = -1;
     }
     
+    getInputValue() {
+        return this.input.value;
+    }
+
     // Method to refresh options if the underlying select changes
     refresh() {
         this.syncOptions();

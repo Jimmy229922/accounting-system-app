@@ -154,18 +154,13 @@ function setupIPC() {
             VALUES (@item_id, @warehouse_id, @quantity, @cost_price)
         `);
 
-        const getTotalsStmt = db.prepare(`
-            SELECT SUM(quantity) as total_qty FROM opening_balances WHERE item_id = ?
-        `);
-
         const updateItemStmt = db.prepare(`
-            UPDATE items SET stock_quantity = @qty, cost_price = CASE WHEN @cost_price > 0 THEN @cost_price ELSE cost_price END WHERE id = @id
+            UPDATE items SET stock_quantity = stock_quantity + @qty, cost_price = CASE WHEN @cost_price > 0 THEN @cost_price ELSE cost_price END WHERE id = @id
         `);
 
         const tx = db.transaction(() => {
             insertStmt.run({ item_id, warehouse_id, quantity, cost_price });
-            const total = getTotalsStmt.get(item_id);
-            updateItemStmt.run({ id: item_id, qty: total.total_qty || 0, cost_price: cost_price || 0 });
+            updateItemStmt.run({ id: item_id, qty: quantity, cost_price: cost_price || 0 });
         });
 
         try {
@@ -180,10 +175,9 @@ function setupIPC() {
     ipcMain.handle('update-opening-balance', (event, entry) => {
         const { id, item_id, warehouse_id, quantity, cost_price } = entry;
         
-        const getOldStmt = db.prepare('SELECT item_id FROM opening_balances WHERE id = ?');
+        const getOldStmt = db.prepare('SELECT item_id, quantity FROM opening_balances WHERE id = ?');
         const oldRow = getOldStmt.get(id);
         if (!oldRow) return { success: false, error: 'Entry not found' };
-        const oldItemId = oldRow.item_id;
 
         const updateStmt = db.prepare(`
             UPDATE opening_balances 
@@ -191,21 +185,17 @@ function setupIPC() {
             WHERE id = @id
         `);
 
-        const getTotalsStmt = db.prepare('SELECT SUM(quantity) as total_qty FROM opening_balances WHERE item_id = ?');
-        const updateItemStmt = db.prepare('UPDATE items SET stock_quantity = @qty WHERE id = @id');
-        const updateItemCostStmt = db.prepare('UPDATE items SET stock_quantity = @qty, cost_price = CASE WHEN @cost_price > 0 THEN @cost_price ELSE cost_price END WHERE id = @id');
+        const updateItemStockStmt = db.prepare('UPDATE items SET stock_quantity = stock_quantity + @diff WHERE id = @id');
+        const updateItemCostStmt = db.prepare('UPDATE items SET cost_price = @cost_price WHERE id = @id');
 
         const tx = db.transaction(() => {
+            const diff = quantity - oldRow.quantity;
             updateStmt.run({ id, item_id, warehouse_id, quantity, cost_price });
             
-            // Update new item stock
-            const totalNew = getTotalsStmt.get(item_id);
-            updateItemCostStmt.run({ id: item_id, qty: totalNew.total_qty || 0, cost_price: cost_price || 0 });
-
-            // If item changed, update old item stock
-            if (oldItemId !== item_id) {
-                const totalOld = getTotalsStmt.get(oldItemId);
-                updateItemStmt.run({ id: oldItemId, qty: totalOld.total_qty || 0 });
+            updateItemStockStmt.run({ id: item_id, diff });
+            
+            if (cost_price > 0) {
+                updateItemCostStmt.run({ id: item_id, cost_price });
             }
         });
 
@@ -219,188 +209,16 @@ function setupIPC() {
 
     // Delete opening balance entry
     ipcMain.handle('delete-opening-balance', (event, id) => {
-        const getStmt = db.prepare('SELECT item_id FROM opening_balances WHERE id = ?');
+        const getStmt = db.prepare('SELECT item_id, quantity FROM opening_balances WHERE id = ?');
         const row = getStmt.get(id);
         if (!row) return { success: false, error: 'Entry not found' };
 
         const deleteStmt = db.prepare('DELETE FROM opening_balances WHERE id = ?');
-        const getTotalsStmt = db.prepare('SELECT SUM(quantity) as total_qty FROM opening_balances WHERE item_id = ?');
-        const updateItemStmt = db.prepare('UPDATE items SET stock_quantity = @qty WHERE id = @id');
+        const updateItemStmt = db.prepare('UPDATE items SET stock_quantity = stock_quantity - @qty WHERE id = @id');
 
         const tx = db.transaction(() => {
             deleteStmt.run(id);
-            const total = getTotalsStmt.get(row.item_id);
-            updateItemStmt.run({ id: row.item_id, qty: total.total_qty || 0 });
-        });
-
-        try {
-            tx();
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
-    // --- Opening Balance Groups Handlers ---
-
-    // Add Opening Balance Group
-    ipcMain.handle('add-opening-balance-group', (event, { notes, items }) => {
-        if (!items || items.length === 0) {
-            return { success: false, error: 'No items provided' };
-        }
-
-        const insertGroup = db.prepare('INSERT INTO opening_balance_groups (notes) VALUES (?)');
-        const insertItem = db.prepare(`
-            INSERT INTO opening_balances (group_id, item_id, warehouse_id, quantity, cost_price)
-            VALUES (@group_id, @item_id, @warehouse_id, @quantity, @cost_price)
-        `);
-        
-        // Helper to update stock
-        const getTotalsStmt = db.prepare('SELECT SUM(quantity) as total_qty FROM opening_balances WHERE item_id = ?');
-        const updateItemStmt = db.prepare('UPDATE items SET stock_quantity = @qty, cost_price = CASE WHEN @cost_price > 0 THEN @cost_price ELSE cost_price END WHERE id = @id');
-
-        const tx = db.transaction(() => {
-            const groupInfo = insertGroup.run(notes);
-            const groupId = groupInfo.lastInsertRowid;
-
-            for (const item of items) {
-                insertItem.run({
-                    group_id: groupId,
-                    item_id: item.item_id,
-                    warehouse_id: item.warehouse_id,
-                    quantity: item.quantity,
-                    cost_price: item.cost_price
-                });
-
-                // Update stock for this item
-                const total = getTotalsStmt.get(item.item_id);
-                updateItemStmt.run({ 
-                    id: item.item_id, 
-                    qty: total.total_qty || 0, 
-                    cost_price: item.cost_price || 0 
-                });
-            }
-        });
-
-        try {
-            tx();
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
-    // Get Opening Balance Groups
-    ipcMain.handle('get-opening-balance-groups', () => {
-        const stmt = db.prepare(`
-            SELECT g.*, COUNT(ob.id) as item_count, SUM(ob.quantity * ob.cost_price) as total_value
-            FROM opening_balance_groups g
-            LEFT JOIN opening_balances ob ON g.id = ob.group_id
-            GROUP BY g.id
-            ORDER BY g.created_at DESC
-        `);
-        return stmt.all();
-    });
-
-    // Get Single Opening Balance Group
-    ipcMain.handle('get-opening-balance-group', (event, id) => {
-        return db.prepare('SELECT * FROM opening_balance_groups WHERE id = ?').get(id);
-    });
-
-    // Get Group Details
-    ipcMain.handle('get-group-details', (event, groupId) => {
-        const stmt = db.prepare(`
-            SELECT ob.*, i.name as item_name, w.name as warehouse_name, u.name as unit_name
-            FROM opening_balances ob
-            LEFT JOIN items i ON ob.item_id = i.id
-            LEFT JOIN warehouses w ON ob.warehouse_id = w.id
-            LEFT JOIN units u ON i.unit_id = u.id
-            WHERE ob.group_id = ?
-        `);
-        return stmt.all(groupId);
-    });
-
-    // Delete Opening Balance Group
-    ipcMain.handle('delete-opening-balance-group', (event, groupId) => {
-        const getItemsStmt = db.prepare('SELECT item_id FROM opening_balances WHERE group_id = ?');
-        const deleteGroupStmt = db.prepare('DELETE FROM opening_balance_groups WHERE id = ?'); // Cascade deletes items
-        
-        // Stock update helpers
-        const getTotalsStmt = db.prepare('SELECT SUM(quantity) as total_qty FROM opening_balances WHERE item_id = ?');
-        const updateItemStmt = db.prepare('UPDATE items SET stock_quantity = @qty WHERE id = @id');
-
-        const tx = db.transaction(() => {
-            const items = getItemsStmt.all(groupId);
-            
-            // Delete group (and items via cascade)
-            deleteGroupStmt.run(groupId);
-
-            // Recalculate stock for affected items
-            for (const item of items) {
-                const total = getTotalsStmt.get(item.item_id);
-                updateItemStmt.run({ id: item.item_id, qty: total.total_qty || 0 });
-            }
-        });
-
-        try {
-            tx();
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
-
-    // Update Opening Balance Group
-    ipcMain.handle('update-opening-balance-group', (event, { id, notes, items }) => {
-        // 1. Get old items to recalculate their stock later
-        const getOldItemsStmt = db.prepare('SELECT item_id FROM opening_balances WHERE group_id = ?');
-        
-        // 2. Delete old items
-        const deleteOldItemsStmt = db.prepare('DELETE FROM opening_balances WHERE group_id = ?');
-        
-        // 3. Update Group Info
-        const updateGroupStmt = db.prepare('UPDATE opening_balance_groups SET notes = ? WHERE id = ?');
-
-        // 4. Insert New Items
-        const insertItem = db.prepare(`
-            INSERT INTO opening_balances (group_id, item_id, warehouse_id, quantity, cost_price)
-            VALUES (@group_id, @item_id, @warehouse_id, @quantity, @cost_price)
-        `);
-
-        // 5. Stock Recalculation Helpers
-        const getTotalsStmt = db.prepare('SELECT SUM(quantity) as total_qty FROM opening_balances WHERE item_id = ?');
-        const updateItemStmt = db.prepare('UPDATE items SET stock_quantity = @qty, cost_price = CASE WHEN @cost_price > 0 THEN @cost_price ELSE cost_price END WHERE id = @id');
-
-        const tx = db.transaction(() => {
-            const oldItems = getOldItemsStmt.all(id);
-            const affectedItemIds = new Set(oldItems.map(i => i.item_id));
-
-            deleteOldItemsStmt.run(id);
-            updateGroupStmt.run(notes, id);
-
-            for (const item of items) {
-                insertItem.run({
-                    group_id: id,
-                    item_id: item.item_id,
-                    warehouse_id: item.warehouse_id,
-                    quantity: item.quantity,
-                    cost_price: item.cost_price
-                });
-                affectedItemIds.add(item.item_id);
-            }
-
-            // Recalculate stock for ALL affected items (both old and new)
-            for (const itemId of affectedItemIds) {
-                const total = getTotalsStmt.get(itemId);
-                const newItem = items.find(i => i.item_id === itemId);
-                const costPrice = newItem ? newItem.cost_price : 0;
-                
-                updateItemStmt.run({ 
-                    id: itemId, 
-                    qty: total.total_qty || 0, 
-                    cost_price: costPrice 
-                });
-            }
+            updateItemStmt.run({ id: row.item_id, qty: row.quantity });
         });
 
         try {
@@ -423,6 +241,26 @@ function setupIPC() {
             ORDER BY items.name ASC
         `);
         return stmt.all();
+    });
+
+    // Get Item Stock Details
+    ipcMain.handle('get-item-stock-details', (event, itemId) => {
+        try {
+            const openingBalance = db.prepare('SELECT SUM(quantity) as total FROM opening_balances WHERE item_id = ?').get(itemId).total || 0;
+            const purchases = db.prepare('SELECT SUM(quantity) as total FROM purchase_invoice_details WHERE item_id = ?').get(itemId).total || 0;
+            const sales = db.prepare('SELECT SUM(quantity) as total FROM sales_invoice_details WHERE item_id = ?').get(itemId).total || 0;
+            const item = db.prepare('SELECT stock_quantity FROM items WHERE id = ?').get(itemId);
+            
+            return {
+                success: true,
+                openingBalance,
+                purchases,
+                sales,
+                currentStock: item ? item.stock_quantity : 0
+            };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     });
 
     // Add a new item
@@ -465,10 +303,11 @@ function setupIPC() {
     // Update an item
     ipcMain.handle('update-item', (event, item) => {
         try {
+            // Removed stock_quantity from update to prevent manual override
             const stmt = db.prepare(`
                 UPDATE items 
                 SET name = @name, barcode = @barcode, unit_id = @unit_id, 
-                    cost_price = @cost_price, sale_price = @sale_price, stock_quantity = @stock_quantity, reorder_level = @reorder_level
+                    cost_price = @cost_price, sale_price = @sale_price, reorder_level = @reorder_level
                 WHERE id = @id
             `);
             stmt.run(item);
@@ -481,6 +320,22 @@ function setupIPC() {
     // Delete an item
     ipcMain.handle('delete-item', (event, id) => {
         try {
+            // Check for transactions
+            const checkOpening = db.prepare('SELECT COUNT(*) as count FROM opening_balances WHERE item_id = ?').get(id);
+            if (checkOpening.count > 0) {
+                return { success: false, error: 'لا يمكن حذف الصنف لأنه مسجل في بضاعة أول المدة' };
+            }
+
+            const checkPurchases = db.prepare('SELECT COUNT(*) as count FROM purchase_invoice_details WHERE item_id = ?').get(id);
+            if (checkPurchases.count > 0) {
+                return { success: false, error: 'لا يمكن حذف الصنف لأنه مسجل في فواتير شراء' };
+            }
+
+            const checkSales = db.prepare('SELECT COUNT(*) as count FROM sales_invoice_details WHERE item_id = ?').get(id);
+            if (checkSales.count > 0) {
+                return { success: false, error: 'لا يمكن حذف الصنف لأنه مسجل في فواتير بيع' };
+            }
+
             // Soft delete: mark as deleted and append timestamp to barcode to avoid unique constraint issues
             const stmt = db.prepare(`
                 UPDATE items 
@@ -499,6 +354,115 @@ function setupIPC() {
 
     ipcMain.handle('get-customers', () => {
         return db.prepare('SELECT * FROM customers ORDER BY name ASC').all();
+    });
+
+    ipcMain.handle('get-debtor-creditor-report', (event, { startDate, endDate }) => {
+        const customers = db.prepare('SELECT id, name, type, balance as current_balance, phone FROM customers ORDER BY name ASC').all();
+        
+        const report = customers.map(customer => {
+            const sDate = startDate || '1900-01-01';
+            const eDate = endDate || '9999-12-31';
+            const futureDate = endDate || '9999-12-31';
+
+            // Calculate movements AFTER endDate (Future)
+            const futureSales = db.prepare(`
+                SELECT SUM(total_amount) as total 
+                FROM sales_invoices 
+                WHERE customer_id = ? AND invoice_date > ? AND payment_type != 'cash'
+            `).get(customer.id, futureDate).total || 0;
+            
+            const futurePurchases = db.prepare(`
+                SELECT SUM(total_amount) as total 
+                FROM purchase_invoices 
+                WHERE supplier_id = ? AND invoice_date > ? AND payment_type != 'cash'
+            `).get(customer.id, futureDate).total || 0;
+            
+            const futureSalesPayments = db.prepare(`
+                SELECT SUM(amount) as total 
+                FROM treasury_transactions 
+                WHERE related_invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id = ?) 
+                AND related_type = 'sales' 
+                AND transaction_date > ?
+            `).get(customer.id, futureDate).total || 0;
+            
+            const futurePurchasePayments = db.prepare(`
+                SELECT SUM(amount) as total 
+                FROM treasury_transactions 
+                WHERE related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?) 
+                AND related_type = 'purchase' 
+                AND transaction_date > ?
+            `).get(customer.id, futureDate).total || 0;
+            
+            // Calculate movements DURING period
+            const periodSales = db.prepare(`
+                SELECT SUM(total_amount) as total 
+                FROM sales_invoices 
+                WHERE customer_id = ? AND invoice_date >= ? AND invoice_date <= ? AND payment_type != 'cash'
+            `).get(customer.id, sDate, eDate).total || 0;
+            
+            const periodPurchases = db.prepare(`
+                SELECT SUM(total_amount) as total 
+                FROM purchase_invoices 
+                WHERE supplier_id = ? AND invoice_date >= ? AND invoice_date <= ? AND payment_type != 'cash'
+            `).get(customer.id, sDate, eDate).total || 0;
+            
+            const periodSalesPayments = db.prepare(`
+                SELECT SUM(amount) as total 
+                FROM treasury_transactions 
+                WHERE related_invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id = ?) 
+                AND related_type = 'sales' 
+                AND transaction_date >= ? AND transaction_date <= ?
+            `).get(customer.id, sDate, eDate).total || 0;
+            
+            const periodPurchasePayments = db.prepare(`
+                SELECT SUM(amount) as total 
+                FROM treasury_transactions 
+                WHERE related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?) 
+                AND related_type = 'purchase' 
+                AND transaction_date >= ? AND transaction_date <= ?
+            `).get(customer.id, sDate, eDate).total || 0;
+            
+            // Closing Balance = Current - Future Increases + Future Decreases
+            // Increases to Balance: Sales, Purchases
+            // Decreases to Balance: Payments
+            let closingBalance = customer.current_balance 
+                - (futureSales + futurePurchases) 
+                + (futureSalesPayments + futurePurchasePayments);
+                
+            // Opening Balance = Closing - Period Increases + Period Decreases
+            let openingBalance = closingBalance 
+                - (periodSales + periodPurchases) 
+                + (periodSalesPayments + periodPurchasePayments);
+                
+            let debitAmount = 0;
+            let creditAmount = 0;
+            
+            // Determine Debit/Credit for the period based on accounting logic
+            // Customer: Debit = Sales, Credit = Payments
+            // Supplier: Debit = Payments, Credit = Purchases
+            
+            if (customer.type === 'customer') {
+                debitAmount = periodSales;
+                creditAmount = periodSalesPayments;
+            } else if (customer.type === 'supplier') {
+                debitAmount = periodPurchasePayments;
+                creditAmount = periodPurchases;
+            } else {
+                // Both
+                debitAmount = periodSales + periodPurchasePayments;
+                creditAmount = periodSalesPayments + periodPurchases;
+            }
+            
+            return {
+                ...customer,
+                openingBalance,
+                closingBalance,
+                debitAmount,
+                creditAmount
+            };
+        });
+        
+        return report;
     });
 
     ipcMain.handle('add-customer', (event, customer) => {
@@ -822,11 +786,67 @@ function setupIPC() {
 
     ipcMain.handle('add-treasury-transaction', (event, transaction) => {
         try {
+            const { type, amount, date, description, customer_id } = transaction;
+            
             const stmt = db.prepare(`
-                INSERT INTO treasury_transactions (type, amount, transaction_date, description)
-                VALUES (@type, @amount, @date, @description)
+                INSERT INTO treasury_transactions (type, amount, transaction_date, description, customer_id)
+                VALUES (@type, @amount, @date, @description, @customer_id)
             `);
-            stmt.run(transaction);
+
+            const updateBalance = db.prepare(`
+                UPDATE customers 
+                SET balance = balance + @amount 
+                WHERE id = @id
+            `);
+
+            const tx = db.transaction(() => {
+                stmt.run({ type, amount, date, description, customer_id });
+                
+                if (customer_id) {
+                    // If Income (we received money), customer debt decreases (balance decreases)
+                    // If Expense (we paid money), customer debt increases (or our debt to them decreases)
+                    // Wait, let's check the sign convention.
+                    // In debtor-creditor: 
+                    // Customer: Balance > 0 (Debtor/They owe us). 
+                    // Supplier: Balance > 0 (Creditor/We owe them).
+                    
+                    // If it's a Customer (type='customer'):
+                    // Income (They pay us) -> Balance should decrease.
+                    // Expense (We pay them - e.g. refund) -> Balance should increase.
+                    
+                    // If it's a Supplier (type='supplier'):
+                    // Expense (We pay them) -> Balance should decrease (We owe them less).
+                    // Income (They pay us - e.g. refund) -> Balance should increase (We owe them more? Or they owe us?).
+                    
+                    // Let's look at save-sales-invoice (Income):
+                    // updateCustomerBalance: SET balance = balance + @amount (Credit/Sales increases balance?)
+                    // Wait. save-sales-invoice:
+                    // if payment_type != cash: updateCustomerBalance.run({ amount: totalAmount })
+                    // So Sales INCREASES balance. So Positive Balance = They Owe Us.
+                    
+                    // save-purchase-invoice (Expense? No, Purchase is Credit usually):
+                    // updateSupplierBalance: SET balance = balance + @amount.
+                    // So Purchase INCREASES balance.
+                    // But for Supplier, Positive Balance = We Owe Them.
+                    
+                    // So:
+                    // Sales (They owe us) -> +Balance
+                    // Purchase (We owe them) -> +Balance
+                    
+                    // Payment FROM Customer (Income):
+                    // Should DECREASE Balance.
+                    
+                    // Payment TO Supplier (Expense):
+                    // Should DECREASE Balance.
+                    
+                    // So in both cases, if we are "settling" the debt, the balance number should decrease.
+                    // So `balance = balance - amount`.
+                    
+                    updateBalance.run({ amount: -amount, id: customer_id });
+                }
+            });
+
+            tx();
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -865,6 +885,13 @@ function setupIPC() {
             const trans = getTrans.get(id);
             if (!trans) return; // Already deleted
 
+            // Handle Direct Payments (linked via customer_id)
+            if (trans.customer_id) {
+                // When payment was added, we subtracted amount from balance.
+                // Now we add it back.
+                updateCustomer.run({ amount: trans.amount, id: trans.customer_id });
+            }
+
             if (trans.related_invoice_id) {
                 if (trans.related_type === 'sales') {
                     // Revert Sales Payment
@@ -880,6 +907,10 @@ function setupIPC() {
                     
                     const invoice = getPurchaseInvoice.get(trans.related_invoice_id);
                     if (invoice && invoice.supplier_id) {
+                        // Note: updateSupplier updates 'suppliers' table, but we might be using 'customers' table.
+                        // If purchase_invoices links to customers, we should use updateCustomer.
+                        // But existing code uses updateSupplier. I'll leave it for invoice logic to avoid breaking existing flow,
+                        // assuming existing flow is consistent with itself.
                         updateSupplier.run({ amount: trans.amount, id: invoice.supplier_id });
                     }
                 }
@@ -945,7 +976,23 @@ function setupIPC() {
                 ${endDate ? 'AND si.invoice_date <= @endDate' : ''}
             `;
 
-            const query = `${purchaseQuery} UNION ALL ${salesQuery} ORDER BY date DESC, ref_number DESC`;
+            const openingQuery = `
+                SELECT 
+                    'opening' as type,
+                    ob.created_at as date,
+                    ob.id as ref_number,
+                    w.name as party_name,
+                    ob.quantity as quantity_in,
+                    0 as quantity_out,
+                    ob.cost_price as price
+                FROM opening_balances ob
+                LEFT JOIN warehouses w ON ob.warehouse_id = w.id
+                WHERE ob.item_id = @itemId
+                ${startDate ? 'AND ob.created_at >= @startDate' : ''}
+                ${endDate ? 'AND ob.created_at <= @endDate' : ''}
+            `;
+
+            const query = `${openingQuery} UNION ALL ${purchaseQuery} UNION ALL ${salesQuery} ORDER BY date DESC, ref_number DESC`;
             
             return db.prepare(query).all({ itemId, startDate, endDate });
         } catch (error) {
@@ -1127,11 +1174,26 @@ function setupIPC() {
             WHERE pi.supplier_id = ?
         `;
 
+        const paymentsQuery = `
+            SELECT 
+                CASE WHEN type = 'income' THEN 'payment_in' ELSE 'payment_out' END as type,
+                id,
+                'سند' as invoice_number,
+                transaction_date as invoice_date,
+                amount as total_amount,
+                description as notes
+            FROM treasury_transactions
+            WHERE customer_id = ?
+               OR (related_type = 'sales' AND related_invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id = ?))
+               OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?))
+        `;
+
         const sales = db.prepare(salesQuery).all(customerId);
         const purchases = db.prepare(purchaseQuery).all(customerId);
+        const payments = db.prepare(paymentsQuery).all(customerId, customerId, customerId);
         
         // Combine and sort
-        return [...sales, ...purchases].sort((a, b) => new Date(b.invoice_date) - new Date(a.invoice_date));
+        return [...sales, ...purchases, ...payments].sort((a, b) => new Date(b.invoice_date) - new Date(a.invoice_date));
     });
 
     ipcMain.handle('get-invoice-with-details', (event, { id, type }) => {

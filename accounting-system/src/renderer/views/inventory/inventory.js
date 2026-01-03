@@ -28,11 +28,14 @@ function renderPage() {
                 <li><a href="../purchases/index.html">المشتريات</a></li>
                 <li><a href="#" class="active">المخزن</a></li>
                 <li><a href="../finance/index.html">المالية</a></li>
+                <li><a href="../payments/receipt.html">تحصيل من عميل</a></li>
+                <li><a href="../payments/payment.html">سداد لمورد</a></li>
                 <li class="dropdown">
                     <a href="#">التقارير</a>
                     <div class="dropdown-content">
                         <a href="../reports/index.html">التقارير العامة</a>
                         <a href="../customer-reports/index.html">تقارير العملاء</a>
+                        <a href="../reports/debtor-creditor/index.html">كشف المدين والدائن</a>
                     </div>
                 </li>
                 <li><a href="../settings/index.html">الإعدادات</a></li>
@@ -184,7 +187,7 @@ function toggleShortages() {
         btn.classList.remove('active');
         btn.innerHTML = `
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-            عرض النواقص فقط
+            <span style="color: #ff4757; font-weight: bold; text-shadow: 0 0 1px rgba(255, 71, 87, 0.3);">عرض النواقص فقط</span>
         `;
     }
     
@@ -223,11 +226,30 @@ async function showItemCard(itemId, itemName) {
 
     transactions.forEach(t => {
         const row = document.createElement('tr');
-        const typeText = t.type === 'purchase' ? 'شراء' : 'بيع';
-        const typeClass = t.type === 'purchase' ? 'transaction-in' : 'transaction-out';
+        let typeText = '';
+        let typeClass = '';
+
+        if (t.type === 'purchase') {
+            typeText = 'شراء';
+            typeClass = 'transaction-in';
+        } else if (t.type === 'sale') {
+            typeText = 'بيع';
+            typeClass = 'transaction-out';
+        } else if (t.type === 'opening') {
+            typeText = 'رصيد أول المدة';
+            typeClass = 'transaction-in';
+        }
         
+        // Format date if it's a timestamp
+        let dateDisplay = t.date;
+        if (t.date && t.date.includes('T')) {
+            dateDisplay = t.date.split('T')[0];
+        } else if (t.date && t.date.includes(' ')) {
+            dateDisplay = t.date.split(' ')[0];
+        }
+
         row.innerHTML = `
-            <td>${t.date}</td>
+            <td>${dateDisplay}</td>
             <td class="${typeClass}">${typeText}</td>
             <td>${t.ref_number || '-'}</td>
             <td>${t.party_name || '-'}</td>

@@ -30,11 +30,14 @@
             <li><a href="../purchases/index.html">المشتريات</a></li>
             <li><a href="../inventory/index.html">المخزن</a></li>
             <li><a href="../finance/index.html">المالية</a></li>
+            <li><a href="../payments/receipt.html">تحصيل من عميل</a></li>
+            <li><a href="../payments/payment.html">سداد لمورد</a></li>
             <li class="dropdown">
                 <a href="#">التقارير</a>
                 <div class="dropdown-content">
                     <a href="../reports/index.html">التقارير العامة</a>
                     <a href="../customer-reports/index.html">تقارير العملاء</a>
+                    <a href="../reports/debtor-creditor/index.html">كشف المدين والدائن</a>
                 </div>
             </li>
             <li><a href="../settings/index.html">الإعدادات</a></li>
@@ -187,6 +190,24 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" id="cancel-modal">إلغاء</button>
                 <button type="button" class="btn btn-primary" id="save-customer-btn">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>تأكيد الحذف</h3>
+                <button class="close-modal" id="close-delete-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 1.1rem; margin-bottom: 15px;">هل أنت متأكد من رغبتك في حذف هذا السجل؟ لا يمكن التراجع عن هذا الإجراء.</p>
+                <p class="warning-text"><i class="fas fa-exclamation-triangle"></i> سيتم حذف جميع البيانات المتعلقة بهذا العميل/المورد.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="cancel-delete-modal">إلغاء</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-btn">حذف</button>
             </div>
         </div>
     </div>

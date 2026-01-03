@@ -13,6 +13,12 @@ const saveCustomerBtn = document.getElementById('save-customer-btn');
 const modalTitle = document.getElementById('modal-title');
 const customerForm = document.getElementById('customer-form');
 
+// Delete Modal Elements
+const deleteModal = document.getElementById('delete-modal');
+const closeDeleteModalBtn = document.getElementById('close-delete-modal');
+const cancelDeleteModalBtn = document.getElementById('cancel-delete-modal');
+const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
 // Form Inputs
 const customerIdInput = document.getElementById('customer-id');
 const customerNameInput = document.getElementById('customer-name');
@@ -30,6 +36,7 @@ const totalCountEl = document.getElementById('total-count');
 // State
 let allCustomers = [];
 let currentFilter = 'all';
+let customerToDeleteId = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -68,6 +75,14 @@ function setupEventListeners() {
 
     // Save
     saveCustomerBtn.addEventListener('click', saveCustomer);
+
+    // Delete Modal
+    closeDeleteModalBtn.addEventListener('click', closeDeleteModal);
+    cancelDeleteModalBtn.addEventListener('click', closeDeleteModal);
+    deleteModal.addEventListener('click', (e) => {
+        if (e.target === deleteModal) closeDeleteModal();
+    });
+    confirmDeleteBtn.addEventListener('click', confirmDeleteCustomer);
 }
 
 async function loadCustomers() {
@@ -264,28 +279,41 @@ window.editCustomer = (id) => {
     }
 };
 
-window.deleteCustomer = async (id) => {
-    if (confirm('هل أنت متأكد من حذف هذا السجل؟')) {
-        try {
-            const result = await window.electronAPI.deleteCustomer(id);
-            if (result && result.success) {
-                showToast('تم الحذف بنجاح');
-                loadCustomers();
-            } else {
-                console.error('Delete failed:', result);
-                const errorMsg = result?.error || 'خطأ غير معروف';
-                if (errorMsg.includes('FOREIGN KEY')) {
-                    showToast('لا يمكن حذف هذا السجل لأنه مرتبط ببيانات أخرى (فواتير أو حركات)', 'error');
-                } else {
-                    showToast('فشل الحذف: ' + errorMsg, 'error');
-                }
-            }
-        } catch (error) {
-            console.error('Error deleting customer:', error);
-            showToast('حدث خطأ أثناء الحذف', 'error');
-        }
-    }
+window.deleteCustomer = (id) => {
+    customerToDeleteId = id;
+    deleteModal.classList.add('show');
 };
+
+function closeDeleteModal() {
+    deleteModal.classList.remove('show');
+    customerToDeleteId = null;
+}
+
+async function confirmDeleteCustomer() {
+    if (!customerToDeleteId) return;
+    
+    try {
+        const result = await window.electronAPI.deleteCustomer(customerToDeleteId);
+        if (result && result.success) {
+            showToast('تم الحذف بنجاح');
+            loadCustomers();
+            closeDeleteModal();
+        } else {
+            console.error('Delete failed:', result);
+            const errorMsg = result?.error || 'خطأ غير معروف';
+            if (errorMsg.includes('FOREIGN KEY')) {
+                showToast('لا يمكن حذف هذا السجل لأنه مرتبط ببيانات أخرى (فواتير أو حركات)', 'error');
+            } else {
+                showToast('فشل الحذف: ' + errorMsg, 'error');
+            }
+            closeDeleteModal();
+        }
+    } catch (error) {
+        console.error('Error deleting customer:', error);
+        showToast('حدث خطأ أثناء الحذف', 'error');
+        closeDeleteModal();
+    }
+}
 
 function formatCurrency(amount) {
     return new Intl.NumberFormat('en-US', {

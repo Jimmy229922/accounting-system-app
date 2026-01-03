@@ -162,9 +162,19 @@ function initDB() {
             description TEXT,
             related_invoice_id INTEGER, -- Optional: Link to sales/purchase invoice
             related_type TEXT, -- 'sales' or 'purchase'
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            customer_id INTEGER, -- Link to customer (for direct payments)
+            supplier_id INTEGER, -- Link to supplier (for direct payments)
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES customers(id),
+            FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
         )
     `);
+
+    // Add columns if they don't exist
+    try {
+        db.exec("ALTER TABLE treasury_transactions ADD COLUMN customer_id INTEGER REFERENCES customers(id)");
+        db.exec("ALTER TABLE treasury_transactions ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)");
+    } catch (err) {}
 
     // 10. Settings Table (جدول الإعدادات)
     db.exec(`

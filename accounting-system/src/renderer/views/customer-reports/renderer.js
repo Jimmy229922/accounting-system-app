@@ -26,11 +26,14 @@ function renderPage() {
                 <li><a href="../purchases/index.html">المشتريات</a></li>
                 <li><a href="../inventory/index.html">المخزن</a></li>
                 <li><a href="../finance/index.html">المالية</a></li>
+                <li><a href="../payments/receipt.html">تحصيل من عميل</a></li>
+                <li><a href="../payments/payment.html">سداد لمورد</a></li>
                 <li class="dropdown">
                     <a href="#" class="active">التقارير</a>
                     <div class="dropdown-content">
                         <a href="../reports/index.html">التقارير العامة</a>
                         <a href="../customer-reports/index.html">تقارير العملاء</a>
+                        <a href="../reports/debtor-creditor/index.html">كشف المدين والدائن</a>
                     </div>
                 </li>
                 <li><a href="../settings/index.html">الإعدادات</a></li>
@@ -134,6 +137,8 @@ async function loadCustomerReport(customerId) {
     
     let totalSales = 0;
     let totalPurchases = 0;
+    let totalPaymentIn = 0;
+    let totalPaymentOut = 0;
     
     customerReportTableBody.innerHTML = '';
     
@@ -142,30 +147,56 @@ async function loadCustomerReport(customerId) {
     } else {
         report.forEach(item => {
             const row = document.createElement('tr');
-            const typeBadge = item.type === 'sales' 
-                ? '<span class="badge badge-sales">مبيعات</span>' 
-                : '<span class="badge badge-purchase">مشتريات</span>';
-            
-            if (item.type === 'sales') {
-                totalSales += item.total_amount;
-            } else {
-                totalPurchases += item.total_amount;
-            }
+            let typeBadge = '';
+            let actions = '';
 
-            row.innerHTML = `
-                <td>${item.invoice_date}</td>
-                <td>${item.invoice_number || item.id}</td>
-                <td>${typeBadge}</td>
-                <td>${item.total_amount.toFixed(2)}</td>
-                <td>${item.notes || '-'}</td>
-                <td>
+            if (item.type === 'sales') {
+                typeBadge = '<span class="badge badge-sales">مبيعات</span>';
+                totalSales += item.total_amount;
+                actions = `
                     <button class="btn btn-warning btn-sm" onclick="editInvoice(${item.id}, '${item.type}')">
                         <i class="fas fa-edit"></i> تعديل
                     </button>
                     <button class="btn btn-danger btn-sm" onclick="deleteInvoice(${item.id}, '${item.type}')">
                         <i class="fas fa-trash"></i> حذف
                     </button>
-                </td>
+                `;
+            } else if (item.type === 'purchase') {
+                typeBadge = '<span class="badge badge-purchase">مشتريات</span>';
+                totalPurchases += item.total_amount;
+                actions = `
+                    <button class="btn btn-warning btn-sm" onclick="editInvoice(${item.id}, '${item.type}')">
+                        <i class="fas fa-edit"></i> تعديل
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteInvoice(${item.id}, '${item.type}')">
+                        <i class="fas fa-trash"></i> حذف
+                    </button>
+                `;
+            } else if (item.type === 'payment_in') {
+                typeBadge = '<span class="badge badge-success" style="background-color: #10b981; color: white;">تحصيل</span>';
+                totalPaymentIn += item.total_amount;
+                actions = `
+                    <button class="btn btn-danger btn-sm" onclick="deleteTransaction(${item.id})">
+                        <i class="fas fa-trash"></i> حذف
+                    </button>
+                `;
+            } else if (item.type === 'payment_out') {
+                typeBadge = '<span class="badge badge-danger" style="background-color: #ef4444; color: white;">سداد</span>';
+                totalPaymentOut += item.total_amount;
+                actions = `
+                    <button class="btn btn-danger btn-sm" onclick="deleteTransaction(${item.id})">
+                        <i class="fas fa-trash"></i> حذف
+                    </button>
+                `;
+            }
+
+            row.innerHTML = `
+                <td>${item.invoice_date}</td>
+                <td>${item.invoice_number || '-'}</td>
+                <td>${typeBadge}</td>
+                <td>${item.total_amount.toFixed(2)}</td>
+                <td>${item.notes || '-'}</td>
+                <td>${actions}</td>
             `;
             customerReportTableBody.appendChild(row);
         });
@@ -173,8 +204,44 @@ async function loadCustomerReport(customerId) {
 
     totalSalesEl.textContent = totalSales.toFixed(2);
     totalPurchasesEl.textContent = totalPurchases.toFixed(2);
-    balanceEl.textContent = (totalSales - totalPurchases).toFixed(2);
+    
+    // Balance = (Sales + Payment Out) - (Purchases + Payment In)
+    // Sales: They owe us (+)
+    // Payment Out: We paid them (reduces our debt to them, or increases their debt to us if we overpay) -> (+)
+    // Purchases: We owe them (-)
+    // Payment In: They paid us (reduces their debt) -> (-)
+    
+    const balance = (totalSales + totalPaymentOut) - (totalPurchases + totalPaymentIn);
+    balanceEl.textContent = balance.toFixed(2);
+    
+    if (balance > 0) {
+        balanceEl.style.color = 'green';
+        balanceEl.textContent += ' (لنا)';
+    } else if (balance < 0) {
+        balanceEl.style.color = 'red';
+        balanceEl.textContent = Math.abs(balance).toFixed(2) + ' (علينا)';
+    } else {
+        balanceEl.style.color = 'black';
+    }
 }
+
+window.deleteTransaction = async (id) => {
+    if (confirm('هل أنت متأكد من حذف هذه العملية المالية؟')) {
+        try {
+            const result = await window.electronAPI.deleteTreasuryTransaction(id);
+            if (result.success) {
+                alert('تم الحذف بنجاح');
+                const customerId = document.getElementById('customerSelect').value;
+                if (customerId) loadCustomerReport(customerId);
+            } else {
+                alert('حدث خطأ: ' + result.error);
+            }
+        } catch (error) {
+            console.error(error);
+            alert('حدث خطأ غير متوقع');
+        }
+    }
+};
 
 window.editInvoice = (id, type) => {
     if (type === 'sales') {

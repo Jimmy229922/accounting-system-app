@@ -9,77 +9,292 @@
     <link rel="stylesheet" href="../../css/navbar.css">
     <link rel="stylesheet" href="../../assets/styles/autocomplete.css">
     <link rel="stylesheet" href="../../assets/styles/toast.css">
+    <link rel="stylesheet" href="opening-balance.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="../../assets/js/theme.js"></script>
-    <style>
-        .content { padding: 30px; max-width: 1600px; margin: 0 auto; }
-        
-        /* Header & Stats */
-        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .page-title { font-size: 1.8rem; color: var(--primary-color); margin: 0; font-weight: 700; }
-        
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--table-border); display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .stat-icon { width: 50px; height: 50px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
-        .stat-info h4 { margin: 0 0 5px 0; color: var(--muted-text); font-size: 0.9rem; }
-        .stat-info .value { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-color); }
-        
-        /* Main Layout */
-        .main-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 25px; margin-bottom: 30px; }
-        @media (max-width: 1200px) { .main-grid { grid-template-columns: 1fr; } }
-
-        .card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--table-border); box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
-        .card-header { padding: 20px; border-bottom: 1px solid var(--table-border); display: flex; justify-content: space-between; align-items: center; background: var(--table-header-bg); }
-        .card-header h3 { margin: 0; font-size: 1.1rem; color: var(--text-color); font-weight: 600; }
-        .card-body { padding: 20px; flex: 1; }
-
-        /* Warehouse List */
-        .warehouse-list { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; }
-        .warehouse-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--table-border); transition: background 0.2s; }
-        .warehouse-item:last-child { border-bottom: none; }
-        .warehouse-item:hover { background: var(--bg-color); }
-        .warehouse-name { font-weight: 500; color: var(--text-color); }
-        .warehouse-badge { background: var(--accent-color); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; }
-
-        /* Entry Table */
-        .entry-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        .entry-table th { background: var(--table-header-bg); padding: 15px; text-align: right; font-weight: 700; color: var(--text-color); border-bottom: 2px solid var(--table-border); }
-        .entry-table td { padding: 12px; border-bottom: 1px solid var(--table-border); vertical-align: middle; }
-        .entry-table tr:last-child td { border-bottom: none; }
-        .entry-table tr:hover { background-color: var(--bg-color); }
-        
-        .form-control { width: 100%; padding: 10px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text-color); transition: all 0.2s; }
-        .form-control:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); outline: none; }
-        
-        /* Table Input Styling */
-        .entry-table .form-control { border: 1px solid transparent; background: transparent; padding: 8px; }
-        .entry-table .form-control:hover { border-color: var(--input-border); background: var(--input-bg); }
-        .entry-table .form-control:focus { border-color: var(--accent-color); background: var(--input-bg); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-        
-        /* Buttons */
-        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; }
-        .btn-primary { background: var(--accent-color); color: white; box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
-        .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
-        .btn-outline { background: transparent; border: 1px solid var(--input-border); color: var(--text-color); }
-        .btn-outline:hover { background: var(--bg-color); border-color: var(--accent-color); color: var(--accent-color); }
-        .btn-icon { padding: 8px; border-radius: 6px; color: var(--danger-color); background: rgba(225, 29, 72, 0.1); cursor: pointer; border: none; transition: all 0.2s; }
-        .btn-icon:hover { background: var(--danger-color); color: white; }
-
-        /* History Table */
-        .history-table th { background: var(--table-header-bg); color: var(--text-color); padding: 15px; }
-        .history-table td { padding: 15px; border-bottom: 1px solid var(--table-border); color: var(--text-color); }
-        .history-table tr:hover { background: var(--bg-color); }
-
-        .empty-state { text-align: center; padding: 40px; color: var(--muted-text); }
-        
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: var(--bg-color); }
-        ::-webkit-scrollbar-thumb { background: var(--input-border); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--muted-text); }
-    </style>
 </head>
 <body>
-    <div id="app"></div>
+    <div id="app">
+        <nav class="top-nav">
+            <div class="nav-brand">نظام المحاسبة</div>
+            <ul class="nav-links">
+                <li><a href="../dashboard/index.html">لوحة التحكم</a></li>
+                <li class="dropdown">
+                    <a href="#" class="active">البيانات الأساسية</a>
+                    <div class="dropdown-content">
+                        <a href="../items/units.html">الوحدات</a>
+                        <a href="../items/items.html">الأصناف</a>
+                        <a href="../customers/index.html">العملاء والموردين</a>
+                        <a href="../opening-balance/index.html">بيانات أول المدة</a>
+                    </div>
+                </li>
+                <li><a href="../sales/index.html">المبيعات</a></li>
+                <li><a href="../purchases/index.html">المشتريات</a></li>
+                <li><a href="../inventory/index.html">المخزن</a></li>
+                <li><a href="../finance/index.html">المالية</a></li>
+                <li><a href="../payments/receipt.html">تحصيل من عميل</a></li>
+                <li><a href="../payments/payment.html">سداد لمورد</a></li>
+                <li class="dropdown">
+                    <a href="#">التقارير</a>
+                    <div class="dropdown-content">
+                        <a href="../reports/index.html">التقارير العامة</a>
+                        <a href="../customer-reports/index.html">تقارير العملاء</a>
+                        <a href="../reports/debtor-creditor/index.html">كشف المدين والدائن</a>
+                    </div>
+                </li>
+                <li><a href="../settings/index.html">الإعدادات</a></li>
+            </ul>
+        </nav>
+
+        <div class="content">
+            <div class="page-header">
+                <h1 class="page-title">بيانات أول المدة</h1>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h4>إجمالي الأصناف</h4>
+                        <p class="value" id="stats-total-items">0</p>
+                    </div>
+                </div>
+                <div class="stat-card value-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h4>إجمالي القيمة</h4>
+                        <p class="value" id="stats-total-value">0.00 ج.م</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Warehouse Selection -->
+            <div class="warehouse-selection-box">
+                <div class="warehouse-selection-main">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-color);">المخزن الافتراضي للإضافة</label>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="global-warehouse-select" class="form-control" style="font-size: 1.1rem;">
+                            <option value="">اختر المخزن...</option>
+                        </select>
+                        <button id="add-warehouse-btn" class="btn btn-primary" title="إضافة مخزن جديد" style="white-space: nowrap;">
+                            <i class="fas fa-plus"></i>
+                            <span>إضافة مخزن</span>
+                        </button>
+                        <button id="manage-warehouses-btn" class="btn btn-outline" title="إدارة المخازن" style="white-space: nowrap;">
+                            <i class="fas fa-cog"></i>
+                            <span>إدارة المخازن</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="warehouse-selection-info">
+                    <i class="fas fa-info-circle" style="font-size: 1.5rem; color: var(--items-accent);"></i>
+                    <span>يمكنك تغيير المخزن لكل صنف على حدة، ولكن سيتم استخدام هذا المخزن بشكل افتراضي.</span>
+                </div>
+            </div>
+
+            <!-- Manage Warehouses Modal -->
+            <div id="manage-warehouses-modal" class="modal">
+                <div class="modal-content" style="width: 600px; max-height: 80vh; display: flex; flex-direction: column;">
+                    <div class="card-header">
+                        <h3>إدارة المخازن</h3>
+                        <button id="close-manage-modal" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-color);"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="card-body" style="overflow-y: auto;">
+                        <div class="table-container">
+                            <table class="entry-table">
+                                <thead>
+                                    <tr>
+                                        <th>اسم المخزن</th>
+                                        <th style="width: 200px;">إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="warehouses-tbody">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add/Edit Warehouse Modal -->
+            <div id="warehouse-modal" class="modal">
+                <div class="modal-content" style="width: 400px; padding: 0;">
+                    <div class="card-header">
+                        <h3 id="modal-title">إضافة مخزن جديد</h3>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" id="warehouse-id">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>اسم المخزن</label>
+                            <input type="text" id="new-warehouse-name" class="form-control" placeholder="أدخل اسم المخزن...">
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button id="cancel-warehouse-btn" class="btn btn-outline">إلغاء</button>
+                            <button id="save-warehouse-btn" class="btn btn-primary">حفظ</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Entry Modal -->
+            <div id="edit-entry-modal" class="modal">
+                <div class="modal-content" style="width: 400px; padding: 0;">
+                    <div class="card-header">
+                        <h3>تعديل رصيد صنف</h3>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" id="edit-entry-id">
+                        <div class="form-group">
+                            <label>الصنف</label>
+                            <input type="text" id="edit-entry-item" class="form-control" readonly disabled>
+                        </div>
+                        <div class="form-group">
+                            <label>المخزن</label>
+                            <select id="edit-entry-warehouse" class="form-control"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>الكمية</label>
+                            <input type="number" id="edit-entry-quantity" class="form-control" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>سعر الشراء</label>
+                            <input type="number" id="edit-entry-cost" class="form-control" min="0" step="0.01">
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                            <button id="cancel-edit-entry-btn" class="btn btn-outline">إلغاء</button>
+                            <button id="save-edit-entry-btn" class="btn btn-primary">حفظ التعديلات</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delete Confirmation Modal -->
+            <div id="delete-entry-modal" class="modal">
+                <div class="modal-content" style="width: 400px; padding: 0;">
+                    <div class="card-header" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                        <h3><i class="fas fa-exclamation-triangle"></i> تأكيد الحذف</h3>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" id="delete-entry-id">
+                        <p style="font-size: 1.1rem; color: var(--text-color); margin-bottom: 20px;">
+                            هل أنت متأكد من حذف هذا السجل؟ <br>
+                            <span style="font-size: 0.9rem; color: var(--text-secondary);">سيتم خصم الكمية من المخزون الحالي.</span>
+                        </p>
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button id="cancel-delete-entry-btn" class="btn btn-outline">إلغاء</button>
+                            <button id="confirm-delete-entry-btn" class="btn btn-danger">حذف السجل</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="main-grid" style="display: grid; grid-template-columns: 1fr; gap: 30px; margin-top: 30px;">
+                <!-- New Entry Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 id="form-title"><i class="fas fa-plus-circle"></i> تسجيل رصيد أول المدة</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <a href="../items/items.html" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> إضافة صنف جديد
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Add Item Form -->
+                        <div class="entry-form">
+                            <div class="form-group" style="min-width: 250px; margin-left: 10px;">
+                                <label>الصنف</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <select id="item-select" class="form-control">
+                                        <option value="">اختر الصنف...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-right: 40px;">
+                                <label>الوحدة</label>
+                                <input type="text" id="unit-input" class="form-control" readonly placeholder="-">
+                            </div>
+                            <div class="form-group">
+                                <label>الكمية</label>
+                                <input type="number" id="quantity-input" class="form-control" min="1" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label>سعر الشراء</label>
+                                <input type="number" id="cost-input" class="form-control" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label>الإجمالي</label>
+                                <input type="text" id="total-input" class="form-control" readonly placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <button id="add-item-btn" class="btn btn-primary" style="width: 100%;">
+                                    <i class="fas fa-save"></i> حفظ في السجل
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-history"></i> السجل والأرشيف</h3>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <div class="card-body" style="padding-bottom: 0; border-bottom: 1px solid var(--border-color);">
+                        <div class="entry-form" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end;">
+                            <div class="form-group">
+                                <label>بحث</label>
+                                <input type="text" id="history-search" class="form-control" placeholder="اسم الصنف، المخزن، الملاحظات...">
+                            </div>
+                            <div class="form-group">
+                                <label>من تاريخ</label>
+                                <input type="date" id="history-date-from" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>إلى تاريخ</label>
+                                <input type="date" id="history-date-to" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <button id="apply-filter-btn" class="btn btn-primary" style="width: 100%;">
+                                    <i class="fas fa-filter"></i> تصفية
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-body" style="padding: 0;">
+                        <!-- Items History Table -->
+                        <div id="items-history-view" class="table-container" style="max-height: 500px; overflow-y: auto; border: none; border-radius: 0;">
+                            <table class="entry-table history-table">
+                                <thead>
+                                    <tr>
+                                        <th>الصنف</th>
+                                        <th>المخزن</th>
+                                        <th>الكمية</th>
+                                        <th>سعر الشراء</th>
+                                        <th>الإجمالي</th>
+                                        <th>تاريخ الإضافة</th>
+                                        <th>إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-tbody">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <script src="../../assets/js/autocomplete.js"></script>
     <script src="../../assets/js/toast.js"></script>

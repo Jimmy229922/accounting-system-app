@@ -20,17 +20,21 @@ function renderPage() {
                         <a href="../items/units.html">الوحدات</a>
                         <a href="../items/items.html">الأصناف</a>
                         <a href="../customers/index.html">العملاء والموردين</a>
+                        <a href="../opening-balance/index.html">بيانات أول المدة</a>
                     </div>
                 </li>
                 <li><a href="../sales/index.html">المبيعات</a></li>
                 <li><a href="../purchases/index.html">المشتريات</a></li>
                 <li><a href="../inventory/index.html">المخزن</a></li>
                 <li><a href="../finance/index.html">المالية</a></li>
+                <li><a href="../payments/receipt.html">تحصيل من عميل</a></li>
+                <li><a href="../payments/payment.html">سداد لمورد</a></li>
                 <li class="dropdown">
                     <a href="#">التقارير</a>
                     <div class="dropdown-content">
                         <a href="../reports/index.html">التقارير العامة</a>
                         <a href="../customer-reports/index.html">تقارير العملاء</a>
+                        <a href="../reports/debtor-creditor/index.html">كشف المدين والدائن</a>
                     </div>
                 </li>
                 <li><a href="#" class="active">الإعدادات</a></li>

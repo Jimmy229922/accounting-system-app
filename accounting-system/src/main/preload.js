@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Items API
     getItems: () => ipcRenderer.invoke('get-items'),
+    getItemStockDetails: (id) => ipcRenderer.invoke('get-item-stock-details', id),
     addItem: (item) => ipcRenderer.invoke('add-item', item),
     updateItem: (item) => ipcRenderer.invoke('update-item', item),
     deleteItem: (id) => ipcRenderer.invoke('delete-item', id),
@@ -32,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Customers API
     getCustomers: () => ipcRenderer.invoke('get-customers'),
+    getDebtorCreditorReport: (filters) => ipcRenderer.invoke('get-debtor-creditor-report', filters),
     addCustomer: (customer) => ipcRenderer.invoke('add-customer', customer),
     updateCustomer: (customer) => ipcRenderer.invoke('update-customer', customer),
     deleteCustomer: (id) => ipcRenderer.invoke('delete-customer', id),

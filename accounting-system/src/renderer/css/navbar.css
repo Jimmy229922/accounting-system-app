@@ -30,16 +30,17 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    order: 2;
 }
 
 .nav-links {
     list-style: none;
     display: flex;
-    flex-direction: row-reverse; /* Reorder items LTR (Dashboard on Left) */
     margin: 0;
     padding: 0;
     gap: 5px;
     align-items: center;
+    order: 1;
 }
 
 .nav-links li {
@@ -59,6 +60,30 @@ body {
 .nav-links a:hover, .nav-links a.active {
     background-color: var(--nav-hover);
     color: var(--accent-color);
+}
+
+.btn-nav {
+    background-color: var(--accent-color) !important;
+    color: white !important;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    margin-right: 5px;
+}
+
+.btn-nav:hover {
+    background-color: #1d4ed8 !important; /* Darker shade of accent */
+    transform: translateY(-1px);
+    color: white !important;
+}
+
+.btn-nav-secondary {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--nav-text) !important;
+}
+
+.btn-nav-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.25) !important;
 }
 
 /* Global search button in nav */

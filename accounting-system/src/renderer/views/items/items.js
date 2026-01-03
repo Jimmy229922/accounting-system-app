@@ -7,6 +7,10 @@ let itemBarcodeInput, itemNameInput, itemUnitSelect, costPriceInput, salePriceIn
 let editModal, editItemIdInput, editItemBarcodeInput, editItemNameInput, editItemUnitSelect, editCostPriceInput, editSalePriceInput, editReorderLevelInput, editStockQuantityInput;
 let itemsTableBody, deleteModal, searchInput, totalItemsElement, paginationContainer;
 
+// Autocomplete Instances
+let itemUnitAutocomplete = null;
+let editItemUnitAutocomplete = null;
+
 // State
 let allItems = [];
 let allUnits = [];
@@ -150,8 +154,22 @@ async function loadUnits() {
         allUnits = await window.electronAPI.getUnits();
         const options = allUnits.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
         
-        if (itemUnitSelect) itemUnitSelect.innerHTML = '<option value="">اختر الوحدة...</option>' + options;
-        if (editItemUnitSelect) editItemUnitSelect.innerHTML = '<option value="">اختر الوحدة...</option>' + options;
+        if (itemUnitSelect) {
+            itemUnitSelect.innerHTML = '<option value="">اختر الوحدة...</option>' + options;
+            if (!itemUnitAutocomplete) {
+                itemUnitAutocomplete = new Autocomplete(itemUnitSelect);
+            } else {
+                itemUnitAutocomplete.refresh();
+            }
+        }
+        if (editItemUnitSelect) {
+            editItemUnitSelect.innerHTML = '<option value="">اختر الوحدة...</option>' + options;
+            if (!editItemUnitAutocomplete) {
+                editItemUnitAutocomplete = new Autocomplete(editItemUnitSelect);
+            } else {
+                editItemUnitAutocomplete.refresh();
+            }
+        }
     } catch (error) {
         console.error('Error loading units:', error);
         Toast.show('فشل تحميل الوحدات', 'error');
@@ -237,13 +255,7 @@ function renderTable() {
             }
         }
 
-        // Low Stock Logic
-        const stockQty = item.stock_quantity || 0;
         const reorderLvl = item.reorder_level || 0;
-        const isLowStock = stockQty <= reorderLvl;
-        const quantityDisplay = isLowStock 
-            ? `<span class="low-stock-badge" title="الكمية أقل من حد الطلب">${stockQty} <span class="warning-icon">⚠️</span></span>` 
-            : stockQty;
 
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -251,7 +263,6 @@ function renderTable() {
             <td>${displayBarcode}</td>
             <td>${displayName}</td>
             <td>${unitName}</td>
-            <td>${quantityDisplay}</td>
             <td>${formatCurrency(item.cost_price)}</td>
             <td>${formatCurrency(item.sale_price)}</td>
             <td>${reorderLvl}</td>
@@ -334,12 +345,23 @@ function formatCurrency(value) {
 function resetAddForm() {
     if (itemBarcodeInput) itemBarcodeInput.value = '';
     if (itemNameInput) itemNameInput.value = '';
-    if (itemUnitSelect) itemUnitSelect.value = '';
+    if (itemUnitSelect) {
+        itemUnitSelect.value = '';
+        if (itemUnitAutocomplete) itemUnitAutocomplete.refresh();
+    }
     if (costPriceInput) costPriceInput.value = '';
     if (salePriceInput) salePriceInput.value = '';
     if (reorderLevelInput) reorderLevelInput.value = '';
     if (initialQuantityInput) initialQuantityInput.value = '';
-    if (itemBarcodeInput) itemBarcodeInput.focus();
+    
+    // Reset Profit Margin Display
+    const profitMarginDisplay = document.getElementById('addProfitMargin');
+    if (profitMarginDisplay) {
+        profitMarginDisplay.textContent = '';
+        profitMarginDisplay.className = 'profit-margin-display';
+    }
+
+    if (itemNameInput) itemNameInput.focus();
 }
 
 async function saveNewItem() {
@@ -347,11 +369,39 @@ async function saveNewItem() {
     
     const barcode = itemBarcodeInput ? itemBarcodeInput.value.trim() : '';
     const name = itemNameInput ? itemNameInput.value.trim() : '';
-    const unitId = itemUnitSelect ? itemUnitSelect.value : '';
+    let unitId = itemUnitSelect ? itemUnitSelect.value : '';
     const costPrice = costPriceInput ? parseFloat(costPriceInput.value) || 0 : 0;
     const salePrice = salePriceInput ? parseFloat(salePriceInput.value) || 0 : 0;
     const reorderLevel = reorderLevelInput ? parseInt(reorderLevelInput.value) || 0 : 0;
-    const initialQuantity = initialQuantityInput ? parseFloat(initialQuantityInput.value) || 0 : 0;
+    // Initial Quantity removed to enforce separation of concerns
+    const initialQuantity = 0; 
+
+    // Handle New Unit Creation
+    if (!unitId && itemUnitAutocomplete) {
+        const newUnitName = itemUnitAutocomplete.getInputValue().trim();
+        if (newUnitName) {
+            // Check if it already exists
+            const existingUnit = allUnits.find(u => u.name.toLowerCase() === newUnitName.toLowerCase());
+            if (existingUnit) {
+                unitId = existingUnit.id;
+            } else {
+                try {
+                    const result = await window.electronAPI.addUnit(newUnitName);
+                    if (result.success) {
+                        unitId = result.id;
+                        await loadUnits(); // Refresh units list
+                    } else {
+                        Toast.show('فشل إضافة الوحدة الجديدة', 'error');
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Error adding new unit:', err);
+                    Toast.show('خطأ في إضافة الوحدة', 'error');
+                    return;
+                }
+            }
+        }
+    }
 
     console.log('Form Data:', { barcode, name, unitId, costPrice, salePrice, reorderLevel, initialQuantity });
 
@@ -363,7 +413,7 @@ async function saveNewItem() {
     }
     if (!unitId) {
         Toast.show('الرجاء اختيار الوحدة', 'error');
-        if (itemUnitSelect) itemUnitSelect.focus();
+        if (itemUnitAutocomplete) itemUnitAutocomplete.input.focus();
         return;
     }
 
@@ -391,7 +441,7 @@ async function saveNewItem() {
         cost_price: costPrice,
         sale_price: salePrice,
         reorder_level: reorderLevel,
-        stock_quantity: initialQuantity // Pass initial quantity
+        stock_quantity: 0 // Always 0 for new items. Must use Opening Balance or Purchase.
     };
 
     console.log('Sending to API:', itemData);
@@ -424,7 +474,10 @@ function openEditModal(id) {
     if (editItemIdInput) editItemIdInput.value = item.id;
     if (editItemBarcodeInput) editItemBarcodeInput.value = item.barcode || '';
     if (editItemNameInput) editItemNameInput.value = item.name;
-    if (editItemUnitSelect) editItemUnitSelect.value = item.unit_id;
+    if (editItemUnitSelect) {
+        editItemUnitSelect.value = item.unit_id;
+        if (editItemUnitAutocomplete) editItemUnitAutocomplete.refresh();
+    }
     if (editCostPriceInput) editCostPriceInput.value = item.cost_price || 0;
     if (editSalePriceInput) editSalePriceInput.value = item.sale_price;
     if (editReorderLevelInput) editReorderLevelInput.value = item.reorder_level || '';
@@ -446,11 +499,38 @@ async function saveEditedItem() {
     const id = editItemIdInput ? editItemIdInput.value : null;
     const barcode = editItemBarcodeInput ? editItemBarcodeInput.value.trim() : '';
     const name = editItemNameInput ? editItemNameInput.value.trim() : '';
-    const unitId = editItemUnitSelect ? editItemUnitSelect.value : '';
+    let unitId = editItemUnitSelect ? editItemUnitSelect.value : '';
     const costPrice = editCostPriceInput ? parseFloat(editCostPriceInput.value) || 0 : 0;
     const salePrice = editSalePriceInput ? parseFloat(editSalePriceInput.value) || 0 : 0;
     const reorderLevel = editReorderLevelInput ? parseInt(editReorderLevelInput.value) || 0 : 0;
-    const stockQuantity = editStockQuantityInput ? parseFloat(editStockQuantityInput.value) || 0 : 0;
+    // Stock Quantity is ignored in update to prevent manual override without transaction
+    // const stockQuantity = editStockQuantityInput ? parseFloat(editStockQuantityInput.value) || 0 : 0; 
+
+    // Handle New Unit Creation (Edit Mode)
+    if (!unitId && editItemUnitAutocomplete) {
+        const newUnitName = editItemUnitAutocomplete.getInputValue().trim();
+        if (newUnitName) {
+            const existingUnit = allUnits.find(u => u.name.toLowerCase() === newUnitName.toLowerCase());
+            if (existingUnit) {
+                unitId = existingUnit.id;
+            } else {
+                try {
+                    const result = await window.electronAPI.addUnit(newUnitName);
+                    if (result.success) {
+                        unitId = result.id;
+                        await loadUnits();
+                    } else {
+                        Toast.show('فشل إضافة الوحدة الجديدة', 'error');
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Error adding new unit:', err);
+                    Toast.show('خطأ في إضافة الوحدة', 'error');
+                    return;
+                }
+            }
+        }
+    }
 
     if (!name || !unitId) {
         Toast.show('الرجاء إكمال البيانات المطلوبة', 'error');
@@ -479,8 +559,8 @@ async function saveEditedItem() {
         unit_id: unitId,
         cost_price: costPrice,
         sale_price: salePrice,
-        reorder_level: reorderLevel,
-        stock_quantity: stockQuantity
+        reorder_level: reorderLevel
+        // stock_quantity removed
     };
 
     try {
@@ -530,3 +610,4 @@ async function confirmDelete() {
     
     hideDeleteModal();
 }
+

@@ -51,11 +51,14 @@ function renderPage() {
                 <li><a href="../purchases/index.html">المشتريات</a></li>
                 <li><a href="../inventory/index.html">المخزن</a></li>
                 <li><a href="../finance/index.html">المالية</a></li>
+                <li><a href="../payments/receipt.html">تحصيل من عميل</a></li>
+                <li><a href="../payments/payment.html">سداد لمورد</a></li>
                 <li class="dropdown">
                     <a href="#">التقارير</a>
                     <div class="dropdown-content">
                         <a href="../reports/index.html">التقارير العامة</a>
                         <a href="../customer-reports/index.html">تقارير العملاء</a>
+                        <a href="../reports/debtor-creditor/index.html">كشف المدين والدائن</a>
                     </div>
                 </li>
                 <li><a href="../settings/index.html">الإعدادات</a></li>

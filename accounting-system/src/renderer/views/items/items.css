@@ -1005,3 +1005,59 @@ select.form-control option {
 .profit-neutral {
     color: var(--text-secondary);
 }
+
+/* Stock Breakdown Details */
+.details-card {
+    padding: 10px;
+}
+
+.stock-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: var(--bg-color);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.breakdown-item .label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.breakdown-item .value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-color);
+}
+
+.breakdown-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 5px 0;
+}
+
+.breakdown-item.total {
+    background: var(--items-accent-light);
+    border-color: var(--items-accent);
+}
+
+.breakdown-item.total .label {
+    color: var(--items-accent);
+}
+
+.breakdown-item.total .value {
+    color: var(--items-accent);
+    font-size: 1.3rem;
+}
+

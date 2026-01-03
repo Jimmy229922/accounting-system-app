@@ -771,6 +771,20 @@ select.form-control option {
     font-weight: 600;
 }
 
+/* Warning Text */
+.warning-text {
+    color: #ef4444;
+    font-weight: 600;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .table-controls {

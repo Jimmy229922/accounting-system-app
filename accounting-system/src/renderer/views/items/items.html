@@ -8,8 +8,10 @@
     <link rel="stylesheet" href="../../assets/styles/main.css">
     <link rel="stylesheet" href="../../css/navbar.css">
     <link rel="stylesheet" href="../../assets/styles/toast.css">
+    <link rel="stylesheet" href="../../assets/styles/autocomplete.css">
     <link rel="stylesheet" href="items.css">
     <script src="../../assets/js/theme.js"></script>
+    <script src="../../assets/js/autocomplete.js"></script>
 </head>
 <body>
     <div id="app">
@@ -30,11 +32,14 @@
                 <li><a href="../purchases/index.html">المشتريات</a></li>
                 <li><a href="../inventory/index.html">المخزن</a></li>
                 <li><a href="../finance/index.html">المالية</a></li>
+                <li><a href="../payments/receipt.html">تحصيل من عميل</a></li>
+                <li><a href="../payments/payment.html">سداد لمورد</a></li>
                 <li class="dropdown">
                     <a href="#">التقارير</a>
                     <div class="dropdown-content">
                         <a href="../reports/index.html">التقارير العامة</a>
                         <a href="../customer-reports/index.html">تقارير العملاء</a>
+                        <a href="../reports/debtor-creditor/index.html">كشف المدين والدائن</a>
                     </div>
                 </li>
                 <li><a href="../settings/index.html">الإعدادات</a></li>
@@ -132,13 +137,9 @@
                             </div>
                         </div>
 
-                        <!-- Row 3: Initial Quantity - Spacer - Spacer - Button -->
+                        <!-- Row 3: Spacer - Spacer - Button -->
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>الكمية الافتتاحية</label>
-                                <input type="number" id="initialQuantity" class="form-control" min="0" placeholder="0">
-                            </div>
-                            
+                            <div></div>
                             <div></div>
                             <div></div>
 
@@ -185,7 +186,6 @@
                                     <th>الباركود</th>
                                     <th>اسم الصنف</th>
                                     <th>الوحدة</th>
-                                    <th>الكمية</th>
                                     <th>سعر الشراء</th>
                                     <th>سعر البيع</th>
                                     <th>حد الطلب</th>
@@ -242,7 +242,7 @@
 
                         <div class="form-group">
                             <label>الكمية الحالية</label>
-                            <input type="number" id="editStockQuantity" class="form-control" min="0">
+                            <input type="number" id="editStockQuantity" class="form-control" min="0" readonly disabled style="background-color: #f0f0f0; cursor: not-allowed;">
                         </div>
 
                         <div class="form-group">
@@ -258,7 +258,6 @@
             </div>
         </div>
 
-        <!-- 
         <!-- Delete Confirmation Modal -->
         <div id="deleteModal" class="modal">
             <div class="modal-content">
