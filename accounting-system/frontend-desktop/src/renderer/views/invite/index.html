@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدخال كود الدعوة</title>
+    <link rel="stylesheet" href="../../assets/styles/main.css">
+    <link rel="stylesheet" href="invite.css">
+</head>
+<body>
+    <div class="invite-card">
+        <h1>أدخل كود الدعوة</h1>
+        <p>هذا الكود يتيح تشغيل النظام لمدة شهر واحد. بعد انتهاء المدة ستحتاج لإدخال نفس الكود مجدداً.</p>
+        <form id="inviteForm">
+            <div class="form-group">
+                <label for="inviteCode">كود الدعوة</label>
+                <input type="password" id="inviteCode" autocomplete="off" placeholder="أدخل كود الدعوة" required>
+            </div>
+            <button type="submit" class="btn-primary" id="submitBtn">تفعيل ودخول</button>
+            <div id="status" class="status"></div>
+        </form>
+    </div>
+    <script src="invite.js"></script>
+</body>
+</html>

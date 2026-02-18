@@ -1,0 +1,61 @@
+        body {
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Cairo', sans-serif;
+        }
+        .invite-card {
+            background: #fff;
+            padding: 28px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            width: 360px;
+            max-width: 92vw;
+        }
+        .invite-card h1 {
+            margin: 0 0 12px;
+            color: #111827;
+            font-size: 1.4rem;
+        }
+        .invite-card p {
+            margin: 0 0 16px;
+            color: #4b5563;
+            line-height: 1.5;
+            font-size: 0.98rem;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label { display: block; margin-bottom: 8px; color: #1f2937; font-weight: 600; }
+        input[type="password"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.05s ease;
+        }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-primary:active { transform: translateY(1px); }
+        .status {
+            margin-top: 10px;
+            font-size: 0.95rem;
+            color: #374151;
+            min-height: 20px;
+        }
+        .status.error { color: #b91c1c; }
+        .status.success { color: #15803d; }

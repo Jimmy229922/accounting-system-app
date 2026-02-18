@@ -1,0 +1,474 @@
+﻿let ar = {};
+const t = (key, fallback = '') => window.i18n?.getText(ar, key, fallback) ?? fallback;
+const fmt = (template, values) => template.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '');
+
+function getNavHTML() {
+    return `
+        <nav class="top-nav">
+            <div class="nav-brand">${t('common.appName', 'نظام المحاسبة')}</div>
+            <ul class="nav-links">
+                <li><a href="../dashboard/index.html">${t('common.nav.dashboard', 'لوحة التحكم')}</a></li>
+                <li class="dropdown">
+                    <a href="#" class="active">${t('common.nav.masterData', 'البيانات الأساسية')}</a>
+                    <div class="dropdown-content">
+                        <a href="../items/units.html">${t('common.nav.units', 'الوحدات')}</a>
+                        <a href="../items/items.html">${t('common.nav.items', 'الأصناف')}</a>
+                        <a href="index.html">${t('common.nav.customers', 'العملاء والموردين')}</a>
+                        <a href="../opening-balance/index.html">${t('common.nav.openingBalance', 'بيانات أول المدة')}</a>
+                        <a href="../auth-users/index.html">${t('common.nav.userManagement', 'إدارة المستخدمين')}</a>
+                    </div>
+                </li>
+                <li class="dropdown">
+                    <a href="#">${t('common.nav.sales', 'المبيعات')}</a>
+                    <div class="dropdown-content">
+                        <a href="../sales/index.html">${t('common.nav.salesInvoice', 'فاتورة المبيعات')}</a>
+                        <a href="../sales-returns/index.html">${t('common.nav.salesReturns', 'مردودات المبيعات')}</a>
+                    </div>
+                </li>
+                <li class="dropdown">
+                    <a href="#">${t('common.nav.purchases', 'المشتريات')}</a>
+                    <div class="dropdown-content">
+                        <a href="../purchases/index.html">${t('common.nav.purchasesInvoice', 'فاتورة المشتريات')}</a>
+                        <a href="../purchase-returns/index.html">${t('common.nav.purchaseReturns', 'مردودات المشتريات')}</a>
+                    </div>
+                </li>
+                <li><a href="../inventory/index.html">${t('common.nav.inventory', 'المخزن')}</a></li>
+                <li><a href="../finance/index.html">${t('common.nav.finance', 'المالية')}</a></li>
+                <li><a href="../payments/receipt.html">${t('common.nav.receipt', 'تحصيل من عميل')}</a></li>
+                <li><a href="../payments/payment.html">${t('common.nav.payment', 'سداد لمورد')}</a></li>
+                <li class="dropdown">
+                    <a href="#">${t('common.nav.reports', 'التقارير')}</a>
+                    <div class="dropdown-content">
+                        <a href="../reports/index.html">${t('common.nav.generalReports', 'التقارير العامة')}</a>
+                        <a href="../customer-reports/index.html">${t('common.nav.customerReports', 'تقارير العملاء')}</a>
+                        <a href="../reports/debtor-creditor/index.html">${t('common.nav.debtorCreditor', 'كشف المدين والدائن')}</a>
+                    </div>
+                </li>
+                <li><a href="../settings/index.html">${t('common.nav.settings', 'الإعدادات')}</a></li>
+            </ul>
+        </nav>`;
+}
+
+function applyI18nToDOM() {
+    const nav = document.getElementById('main-nav');
+    if (nav) nav.outerHTML = getNavHTML();
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const val = t(key);
+        if (val) {
+            if (el.querySelector('span, i')) {
+                for (const node of el.childNodes) {
+                    if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                        node.textContent = ' ' + val + ' ';
+                        break;
+                    }
+                }
+            } else {
+                el.textContent = val;
+            }
+        }
+    });
+
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        const val = t(key);
+        if (val) el.placeholder = val;
+    });
+}
+
+// DOM Elements
+const customersTableBody = document.getElementById('customers-table-body');
+const searchInput = document.getElementById('search-input');
+const filterButtons = document.querySelectorAll('.filter-btn');
+const emptyState = document.getElementById('empty-state');
+
+// Modal Elements
+const modal = document.getElementById('customer-modal');
+const addCustomerBtn = document.getElementById('add-customer-btn');
+const closeModalBtn = document.getElementById('close-modal');
+const cancelModalBtn = document.getElementById('cancel-modal');
+const saveCustomerBtn = document.getElementById('save-customer-btn');
+const modalTitle = document.getElementById('modal-title');
+const customerForm = document.getElementById('customer-form');
+
+// Delete Modal Elements
+const deleteModal = document.getElementById('delete-modal');
+const closeDeleteModalBtn = document.getElementById('close-delete-modal');
+const cancelDeleteModalBtn = document.getElementById('cancel-delete-modal');
+const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+// Form Inputs
+const customerIdInput = document.getElementById('customer-id');
+const customerNameInput = document.getElementById('customer-name');
+const customerTypeSelect = document.getElementById('customer-type');
+const customerPhoneInput = document.getElementById('customer-phone');
+const customerAddressInput = document.getElementById('customer-address');
+const customerBalanceInput = document.getElementById('customer-balance');
+const customerBalanceDirectionToggle = document.getElementById('customer-balance-direction-toggle');
+const customerBalanceDirectionButtons = customerBalanceDirectionToggle
+    ? customerBalanceDirectionToggle.querySelectorAll('.balance-direction-btn')
+    : [];
+const customerBalanceHint = document.getElementById('customer-balance-hint');
+const customerNotesInput = document.getElementById('customer-notes');
+
+// Stats Elements
+const totalReceivablesEl = document.getElementById('total-receivables');
+const totalPayablesEl = document.getElementById('total-payables');
+const totalCountEl = document.getElementById('total-count');
+
+// State
+let allCustomers = [];
+let currentFilter = 'all';
+let customerToDeleteId = null;
+let selectedBalanceDirection = 'on';
+
+// Initialize
+document.addEventListener('DOMContentLoaded', async () => {
+    ar = await window.i18n?.loadArabicDictionary?.() || {};
+    applyI18nToDOM();
+    loadCustomers();
+    setupEventListeners();
+    setBalanceDirection('on');
+});
+
+function setupEventListeners() {
+    searchInput.addEventListener('input', filterAndRender);
+
+    filterButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.dataset.filter;
+            filterAndRender();
+        });
+    });
+
+    addCustomerBtn.addEventListener('click', () => openModal());
+    closeModalBtn.addEventListener('click', closeModal);
+    cancelModalBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    saveCustomerBtn.addEventListener('click', saveCustomer);
+
+    customerTypeSelect.addEventListener('change', updateOpeningBalanceHint);
+    customerBalanceDirectionButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            setBalanceDirection(btn.dataset.direction || 'on');
+        });
+    });
+
+    closeDeleteModalBtn.addEventListener('click', closeDeleteModal);
+    cancelDeleteModalBtn.addEventListener('click', closeDeleteModal);
+    deleteModal.addEventListener('click', (e) => {
+        if (e.target === deleteModal) closeDeleteModal();
+    });
+    confirmDeleteBtn.addEventListener('click', confirmDeleteCustomer);
+}
+
+async function loadCustomers() {
+    try {
+        allCustomers = await window.electronAPI.getCustomers();
+        updateStats();
+        filterAndRender();
+    } catch (error) {
+        console.error('Error loading customers:', error);
+        showToast(t('customers.toast.loadError', 'خطأ في تحميل البيانات'), 'error');
+    }
+}
+
+function updateStats() {
+    let totalReceivables = 0;
+    let totalPayables = 0;
+
+    allCustomers.forEach((c) => {
+        const balance = parseFloat(c.opening_balance) || 0;
+        if (balance > 0) {
+            totalReceivables += balance;
+        } else if (balance < 0) {
+            totalPayables += Math.abs(balance);
+        }
+    });
+
+    totalReceivablesEl.textContent = formatCurrency(totalReceivables);
+    totalPayablesEl.textContent = formatCurrency(totalPayables);
+    totalCountEl.textContent = allCustomers.length;
+}
+
+function filterAndRender() {
+    const searchTerm = searchInput.value.toLowerCase();
+
+    const filtered = allCustomers.filter((c) => {
+        const matchesSearch =
+            (c.name && c.name.toLowerCase().includes(searchTerm)) ||
+            (c.phone && c.phone.includes(searchTerm)) ||
+            (c.code && String(c.code).includes(searchTerm));
+
+        const matchesFilter =
+            currentFilter === 'all' ||
+            (currentFilter === 'customer' && c.type === 'customer') ||
+            (currentFilter === 'supplier' && c.type === 'supplier') ||
+            (currentFilter === 'both' && c.type === 'both');
+
+        return matchesSearch && matchesFilter;
+    });
+
+    renderTable(filtered);
+}
+
+function renderTable(customers) {
+    customersTableBody.innerHTML = '';
+
+    if (customers.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+
+    customers.forEach((customer) => {
+        const tr = document.createElement('tr');
+
+        let badgeClass = 'badge-both';
+        let typeText = t('customers.typeBoth', 'عميل ومورد');
+        if (customer.type === 'customer') {
+            badgeClass = 'badge-customer';
+            typeText = t('customers.typeCustomer', 'عميل');
+        } else if (customer.type === 'supplier') {
+            badgeClass = 'badge-supplier';
+            typeText = t('customers.typeSupplier', 'مورد');
+        }
+
+        const balance = parseFloat(customer.opening_balance) || 0;
+        let balanceClass = 'balance-neutral';
+        let balanceTag = t('customers.balanceBalanced', 'متزن');
+
+        if (balance > 0) {
+            balanceClass = 'balance-positive';
+            balanceTag = t('customers.balanceOwed', 'عليه');
+        } else if (balance < 0) {
+            balanceClass = 'balance-negative';
+            balanceTag = t('customers.balanceCredit', 'له');
+        }
+
+        tr.innerHTML = `
+            <td>${customer.code || '-'}</td>
+            <td>${customer.name}</td>
+            <td><span class="badge ${badgeClass}">${typeText}</span></td>
+            <td>${customer.phone || '-'}</td>
+            <td>${customer.address || '-'}</td>
+            <td class="${balanceClass}" dir="ltr">${formatCurrency(Math.abs(balance))}<span class="balance-tag">${balanceTag}</span></td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn-icon btn-edit" onclick="editCustomer(${customer.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon btn-delete" onclick="deleteCustomer(${customer.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+
+        customersTableBody.appendChild(tr);
+    });
+}
+
+function openModal(customer = null) {
+    if (customer) {
+        modalTitle.textContent = t('customers.editCustomer', 'تعديل بيانات');
+        customerIdInput.value = customer.id;
+        customerNameInput.value = customer.name;
+        customerTypeSelect.value = customer.type;
+        customerPhoneInput.value = customer.phone || '';
+        customerAddressInput.value = customer.address || '';
+
+        const rawBalance = parseFloat(customer.opening_balance) || 0;
+        customerBalanceInput.value = Math.abs(rawBalance);
+        setBalanceDirection(rawBalance < 0 ? 'for' : 'on');
+
+        customerNotesInput.value = customer.notes || '';
+    } else {
+        modalTitle.textContent = t('customers.modalTitle.add', 'إضافة عميل/مورد جديد');
+        customerForm.reset();
+        customerIdInput.value = '';
+        customerBalanceInput.value = 0;
+        setBalanceDirection('on');
+    }
+
+    updateOpeningBalanceHint();
+    modal.classList.add('show');
+}
+
+function closeModal() {
+    modal.classList.remove('show');
+}
+
+function setBalanceDirection(direction) {
+    selectedBalanceDirection = direction === 'for' ? 'for' : 'on';
+    customerBalanceDirectionButtons.forEach((btn) => {
+        const isActive = btn.dataset.direction === selectedBalanceDirection;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+    updateOpeningBalanceHint();
+}
+
+function getSignedOpeningBalance() {
+    const openingAmount = Math.abs(parseFloat(customerBalanceInput.value) || 0);
+    const direction = selectedBalanceDirection === 'for' ? 'for' : 'on';
+    return direction === 'for' ? -openingAmount : openingAmount;
+}
+
+async function saveCustomer() {
+    const customerData = {
+        name: customerNameInput.value,
+        type: customerTypeSelect.value,
+        phone: customerPhoneInput.value,
+        address: customerAddressInput.value,
+        opening_balance: getSignedOpeningBalance(),
+        notes: customerNotesInput.value
+    };
+
+    if (!customerData.name) {
+        showToast(t('customers.toast.nameRequired', 'يرجى إدخال الاسم'), 'error');
+        return;
+    }
+
+    const id = customerIdInput.value;
+
+    try {
+        let result;
+        if (id) {
+            result = await window.electronAPI.updateCustomer({ ...customerData, id });
+        } else {
+            result = await window.electronAPI.addCustomer(customerData);
+        }
+
+        if (result && result.success) {
+            showToast(id ? t('customers.toast.updateSuccess', 'تم تحديث البيانات بنجاح') : t('customers.toast.addSuccess', 'تمت الإضافة بنجاح'));
+            closeModal();
+            loadCustomers();
+        } else {
+            showToast(fmt(t('customers.toast.saveError', 'حدث خطأ أثناء الحفظ: {error}'), {error: result?.error || 'غير معروف'}), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving customer:', error);
+        showToast(t('customers.toast.saveErrorGeneric', 'حدث خطأ أثناء الحفظ'), 'error');
+    }
+}
+
+function updateOpeningBalanceHint() {
+    if (!customerBalanceHint) return;
+
+    const type = customerTypeSelect.value;
+    const direction = selectedBalanceDirection === 'for' ? t('customers.balanceDirection.for', 'له') : t('customers.balanceDirection.on', 'عليه');
+
+    if (type === 'supplier') {
+        customerBalanceHint.textContent = fmt(t('customers.balanceHint.supplier', 'سيتم حفظ الرصيد كـ "{direction}" على المورد.'), {direction});
+        return;
+    }
+
+    if (type === 'both') {
+        customerBalanceHint.textContent = fmt(t('customers.balanceHint.both', 'سيتم حفظ صافي الرصيد كـ "{direction}" على الحساب المشترك (عميل/مورد).'), {direction});
+        return;
+    }
+
+    customerBalanceHint.textContent = fmt(t('customers.balanceHint.customer', 'سيتم حفظ الرصيد كـ "{direction}" على العميل.'), {direction});
+}
+
+window.editCustomer = (id) => {
+    const customer = allCustomers.find((c) => c.id === id);
+    if (customer) {
+        openModal(customer);
+    }
+};
+
+window.deleteCustomer = (id) => {
+    customerToDeleteId = id;
+    deleteModal.classList.add('show');
+};
+
+function closeDeleteModal() {
+    deleteModal.classList.remove('show');
+    customerToDeleteId = null;
+}
+
+async function confirmDeleteCustomer() {
+    if (!customerToDeleteId) return;
+
+    try {
+        const result = await window.electronAPI.deleteCustomer(customerToDeleteId);
+        if (result && result.success) {
+            showToast(t('customers.toast.deleteSuccess', 'تم الحذف بنجاح'));
+            loadCustomers();
+            closeDeleteModal();
+        } else {
+            const errorMsg = result?.error || 'خطأ غير معروف';
+            if (errorMsg.includes('FOREIGN KEY')) {
+                showToast(t('customers.toast.deleteForeignKey', 'لا يمكن حذف هذا السجل لأنه مرتبط بفواتير أو حركات'), 'error');
+            } else {
+                showToast(fmt(t('customers.toast.deleteFailed', 'فشل الحذف: {error}'), {error: errorMsg}), 'error');
+            }
+            closeDeleteModal();
+        }
+    } catch (error) {
+        console.error('Error deleting customer:', error);
+        showToast(t('customers.toast.deleteError', 'حدث خطأ أثناء الحذف'), 'error');
+        closeDeleteModal();
+    }
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('ar-EG', {
+        style: 'decimal',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(amount) + ' ج.م';
+}
+
+function showToast(message, type = 'success') {
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.style.position = 'fixed';
+        toastContainer.style.bottom = '20px';
+        toastContainer.style.left = '20px';
+        toastContainer.style.zIndex = '10000';
+        document.body.appendChild(toastContainer);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.style.background = type === 'success' ? '#10b981' : '#ef4444';
+    toast.style.color = 'white';
+    toast.style.padding = '12px 24px';
+    toast.style.borderRadius = '8px';
+    toast.style.marginBottom = '10px';
+    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    toast.style.animation = 'slideIn 0.3s ease-out';
+    toast.textContent = message;
+
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s ease-in';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(-100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+    }
+`;
+document.head.appendChild(style);

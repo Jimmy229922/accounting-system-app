@@ -1,0 +1,228 @@
+﻿[data-theme="dark"] {
+    /* Main colors - improved contrast */
+    --bg-color: #0a0f1a;
+    --text-color: #f1f5f9;
+    --text-muted: #a8b3cf;
+    --muted-text: #a8b3cf;
+    --text-secondary: #a8b3cf;
+
+    /* Card & backgrounds - better separation */
+    --card-bg: #131b2e;
+    --secondary-bg: #0f1729;
+    --card-border: #2d3b56;
+    --border-color: #3d4f6b;
+
+    /* Inputs - improved visibility */
+    --input-bg: #0f1729;
+    --input-border: #3d4f6b;
+
+    /* Tables - better contrast */
+    --table-header-bg: #131b2e;
+    --table-border: #2d3b56;
+
+    /* Action colors - brighter and more visible */
+    --primary-color: #a5c9ff;
+    --secondary-color: #38d9ee;
+    --accent-color: #70b5ff;
+    --success-color: #34d875;
+    --warning-color: #ffb347;
+    --danger-color: #ff8787;
+
+    /* Business colors - improved visibility */
+    --sales-color: #34d875;
+    --sales-bg: #0f2e1f;
+    --purchase-color: #ffab5e;
+    --purchase-bg: #2f1a0c;
+
+    /* Navigation */
+    --nav-bg: #0a0f1a;
+    --nav-text: #f1f5f9;
+    --nav-hover: #131b2e;
+    --dropdown-bg: #0f1729;
+
+    --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .dashboard-hero p {
+    color: #b8c5d9;
+}
+
+[data-theme="dark"] .last-updated {
+    color: #b8c5d9;
+}
+
+[data-theme="dark"] .metric-label {
+    color: #b8c5d9;
+}
+
+[data-theme="dark"] .metric-pill {
+    background: rgba(112, 181, 255, 0.15);
+    color: #70b5ff;
+    border-color: rgba(112, 181, 255, 0.4);
+}
+
+[data-theme="dark"] .insights-list li {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .pill-green {
+    color: #34d875;
+}
+
+[data-theme="dark"] .pill-amber {
+    color: #ffb347;
+}
+
+/* Improved button contrast */
+[data-theme="dark"] button,
+[data-theme="dark"] .btn {
+    background: #1e293b;
+    border-color: #3d4f6b;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] button:hover,
+[data-theme="dark"] .btn:hover {
+    background: #2d3b56;
+    border-color: #4d5f7b;
+}
+
+/* Better table hover effect */
+[data-theme="dark"] .table tbody tr:hover {
+    background-color: rgba(112, 181, 255, 0.08);
+}
+
+/* Improved focus states */
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+    border-color: #70b5ff;
+    box-shadow: 0 0 0 3px rgba(112, 181, 255, 0.15);
+}
+
+/* Better scrollbar for dark mode */
+[data-theme="dark"] ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: #0f1729;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: #3d4f6b;
+    border-radius: 5px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: #4d5f7b;
+}
+
+/* Improved modals in dark mode */
+[data-theme="dark"] .modal,
+[data-theme="dark"] .modal-content {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom: 1px solid var(--card-border);
+    background: var(--secondary-bg);
+}
+
+[data-theme="dark"] .modal-footer {
+    border-top: 1px solid var(--card-border);
+    background: var(--secondary-bg);
+}
+
+/* Better badges in dark mode */
+[data-theme="dark"] .badge {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Improved card shadows and borders */
+[data-theme="dark"] .card,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .info-card {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--card-border);
+}
+
+/* Better form elements visibility */
+[data-theme="dark"] select,
+[data-theme="dark"] select option {
+    background: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+}
+
+[data-theme="dark"] textarea {
+    background: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+}
+
+[data-theme="dark"] textarea:focus {
+    border-color: #70b5ff;
+    box-shadow: 0 0 0 3px rgba(112, 181, 255, 0.15);
+}
+
+/* Better disabled state */
+[data-theme="dark"] input:disabled,
+[data-theme="dark"] button:disabled,
+[data-theme="dark"] select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--secondary-bg);
+}
+
+/* Improved links */
+[data-theme="dark"] a {
+    color: #70b5ff;
+}
+
+[data-theme="dark"] a:hover {
+    color: #a5c9ff;
+}
+
+/* Better alerts and notifications */
+[data-theme="dark"] .alert {
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+}
+
+[data-theme="dark"] .alert-success {
+    background: rgba(52, 216, 117, 0.1);
+    border-color: rgba(52, 216, 117, 0.3);
+    color: #34d875;
+}
+
+[data-theme="dark"] .alert-warning {
+    background: rgba(255, 179, 71, 0.1);
+    border-color: rgba(255, 179, 71, 0.3);
+    color: #ffb347;
+}
+
+[data-theme="dark"] .alert-error,
+[data-theme="dark"] .alert-danger {
+    background: rgba(255, 135, 135, 0.1);
+    border-color: rgba(255, 135, 135, 0.3);
+    color: #ff8787;
+}
+
+/* Better code blocks (if any) */
+[data-theme="dark"] code,
+[data-theme="dark"] pre {
+    background: #0f1729;
+    color: #70b5ff;
+    border: 1px solid var(--card-border);
+}
+
+/* Improved hr elements */
+[data-theme="dark"] hr {
+    border-color: var(--card-border);
+    opacity: 0.5;
+}

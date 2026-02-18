@@ -1,0 +1,38 @@
+﻿:root,
+[data-theme="light"] {
+    --bg-color: #f4f6fb;
+    --text-color: #1f2937;
+    --text-muted: #6b7280;
+    --muted-text: #6b7280;
+    --text-secondary: #64748b;
+
+    --card-bg: #ffffff;
+    --secondary-bg: #f8fafc;
+    --card-border: #dbe3ed;
+    --border-color: #dbe3ed;
+
+    --input-bg: #ffffff;
+    --input-border: #cfd8e3;
+
+    --table-header-bg: #f3f6fb;
+    --table-border: #d8e1eb;
+
+    --primary-color: #0f172a;
+    --secondary-color: #0ea5e9;
+    --accent-color: #2563eb;
+    --success-color: #16a34a;
+    --warning-color: #d97706;
+    --danger-color: #dc2626;
+
+    --sales-color: #15803d;
+    --sales-bg: #e8f8ee;
+    --purchase-color: #c2410c;
+    --purchase-bg: #fff1e8;
+
+    --nav-bg: #0f172a;
+    --nav-text: #e2e8f0;
+    --nav-hover: #1e293b;
+    --dropdown-bg: #111827;
+
+    --shadow-color: rgba(15, 23, 42, 0.16);
+}

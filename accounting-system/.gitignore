@@ -14,6 +14,8 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+run-desktop.log
+backend-run.log
 
 # Environment variables
 .env
@@ -32,3 +34,24 @@ yarn-error.log*
 *.db
 *.sqlite
 *.sqlite3
+
+# Local debug artifacts
+tmp-*.js
+.repack/
+
+# Runtime data directories
+data/
+data_auth_smoke/
+backend/data/
+
+# Temporary / test folders
+tmp/
+PIC/
+
+# Installer binaries & archives
+APP_JS/installer/
+APP_JS/seed/
+APP_JS.zip
+
+# Backup files
+*.bak
