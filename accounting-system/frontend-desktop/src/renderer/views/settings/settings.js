@@ -157,7 +157,7 @@ function renderPage() {
                             <div class="action-card-icon backup"><i class="fas fa-cloud-upload-alt"></i></div>
                             <h3>${t('settings.backupTitle', 'إنشاء نسخة احتياطية')}</h3>
                         </div>
-                        <p class="action-card-desc">${t('settings.backupDesc', 'احفظ نسخة منفصلة تحتوي على جميع بيانات النظام في موقع من اختيارك.')}</p>
+                        <p class="action-card-desc">${t('settings.backupDesc', 'احفظ نسخة احتياطية من بياناتك في أي مكان تختاره على جهازك.')}</p>
                         <button id="backupBtn" class="btn-action backup-btn"><i class="fas fa-download"></i> ${t('settings.backupNow', 'إنشاء نسخة احتياطية الآن')}</button>
                         <small id="backupStatus" class="status-text"></small>
                     </div>
@@ -186,20 +186,6 @@ function renderPage() {
                         <div>
                             <div class="info-item-label">${t('settings.version', 'إصدار التطبيق')}</div>
                             <div class="info-item-value">1.0.0</div>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-item-icon"><i class="fas fa-database"></i></div>
-                        <div>
-                            <div class="info-item-label">${t('settings.dbEngine', 'محرك البيانات')}</div>
-                            <div class="info-item-value">SQLite</div>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-item-icon"><i class="fas fa-desktop"></i></div>
-                        <div>
-                            <div class="info-item-label">${t('settings.platform', 'المنصة')}</div>
-                            <div class="info-item-value">Electron Desktop</div>
                         </div>
                     </div>
                     <div class="info-item">
@@ -350,5 +336,4 @@ async function handleRestore() {
         }
     }
 }
-
 

@@ -5,7 +5,12 @@ function register() {
     // --- Suppliers Handlers ---
 
     ipcMain.handle('get-suppliers', () => {
-        return db.prepare('SELECT * FROM suppliers ORDER BY id DESC').all();
+        try {
+            return db.prepare('SELECT * FROM suppliers ORDER BY id DESC').all();
+        } catch (error) {
+            console.error('[get-suppliers] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('add-supplier', (event, supplier) => {

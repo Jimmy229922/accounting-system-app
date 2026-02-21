@@ -169,6 +169,77 @@ function renderPage() {
                     </section>
                 </div>
             </div>
+
+            <!-- Password Reset Modal -->
+            <div id="resetPasswordModal" class="rp-modal-overlay">
+                <div class="rp-modal">
+                    <div class="rp-modal-header">
+                        <h3><i class="fas fa-key"></i> ${t('authUsers.changePassword', 'تغيير كلمة السر')}</h3>
+                        <button type="button" class="rp-modal-close" id="rpModalClose">&times;</button>
+                    </div>
+                    <form id="resetPasswordForm" class="rp-modal-body">
+                        <input type="hidden" id="rpUserId" value="">
+                        <div class="form-group">
+                            <label for="rpNewPassword">${t('authUsers.newPassword', 'كلمة المرور الجديدة')}</label>
+                            <input id="rpNewPassword" type="password" class="form-control" autocomplete="new-password" minlength="6" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="rpConfirmPassword">${t('authUsers.confirmNewPassword', 'تأكيد كلمة المرور الجديدة')}</label>
+                            <input id="rpConfirmPassword" type="password" class="form-control" autocomplete="new-password" minlength="6" required>
+                        </div>
+                        <div class="rp-modal-actions">
+                            <button type="submit" class="btn-secondary users-submit-btn">
+                                <i class="fas fa-check"></i> ${t('authUsers.savePassword', 'حفظ كلمة المرور')}
+                            </button>
+                            <button type="button" class="btn-cancel" id="rpModalCancel">${t('common.cancel', 'إلغاء')}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Permissions Modal -->
+            <div id="permissionsModal" class="rp-modal-overlay">
+                <div class="rp-modal perm-modal">
+                    <div class="rp-modal-header">
+                        <h3><i class="fas fa-shield-alt"></i> ${t('authUsers.permissions.manage', 'إدارة الصلاحيات')} — <span id="permUserName"></span></h3>
+                        <button type="button" class="rp-modal-close" id="permModalClose">&times;</button>
+                    </div>
+                    <div class="rp-modal-body perm-modal-body">
+                        <input type="hidden" id="permUserId" value="">
+                        <div id="permAdminNote" class="perm-admin-note" style="display:none;">
+                            <i class="fas fa-info-circle"></i> ${t('authUsers.permissions.adminNote', 'حسابات الأدمن تمتلك جميع الصلاحيات تلقائياً.')}
+                        </div>
+                        <div class="perm-actions-row">
+                            <button type="button" class="btn-sm btn-secondary" id="permSelectAll">
+                                <i class="fas fa-check-double"></i> ${t('authUsers.permissions.selectAll', 'تحديد الكل')}
+                            </button>
+                            <button type="button" class="btn-sm btn-secondary" id="permDeselectAll">
+                                <i class="fas fa-times"></i> ${t('authUsers.permissions.deselectAll', 'إلغاء تحديد الكل')}
+                            </button>
+                        </div>
+                        <div class="perm-table-wrap">
+                            <table class="perm-table">
+                                <thead>
+                                    <tr>
+                                        <th>${t('authUsers.permissions.page', 'الصفحة')}</th>
+                                        <th>${t('authUsers.permissions.view', 'عرض')}</th>
+                                        <th>${t('authUsers.permissions.add', 'إضافة')}</th>
+                                        <th>${t('authUsers.permissions.edit', 'تعديل')}</th>
+                                        <th>${t('authUsers.permissions.delete', 'حذف')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="permTableBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="rp-modal-actions">
+                            <button type="button" class="btn-secondary users-submit-btn" id="permSaveBtn">
+                                <i class="fas fa-save"></i> ${t('authUsers.permissions.save', 'حفظ الصلاحيات')}
+                            </button>
+                            <button type="button" class="btn-cancel" id="permModalCancel">${t('common.cancel', 'إلغاء')}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     `;
 }
@@ -190,6 +261,36 @@ function initializeElements() {
     if (authUsersForm) {
         authUsersForm.addEventListener('submit', handleCreateAuthUser);
     }
+
+    // Password reset modal events
+    const rpModal = document.getElementById('resetPasswordModal');
+    const rpForm = document.getElementById('resetPasswordForm');
+    const rpCloseBtn = document.getElementById('rpModalClose');
+    const rpCancelBtn = document.getElementById('rpModalCancel');
+
+    if (rpCloseBtn) rpCloseBtn.addEventListener('click', closeResetPasswordModal);
+    if (rpCancelBtn) rpCancelBtn.addEventListener('click', closeResetPasswordModal);
+    if (rpModal) rpModal.addEventListener('click', (e) => {
+        if (e.target === rpModal) closeResetPasswordModal();
+    });
+    if (rpForm) rpForm.addEventListener('submit', submitResetPassword);
+
+    // Permissions modal events
+    const permModal = document.getElementById('permissionsModal');
+    const permCloseBtn = document.getElementById('permModalClose');
+    const permCancelBtn = document.getElementById('permModalCancel');
+    const permSaveBtn = document.getElementById('permSaveBtn');
+    const permSelectAll = document.getElementById('permSelectAll');
+    const permDeselectAll = document.getElementById('permDeselectAll');
+
+    if (permCloseBtn) permCloseBtn.addEventListener('click', closePermissionsModal);
+    if (permCancelBtn) permCancelBtn.addEventListener('click', closePermissionsModal);
+    if (permModal) permModal.addEventListener('click', (e) => {
+        if (e.target === permModal) closePermissionsModal();
+    });
+    if (permSaveBtn) permSaveBtn.addEventListener('click', savePermissions);
+    if (permSelectAll) permSelectAll.addEventListener('click', () => toggleAllPermissions(true));
+    if (permDeselectAll) permDeselectAll.addEventListener('click', () => toggleAllPermissions(false));
 }
 
 function setNotice(message, type = 'info') {
@@ -326,6 +427,10 @@ function renderAuthUsersTable(users, activeUserId) {
                         <i class="fas fa-key" aria-hidden="true"></i>
                         <span>${t('authUsers.changePassword', 'تغيير كلمة السر')}</span>
                     </button>
+                    <button type="button" class="btn-secondary btn-sm btn-permissions" data-action="permissions" data-id="${user.id}" data-username="${safeUsername}" data-is-admin="${user.isAdmin ? 1 : 0}">
+                        <i class="fas fa-shield-alt" aria-hidden="true"></i>
+                        <span>${t('authUsers.permissions.title', 'الصلاحيات')}</span>
+                    </button>
                 </td>
             </tr>
         `;
@@ -358,6 +463,15 @@ function renderAuthUsersTable(users, activeUserId) {
         btn.addEventListener('click', async () => {
             const userId = Number(btn.dataset.id);
             await handleResetAuthUserPassword(userId);
+        });
+    });
+
+    authUsersTableWrap.querySelectorAll('button[data-action="permissions"]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const userId = Number(btn.dataset.id);
+            const username = btn.dataset.username;
+            const isAdmin = Number(btn.dataset.isAdmin) === 1;
+            await handleOpenPermissions(userId, username, isAdmin);
         });
     });
 }
@@ -451,9 +565,38 @@ async function handleToggleAuthUser(userId, isActive) {
     await refreshAuthUsers();
 }
 
-async function handleResetAuthUserPassword(userId) {
-    const newPassword = prompt(t('authUsers.newPasswordPrompt', 'اكتب كلمة المرور الجديدة (6 أحرف أو أكثر):'));
-    if (newPassword === null) {
+function handleResetAuthUserPassword(userId) {
+    const rpModal = document.getElementById('resetPasswordModal');
+    const rpUserId = document.getElementById('rpUserId');
+    const rpNewPassword = document.getElementById('rpNewPassword');
+    const rpConfirmPassword = document.getElementById('rpConfirmPassword');
+
+    if (!rpModal) return;
+    rpUserId.value = userId;
+    rpNewPassword.value = '';
+    rpConfirmPassword.value = '';
+    rpModal.classList.add('active');
+    rpNewPassword.focus();
+}
+
+function closeResetPasswordModal() {
+    const rpModal = document.getElementById('resetPasswordModal');
+    if (rpModal) rpModal.classList.remove('active');
+}
+
+async function submitResetPassword(event) {
+    event.preventDefault();
+    const userId = Number(document.getElementById('rpUserId').value);
+    const newPassword = document.getElementById('rpNewPassword').value;
+    const confirmPassword = document.getElementById('rpConfirmPassword').value;
+
+    if (!newPassword || newPassword.length < 6) {
+        setStatus(authUsersStatusEl, t('authUsers.toast.passwordTooShort', 'كلمة المرور يجب أن تكون 6 أحرف أو أكثر.'), 'error');
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        setStatus(authUsersStatusEl, t('authUsers.toast.passwordMismatch', 'كلمة المرور وتأكيدها غير متطابقين.'), 'error');
         return;
     }
 
@@ -470,7 +613,122 @@ async function handleResetAuthUserPassword(userId) {
         return;
     }
 
+    closeResetPasswordModal();
     setStatus(authUsersStatusEl, t('authUsers.toast.passwordUpdateSuccess', 'تم تحديث كلمة المرور بنجاح.'), 'success');
     await refreshAuthUsers();
+}
+
+const PERMISSION_PAGES = [
+    'dashboard', 'customers', 'items', 'sales', 'purchases',
+    'sales-returns', 'purchase-returns', 'treasury', 'reports',
+    'customer-reports', 'inventory', 'opening-balance', 'settings', 'finance'
+];
+
+function getPageLabel(page) {
+    return t(`authUsers.permissions.pages.${page}`, page);
+}
+
+async function handleOpenPermissions(userId, username, isAdmin) {
+    const permModal = document.getElementById('permissionsModal');
+    const permUserId = document.getElementById('permUserId');
+    const permUserName = document.getElementById('permUserName');
+    const permAdminNote = document.getElementById('permAdminNote');
+    const permTableBody = document.getElementById('permTableBody');
+
+    if (!permModal) return;
+    permUserId.value = userId;
+    permUserName.textContent = username;
+
+    if (isAdmin) {
+        permAdminNote.style.display = '';
+    } else {
+        permAdminNote.style.display = 'none';
+    }
+
+    permTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">${t('authUsers.permissions.loading', 'جارٍ تحميل الصلاحيات...')}</td></tr>`;
+    permModal.classList.add('active');
+
+    const sessionToken = await getAuthSessionToken();
+    if (!sessionToken) {
+        permTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">${t('authUsers.toast.sessionExpired', 'انتهت الجلسة.')}</td></tr>`;
+        return;
+    }
+
+    const result = await window.electronAPI.getUserPermissions({ sessionToken, userId });
+    if (!result.success) {
+        permTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">${result.error || t('authUsers.permissions.loadError', 'تعذر تحميل الصلاحيات.')}</td></tr>`;
+        return;
+    }
+
+    renderPermissionsTable(result.permissions, isAdmin);
+}
+
+function renderPermissionsTable(permissions, isAdmin) {
+    const permTableBody = document.getElementById('permTableBody');
+    if (!permTableBody) return;
+
+    const rows = PERMISSION_PAGES.map((page) => {
+        const perm = permissions.find((p) => p.page === page) || {};
+        const viewChecked = isAdmin || perm.can_view ? 'checked' : '';
+        const addChecked = isAdmin || perm.can_add ? 'checked' : '';
+        const editChecked = isAdmin || perm.can_edit ? 'checked' : '';
+        const deleteChecked = isAdmin || perm.can_delete ? 'checked' : '';
+        const disabled = isAdmin ? 'disabled' : '';
+
+        return `
+            <tr data-page="${page}">
+                <td class="perm-page-name">${getPageLabel(page)}</td>
+                <td><input type="checkbox" class="perm-cb" data-perm="can_view" ${viewChecked} ${disabled}></td>
+                <td><input type="checkbox" class="perm-cb" data-perm="can_add" ${addChecked} ${disabled}></td>
+                <td><input type="checkbox" class="perm-cb" data-perm="can_edit" ${editChecked} ${disabled}></td>
+                <td><input type="checkbox" class="perm-cb" data-perm="can_delete" ${deleteChecked} ${disabled}></td>
+            </tr>
+        `;
+    }).join('');
+
+    permTableBody.innerHTML = rows;
+}
+
+function toggleAllPermissions(checked) {
+    const checkboxes = document.querySelectorAll('#permTableBody .perm-cb:not(:disabled)');
+    checkboxes.forEach((cb) => { cb.checked = checked; });
+}
+
+function closePermissionsModal() {
+    const permModal = document.getElementById('permissionsModal');
+    if (permModal) permModal.classList.remove('active');
+}
+
+async function savePermissions() {
+    const userId = Number(document.getElementById('permUserId').value);
+    if (!userId) return;
+
+    const sessionToken = await getAuthSessionToken();
+    if (!sessionToken) {
+        setStatus(authUsersStatusEl, t('authUsers.toast.sessionExpired', 'انتهت الجلسة.'), 'error');
+        return;
+    }
+
+    const rows = document.querySelectorAll('#permTableBody tr[data-page]');
+    const permissions = [];
+    rows.forEach((row) => {
+        const page = row.dataset.page;
+        const canView = row.querySelector('[data-perm="can_view"]')?.checked || false;
+        const canAdd = row.querySelector('[data-perm="can_add"]')?.checked || false;
+        const canEdit = row.querySelector('[data-perm="can_edit"]')?.checked || false;
+        const canDelete = row.querySelector('[data-perm="can_delete"]')?.checked || false;
+        permissions.push({ page, can_view: canView, can_add: canAdd, can_edit: canEdit, can_delete: canDelete });
+    });
+
+    setStatus(authUsersStatusEl, t('authUsers.permissions.saving', 'جارٍ حفظ الصلاحيات...'), 'info');
+
+    const result = await window.electronAPI.updateUserPermissions({ sessionToken, userId, permissions });
+    if (!result.success) {
+        showToast(result.error || t('authUsers.permissions.saveError', 'تعذر حفظ الصلاحيات.'), 'error');
+        return;
+    }
+
+    closePermissionsModal();
+    showToast(t('authUsers.permissions.saved', 'تم حفظ الصلاحيات بنجاح'), 'success');
 }
 

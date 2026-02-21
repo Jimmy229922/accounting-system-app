@@ -13,14 +13,23 @@
     "appId": "com.accountingsystem.app",
     "productName": "Accounting System",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "src/renderer/assets/app/icon.ico"
+    },
+    "nsis": {
+      "installerIcon": "src/renderer/assets/app/icon.ico",
+      "uninstallerIcon": "src/renderer/assets/app/icon.ico",
+      "installerHeaderIcon": "src/renderer/assets/app/icon.ico"
     },
     "directories": {
       "output": "dist"
     },
     "files": [
       "src/**/*",
-      "package.json"
+      "package.json",
+      "node_modules/**/*",
+      "!node_modules/accounting-system-monorepo",
+      "!**/node_modules/accounting-system-monorepo/**"
     ]
   },
   "author": "",

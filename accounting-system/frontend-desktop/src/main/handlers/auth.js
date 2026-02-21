@@ -324,16 +324,40 @@ function persistLegacyAuthSnapshot({ username, salt, hash, createdAt, lastLoginA
     stmt.run({ key: 'auth_last_login_at', value: lastLoginAt });
 }
 
+function checkPermission(page, operation) {
+    const user = getActiveAuthUser();
+    if (!user) return false;
+    if (user.isAdmin) return true;
+
+    const row = db.prepare('SELECT can_view, can_add, can_edit, can_delete FROM user_permissions WHERE user_id = ? AND page = ?').get(user.id, page);
+    if (!row) return false;
+
+    const col = 'can_' + operation;
+    return Boolean(row[col]);
+}
+
+function requirePermission(page, operation) {
+    if (!checkPermission(page, operation)) {
+        return { success: false, error: 'ليس لديك صلاحية لتنفيذ هذه العملية.' };
+    }
+    return null;
+}
+
 function register() {
     // Auth Handlers
     ipcMain.handle('get-auth-status', () => {
-        migrateLegacyAuthRecordIfNeeded();
-        const hasAccount = getAuthUsersCount() > 0;
-        return {
-            hasAccount,
-            requiresSetup: !hasAccount,
-            username: hasAccount ? getPrimaryAuthUsername() : null
-        };
+        try {
+            migrateLegacyAuthRecordIfNeeded();
+            const hasAccount = getAuthUsersCount() > 0;
+            return {
+                hasAccount,
+                requiresSetup: !hasAccount,
+                username: hasAccount ? getPrimaryAuthUsername() : null
+            };
+        } catch (error) {
+            console.error('[get-auth-status] Error:', error);
+            return { hasAccount: false, requiresSetup: true, username: null };
+        }
     });
 
     ipcMain.handle('setup-auth-account', (event, payload = {}) => {
@@ -438,25 +462,35 @@ function register() {
     });
 
     ipcMain.handle('get-active-auth-user', (event, payload = {}) => {
-        const sessionToken = extractSessionToken(payload);
-        const userFromToken = mapAuthUser(getSessionUser(sessionToken));
-        return userFromToken || getActiveAuthUser();
+        try {
+            const sessionToken = extractSessionToken(payload);
+            const userFromToken = mapAuthUser(getSessionUser(sessionToken));
+            return userFromToken || getActiveAuthUser();
+        } catch (error) {
+            console.error('[get-active-auth-user] Error:', error);
+            return null;
+        }
     });
 
     ipcMain.handle('get-auth-users', (event, payload = {}) => {
-        migrateLegacyAuthRecordIfNeeded();
-        const sessionToken = extractSessionToken(payload);
-        const auth = requireAdminSession(sessionToken);
-        if (!auth.ok) {
-            return { success: false, error: auth.error };
-        }
+        try {
+            migrateLegacyAuthRecordIfNeeded();
+            const sessionToken = extractSessionToken(payload);
+            const auth = requireAdminSession(sessionToken);
+            if (!auth.ok) {
+                return { success: false, error: auth.error };
+            }
 
-        const users = listAuthUsers().map((row) => mapAuthUser(row));
-        return {
-            success: true,
-            users,
-            activeUserId: auth.session.id
-        };
+            const users = listAuthUsers().map((row) => mapAuthUser(row));
+            return {
+                success: true,
+                users,
+                activeUserId: auth.session.id
+            };
+        } catch (error) {
+            console.error('[get-auth-users] Error:', error);
+            return { success: false, error: error.message };
+        }
     });
 
     ipcMain.handle('create-auth-user', (event, payload = {}) => {
@@ -499,7 +533,14 @@ function register() {
                 VALUES (?, ?, ?, 0, ?, ?, NULL)
             `).run(username, salt, passwordHash, isActive ? 1 : 0, now);
 
-            const createdUser = getAuthUserById(Number(info.lastInsertRowid));
+            // Auto-grant dashboard view permission for new users
+            const newUserId = Number(info.lastInsertRowid);
+            db.prepare(`
+                INSERT OR IGNORE INTO user_permissions (user_id, page, can_view, can_add, can_edit, can_delete)
+                VALUES (?, 'dashboard', 1, 0, 0, 0)
+            `).run(newUserId);
+
+            const createdUser = getAuthUserById(newUserId);
             return {
                 success: true,
                 user: mapAuthUser(createdUser)
@@ -592,25 +633,184 @@ function register() {
         }
     });
 
+    // ── Permission Handlers ──
+    const PERMISSION_PAGES = [
+        'dashboard', 'customers', 'items', 'sales', 'purchases',
+        'sales-returns', 'purchase-returns', 'treasury', 'reports',
+        'customer-reports', 'inventory', 'opening-balance', 'settings', 'finance'
+    ];
+
+    ipcMain.handle('get-user-permissions', (event, payload = {}) => {
+        try {
+            const sessionToken = extractSessionToken(payload);
+            const auth = requireAdminSession(sessionToken);
+            if (!auth.ok) {
+                return { success: false, error: auth.error };
+            }
+
+            const userId = Number(payload.userId);
+            if (!userId) {
+                return { success: false, error: 'معرف المستخدم غير صالح.' };
+            }
+
+            const targetUser = getAuthUserById(userId);
+            if (!targetUser) {
+                return { success: false, error: 'المستخدم غير موجود.' };
+            }
+
+            const rows = db.prepare('SELECT page, can_view, can_add, can_edit, can_delete FROM user_permissions WHERE user_id = ?').all(userId);
+            const permMap = {};
+            rows.forEach((r) => {
+                permMap[r.page] = {
+                    can_view: Boolean(r.can_view),
+                    can_add: Boolean(r.can_add),
+                    can_edit: Boolean(r.can_edit),
+                    can_delete: Boolean(r.can_delete)
+                };
+            });
+
+            const permissions = PERMISSION_PAGES.map((page) => ({
+                page,
+                can_view: permMap[page]?.can_view || false,
+                can_add: permMap[page]?.can_add || false,
+                can_edit: permMap[page]?.can_edit || false,
+                can_delete: permMap[page]?.can_delete || false
+            }));
+
+            return { success: true, permissions };
+        } catch (error) {
+            console.error('[get-user-permissions] Error:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('update-user-permissions', (event, payload = {}) => {
+        try {
+            const sessionToken = extractSessionToken(payload);
+            const auth = requireAdminSession(sessionToken);
+            if (!auth.ok) {
+                return { success: false, error: auth.error };
+            }
+
+            const userId = Number(payload.userId);
+            if (!userId) {
+                return { success: false, error: 'معرف المستخدم غير صالح.' };
+            }
+
+            const targetUser = getAuthUserById(userId);
+            if (!targetUser) {
+                return { success: false, error: 'المستخدم غير موجود.' };
+            }
+
+            if (isSuperAdmin(userId)) {
+                return { success: false, error: 'لا يمكن تعديل صلاحيات حساب السوبر أدمن.' };
+            }
+
+            const permissions = Array.isArray(payload.permissions) ? payload.permissions : [];
+            const validPerms = permissions.filter((p) => PERMISSION_PAGES.includes(p.page));
+
+            const tx = db.transaction(() => {
+                db.prepare('DELETE FROM user_permissions WHERE user_id = ?').run(userId);
+
+                const insertStmt = db.prepare(`
+                    INSERT INTO user_permissions (user_id, page, can_view, can_add, can_edit, can_delete)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                `);
+
+                validPerms.forEach((p) => {
+                    insertStmt.run(
+                        userId,
+                        p.page,
+                        p.can_view ? 1 : 0,
+                        p.can_add ? 1 : 0,
+                        p.can_edit ? 1 : 0,
+                        p.can_delete ? 1 : 0
+                    );
+                });
+            });
+            tx();
+
+            return { success: true };
+        } catch (error) {
+            console.error('[update-user-permissions] Error:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('get-my-permissions', (event, payload = {}) => {
+        try {
+            const sessionToken = extractSessionToken(payload);
+            if (!sessionToken) {
+                return { success: false, error: 'يرجى تسجيل الدخول أولاً.' };
+            }
+
+            const userRow = getSessionUser(sessionToken);
+            if (!userRow) {
+                return { success: false, error: 'الجلسة غير صالحة.' };
+            }
+
+            const user = mapAuthUser(userRow);
+
+            // Super admin / admin = full access
+            if (user.isAdmin) {
+                const allPerms = PERMISSION_PAGES.map((page) => ({
+                    page,
+                    can_view: true,
+                    can_add: true,
+                    can_edit: true,
+                    can_delete: true
+                }));
+                return { success: true, permissions: allPerms, isAdmin: true };
+            }
+
+            const rows = db.prepare('SELECT page, can_view, can_add, can_edit, can_delete FROM user_permissions WHERE user_id = ?').all(user.id);
+            const permMap = {};
+            rows.forEach((r) => {
+                permMap[r.page] = {
+                    can_view: Boolean(r.can_view),
+                    can_add: Boolean(r.can_add),
+                    can_edit: Boolean(r.can_edit),
+                    can_delete: Boolean(r.can_delete)
+                };
+            });
+
+            const permissions = PERMISSION_PAGES.map((page) => ({
+                page,
+                can_view: permMap[page]?.can_view || false,
+                can_add: permMap[page]?.can_add || false,
+                can_edit: permMap[page]?.can_edit || false,
+                can_delete: permMap[page]?.can_delete || false
+            }));
+
+            return { success: true, permissions, isAdmin: false };
+        } catch (error) {
+            console.error('[get-my-permissions] Error:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // Invite Code Handlers
     ipcMain.handle('get-invite-status', () => {
-        const rows = db.prepare("SELECT * FROM settings WHERE key IN ('invite_code', 'invite_expiry')").all();
-        const map = {};
-        rows.forEach(r => { map[r.key] = r.value; });
+        try {
+            const rows = db.prepare("SELECT * FROM settings WHERE key IN ('invite_code', 'invite_expiry')").all();
+            const map = {};
+            rows.forEach(r => { map[r.key] = r.value; });
 
-        const expiry = map.invite_expiry ? new Date(map.invite_expiry) : null;
-        const now = new Date();
-        const withinRange = expiry ? expiry > now : false;
+            const expiry = map.invite_expiry ? new Date(map.invite_expiry) : null;
+            const now = new Date();
+            const withinRange = expiry ? expiry > now : false;
+            const codeMatches = map.invite_code === INVITE_CODE;
+            const valid = codeMatches && withinRange;
 
-        // If expiry is still valid, accept regardless of code changes
-        const codeMatches = withinRange ? true : map.invite_code === INVITE_CODE;
-
-        return {
-            valid: codeMatches && withinRange,
-            codeMatches,
-            expiry: map.invite_expiry || null,
-            requiresCode: !codeMatches || !withinRange
-        };
+            return {
+                valid,
+                expiry: map.invite_expiry || null,
+                requiresCode: !valid
+            };
+        } catch (error) {
+            console.error('[get-invite-status] Error:', error);
+            return { valid: false, expiry: null, requiresCode: true };
+        }
     });
 
     ipcMain.handle('submit-invite-code', (event, code) => {
@@ -635,4 +835,4 @@ function register() {
     });
 }
 
-module.exports = { register };
+module.exports = { register, checkPermission, requirePermission };

@@ -122,6 +122,10 @@ let allCustomers = [];
 let currentFilter = 'all';
 let customerToDeleteId = null;
 let selectedBalanceDirection = 'on';
+let currentPage = 1;
+let customersPerPage = 50;
+let currentFilteredCustomers = [];
+const paginationContainer = document.getElementById('pagination-controls');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -215,20 +219,32 @@ function filterAndRender() {
         return matchesSearch && matchesFilter;
     });
 
-    renderTable(filtered);
+    currentPage = 1;
+    currentFilteredCustomers = filtered;
+    renderTable();
 }
 
-function renderTable(customers) {
+function renderTable() {
     customersTableBody.innerHTML = '';
 
-    if (customers.length === 0) {
+    if (currentFilteredCustomers.length === 0) {
         emptyState.style.display = 'block';
+        if (paginationContainer) paginationContainer.innerHTML = '';
         return;
     }
 
     emptyState.style.display = 'none';
 
-    customers.forEach((customer) => {
+    // Pagination
+    const totalPages = Math.ceil(currentFilteredCustomers.length / customersPerPage);
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * customersPerPage;
+    const endIndex = Math.min(startIndex + customersPerPage, currentFilteredCustomers.length);
+    const pageCustomers = currentFilteredCustomers.slice(startIndex, endIndex);
+
+    pageCustomers.forEach((customer) => {
         const tr = document.createElement('tr');
 
         let badgeClass = 'badge-both';
@@ -274,6 +290,34 @@ function renderTable(customers) {
 
         customersTableBody.appendChild(tr);
     });
+
+    renderCustomersPagination(totalPages);
+}
+
+function renderCustomersPagination(totalPages) {
+    if (!paginationContainer) return;
+
+    if (totalPages <= 1) {
+        paginationContainer.innerHTML = '';
+        return;
+    }
+
+    paginationContainer.innerHTML = `
+        <button class="pagination-btn" onclick="changeCustomersPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+        <span style="color: var(--text-secondary); font-weight: 600;">${fmt(t('customers.pagination.page', 'صفحة {current} من {total}'), {current: currentPage, total: totalPages})}</span>
+        <button class="pagination-btn" onclick="changeCustomersPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+    `;
+}
+
+function changeCustomersPage(newPage) {
+    const totalPages = Math.ceil(currentFilteredCustomers.length / customersPerPage);
+    if (newPage < 1 || newPage > totalPages) return;
+    currentPage = newPage;
+    renderTable();
 }
 
 function openModal(customer = null) {

@@ -9,6 +9,9 @@ let isSubmitting = false;
 let editingReturnId = null;
 let editingOriginalInvoiceId = null;
 let editingReturnItemsMap = new Map();
+let allSalesReturns = [];
+let salesReturnsPage = 1;
+const salesReturnsPerPage = 50;
 let ar = {};
 
 function t(key, fallback = '') {
@@ -679,10 +682,15 @@ async function loadReturnForEdit(id) {
 }
 
 async function loadReturnsHistory() {
-    const returns = toArray(await window.electronAPI.getSalesReturns());
+    allSalesReturns = toArray(await window.electronAPI.getSalesReturns());
+    salesReturnsPage = 1;
+    renderReturnsHistory();
+}
+
+function renderReturnsHistory() {
     const container = document.getElementById('historyContent');
 
-    if (!returns.length) {
+    if (!allSalesReturns.length) {
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-inbox"></i>
@@ -690,6 +698,23 @@ async function loadReturnsHistory() {
             </div>
         `;
         return;
+    }
+
+    const totalPages = Math.ceil(allSalesReturns.length / salesReturnsPerPage);
+    if (salesReturnsPage > totalPages) salesReturnsPage = totalPages;
+    if (salesReturnsPage < 1) salesReturnsPage = 1;
+    const startIdx = (salesReturnsPage - 1) * salesReturnsPerPage;
+    const pageReturns = allSalesReturns.slice(startIdx, startIdx + salesReturnsPerPage);
+
+    let paginationHtml = '';
+    if (totalPages > 1) {
+        paginationHtml = `
+            <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;">
+                <button class="btn btn-sm" onclick="changeSalesReturnsPage(${salesReturnsPage - 1})" ${salesReturnsPage === 1 ? 'disabled' : ''}>السابق</button>
+                <span style="font-weight:600;">صفحة ${salesReturnsPage} من ${totalPages}</span>
+                <button class="btn btn-sm" onclick="changeSalesReturnsPage(${salesReturnsPage + 1})" ${salesReturnsPage === totalPages ? 'disabled' : ''}>التالي</button>
+            </div>
+        `;
     }
 
     container.innerHTML = `
@@ -705,7 +730,7 @@ async function loadReturnsHistory() {
                 </tr>
             </thead>
             <tbody>
-                ${returns.map((row) => `
+                ${pageReturns.map((row) => `
                     <tr>
                         <td><span class="badge badge-return"><i class="fas fa-undo-alt"></i> ${row.return_number || '-'}</span></td>
                         <td>${fmt(t('salesReturns.invoiceLabel', 'Invoice #{number}'), { number: row.original_invoice_number || '-' })}</td>
@@ -721,7 +746,15 @@ async function loadReturnsHistory() {
                 `).join('')}
             </tbody>
         </table>
+        ${paginationHtml}
     `;
+}
+
+function changeSalesReturnsPage(newPage) {
+    const totalPages = Math.ceil(allSalesReturns.length / salesReturnsPerPage);
+    if (newPage < 1 || newPage > totalPages) return;
+    salesReturnsPage = newPage;
+    renderReturnsHistory();
 }
 
 async function deleteReturn(id) {

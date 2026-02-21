@@ -509,3 +509,260 @@ button[disabled] {
         min-width: 680px;
     }
 }
+
+/* ─── Password Reset Modal ─── */
+.rp-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.rp-modal-overlay.active {
+    display: flex;
+}
+
+.rp-modal {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 420px;
+    animation: rpModalIn 0.2s ease-out;
+}
+
+@keyframes rpModalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.rp-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.rp-modal-header h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rp-modal-header h3 i {
+    color: var(--accent-color);
+}
+
+.rp-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.rp-modal-close:hover {
+    color: var(--danger-color);
+}
+
+.rp-modal-body {
+    padding: 20px;
+}
+
+.rp-modal-body .form-group {
+    margin-bottom: 14px;
+}
+
+.rp-modal-body .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text-color);
+}
+
+.rp-modal-body .form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    background: var(--input-bg);
+    color: var(--text-color);
+    font-size: 0.95rem;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+}
+
+.rp-modal-body .form-control:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.rp-modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.rp-modal-actions .users-submit-btn {
+    flex: 1;
+}
+
+.btn-cancel {
+    padding: 10px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn-cancel:hover {
+    background: var(--secondary-bg);
+    color: var(--text-color);
+    border-color: var(--text-muted);
+}
+
+/* ── Permissions Modal ── */
+.perm-modal {
+    max-width: 680px;
+    width: 95vw;
+}
+
+.perm-modal-body {
+    padding: 16px 20px 20px;
+}
+
+.perm-admin-note {
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    color: var(--accent-color);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.perm-actions-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.perm-table-wrap {
+    max-height: 420px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.perm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.perm-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.perm-table th {
+    background: var(--table-header-bg);
+    color: var(--text-color);
+    font-weight: 700;
+    padding: 10px 12px;
+    text-align: center;
+    border-bottom: 2px solid var(--border-color);
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.perm-table th:first-child {
+    text-align: right;
+    width: 40%;
+}
+
+.perm-table td {
+    padding: 9px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--table-border);
+}
+
+.perm-table td:first-child {
+    text-align: right;
+}
+
+.perm-page-name {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.perm-table tbody tr:hover {
+    background: rgba(37, 99, 235, 0.04);
+}
+
+.perm-cb {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent-color);
+}
+
+.perm-cb:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-permissions {
+    background: rgba(37, 99, 235, 0.08) !important;
+    color: var(--accent-color) !important;
+    border: 1px solid rgba(37, 99, 235, 0.2) !important;
+}
+
+.btn-permissions:hover {
+    background: rgba(37, 99, 235, 0.15) !important;
+}
+
+[data-theme="dark"] .perm-admin-note {
+    background: rgba(112, 181, 255, 0.08);
+    border-color: rgba(112, 181, 255, 0.2);
+    color: #70b5ff;
+}
+
+[data-theme="dark"] .perm-table tbody tr:hover {
+    background: rgba(112, 181, 255, 0.06);
+}
+
+[data-theme="dark"] .btn-permissions {
+    background: rgba(112, 181, 255, 0.1) !important;
+    color: #70b5ff !important;
+    border-color: rgba(112, 181, 255, 0.25) !important;
+}
+
+[data-theme="dark"] .btn-permissions:hover {
+    background: rgba(112, 181, 255, 0.18) !important;
+}

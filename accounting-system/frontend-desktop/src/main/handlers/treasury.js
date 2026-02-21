@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
+const { requirePermission } = require('./auth');
 
 function register() {
     // --- Treasury Handlers ---
@@ -16,10 +17,17 @@ function register() {
     });
 
     ipcMain.handle('get-treasury-transactions', () => {
-        return db.prepare('SELECT * FROM treasury_transactions ORDER BY transaction_date DESC, id DESC').all();
+        try {
+            return db.prepare('SELECT * FROM treasury_transactions ORDER BY transaction_date DESC, id DESC').all();
+        } catch (error) {
+            console.error('[get-treasury-transactions] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('add-treasury-transaction', (event, transaction) => {
+        const denied = requirePermission('treasury', 'add');
+        if (denied) return denied;
         try {
             const { type, amount, date, description, customer_id, voucher_number } = transaction;
             
@@ -50,6 +58,8 @@ function register() {
     });
 
     ipcMain.handle('update-treasury-transaction', (event, transaction) => {
+        const denied = requirePermission('treasury', 'edit');
+        if (denied) return denied;
         try {
             const stmt = db.prepare(`
                 UPDATE treasury_transactions 
@@ -64,6 +74,8 @@ function register() {
     });
 
     ipcMain.handle('delete-treasury-transaction', (event, id) => {
+        const denied = requirePermission('treasury', 'delete');
+        if (denied) return denied;
         const getTrans = db.prepare('SELECT * FROM treasury_transactions WHERE id = ?');
         const deleteTrans = db.prepare('DELETE FROM treasury_transactions WHERE id = ?');
         

@@ -4,8 +4,13 @@ const { db } = require('../db');
 function register() {
     // Get all units
     ipcMain.handle('get-units', () => {
-        const stmt = db.prepare('SELECT * FROM units ORDER BY id DESC');
-        return stmt.all();
+        try {
+            const stmt = db.prepare('SELECT * FROM units ORDER BY id DESC');
+            return stmt.all();
+        } catch (error) {
+            console.error('[get-units] Error:', error);
+            return [];
+        }
     });
 
     // Add a new unit

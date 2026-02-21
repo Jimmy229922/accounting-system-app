@@ -1,3 +1,4 @@
+        * { box-sizing: border-box; }
         body {
             background: #f3f4f6;
             display: flex;
@@ -5,55 +6,57 @@
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            font-family: 'Cairo', sans-serif;
+            padding: 12px;
+            font-family: 'Cairo', 'Segoe UI', sans-serif;
         }
         .invite-card {
             background: #fff;
-            padding: 28px;
+            padding: clamp(18px, 4vw, 32px);
             border-radius: 10px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-            width: 360px;
-            max-width: 92vw;
+            width: 100%;
+            max-width: 400px;
         }
         .invite-card h1 {
-            margin: 0 0 12px;
+            margin: 0 0 8px;
             color: #111827;
-            font-size: 1.4rem;
+            font-size: clamp(1.1rem, 2.5vw, 1.4rem);
         }
         .invite-card p {
-            margin: 0 0 16px;
+            margin: 0 0 14px;
             color: #4b5563;
             line-height: 1.5;
-            font-size: 0.98rem;
+            font-size: clamp(0.82rem, 2vw, 0.95rem);
         }
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }
-        label { display: block; margin-bottom: 8px; color: #1f2937; font-weight: 600; }
+        label { display: block; margin-bottom: 6px; color: #1f2937; font-weight: 600; font-size: 0.92rem; }
         input[type="password"], input[type="text"] {
             width: 100%;
-            padding: 12px;
+            padding: clamp(8px, 2vw, 12px);
             border: 1px solid #e5e7eb;
             border-radius: 8px;
-            font-size: 1rem;
-            box-sizing: border-box;
+            font-size: clamp(0.88rem, 2vw, 1rem);
         }
+        input:focus { border-color: #2563eb; outline: none; }
         .btn-primary {
             width: 100%;
-            padding: 12px;
+            padding: clamp(9px, 2vw, 12px);
             border: none;
             border-radius: 8px;
             background: #2563eb;
             color: #fff;
-            font-size: 1rem;
+            font-size: clamp(0.88rem, 2vw, 1rem);
             cursor: pointer;
             transition: background 0.15s ease, transform 0.05s ease;
         }
         .btn-primary:hover { background: #1d4ed8; }
         .btn-primary:active { transform: translateY(1px); }
+        .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
         .status {
             margin-top: 10px;
-            font-size: 0.95rem;
+            font-size: clamp(0.82rem, 2vw, 0.95rem);
             color: #374151;
             min-height: 20px;
         }

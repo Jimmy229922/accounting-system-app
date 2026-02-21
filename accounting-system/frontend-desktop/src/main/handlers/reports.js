@@ -10,6 +10,7 @@ function register() {
     // --- Reports Handlers ---
 
     ipcMain.handle('get-all-reports', (event, filters) => {
+        try {
         const { startDate, endDate, customerId, type } = filters;
         
         // Helper to build query parts
@@ -95,9 +96,14 @@ function register() {
         const finalQuery = queries.join(' UNION ALL ') + ' ORDER BY invoice_date DESC';
         
         return db.prepare(finalQuery).all({ startDate, endDate, customerId });
+        } catch (error) {
+            console.error('[get-all-reports] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('get-customer-full-report', (event, customerId) => {
+        try {
         const salesQuery = `
             SELECT 
                 'sales' as type,
@@ -142,6 +148,10 @@ function register() {
         
         // Combine and sort
         return [...sales, ...purchases, ...payments].sort((a, b) => new Date(b.invoice_date) - new Date(a.invoice_date));
+        } catch (error) {
+            console.error('[get-customer-full-report] Error:', error);
+            return [];
+        }
     });
 
     // كشف حساب تفصيلي للعميل (محدث - يشمل المردودات)

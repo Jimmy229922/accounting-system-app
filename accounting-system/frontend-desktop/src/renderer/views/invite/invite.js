@@ -38,10 +38,10 @@ inviteForm.addEventListener('submit', async (e) => {
     try {
         const result = await window.electronAPI.submitInviteCode(code);
         if (result.success) {
-            setStatus('تم قبول الكود وسيتم فتح النظام الآن.', 'success');
+            setStatus('تم التفعيل بنجاح! جاري فتح النظام...', 'success');
             window.electronAPI.notifyInviteUnlocked();
         } else {
-            setStatus(result.error || 'تعذر التحقق من الكود.', 'error');
+            setStatus(result.error || 'كود الدعوة غير صحيح.', 'error');
         }
     } catch (err) {
         setStatus('تعذر الاتصال. حاول مرة أخرى.', 'error');

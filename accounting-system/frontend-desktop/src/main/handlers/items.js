@@ -1,39 +1,52 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
 const { DEFAULT_WAREHOUSE_NAME } = require('./utils');
+const { requirePermission } = require('./auth');
 
 function register() {
     // Get all items
     ipcMain.handle('get-items', () => {
-        const stmt = db.prepare(`
-            SELECT items.*, units.name as unit_name
-            FROM items
-            LEFT JOIN units ON items.unit_id = units.id
-            WHERE items.is_deleted = 0
-            ORDER BY items.id DESC
-        `);
-        return stmt.all();
+        try {
+            const stmt = db.prepare(`
+                SELECT items.*, units.name as unit_name
+                FROM items
+                LEFT JOIN units ON items.unit_id = units.id
+                WHERE items.is_deleted = 0
+                ORDER BY items.id DESC
+            `);
+            return stmt.all();
+        } catch (error) {
+            console.error('[get-items] Error:', error);
+            return [];
+        }
     });
 
     // Get item stock details (warehouse breakdown)
     ipcMain.handle('get-item-stock-details', (event, itemId) => {
-        const stmt = db.prepare(`
-            SELECT 
-                ob.id,
-                ob.warehouse_id,
-                w.name as warehouse_name,
-                ob.quantity,
-                ob.cost_price
-            FROM opening_balances ob
-            JOIN warehouses w ON ob.warehouse_id = w.id
-            WHERE ob.item_id = ?
-            ORDER BY w.name
-        `);
-        return stmt.all(itemId);
+        try {
+            const stmt = db.prepare(`
+                SELECT 
+                    ob.id,
+                    ob.warehouse_id,
+                    w.name as warehouse_name,
+                    ob.quantity,
+                    ob.cost_price
+                FROM opening_balances ob
+                JOIN warehouses w ON ob.warehouse_id = w.id
+                WHERE ob.item_id = ?
+                ORDER BY w.name
+            `);
+            return stmt.all(itemId);
+        } catch (error) {
+            console.error('[get-item-stock-details] Error:', error);
+            return [];
+        }
     });
 
     // Add a new item
     ipcMain.handle('add-item', (event, item) => {
+        const denied = requirePermission('items', 'add');
+        if (denied) return denied;
         const insertItem = db.prepare(`
             INSERT INTO items (name, barcode, unit_id, cost_price, sale_price, stock_quantity, reorder_level)
             VALUES (@name, @barcode, @unit_id, @cost_price, @sale_price, @stock_quantity, @reorder_level)
@@ -71,6 +84,8 @@ function register() {
 
     // Update an item
     ipcMain.handle('update-item', (event, item) => {
+        const denied = requirePermission('items', 'edit');
+        if (denied) return denied;
         try {
             // Removed stock_quantity from update to prevent manual override
             const stmt = db.prepare(`
@@ -92,6 +107,8 @@ function register() {
 
     // Delete an item (soft delete)
     ipcMain.handle('delete-item', (event, id) => {
+        const denied = requirePermission('items', 'delete');
+        if (denied) return denied;
         try {
             // Check for any references in sales_invoice_details or purchase_invoice_details
             const salesRef = db.prepare('SELECT COUNT(*) as count FROM sales_invoice_details WHERE item_id = ?').get(id);
@@ -253,6 +270,7 @@ function register() {
 
     // Get item transactions with running balance
     ipcMain.handle('get-item-transactions', (event, payload) => {
+        try {
         const { itemId, warehouseId, startDate, endDate } = payload;
         
         // Get opening balance for this item/warehouse
@@ -360,6 +378,10 @@ function register() {
         }
 
         return { openingQty, transactions: allTx };
+        } catch (error) {
+            console.error('[get-item-transactions] Error:', error);
+            return { openingQty: 0, transactions: [] };
+        }
     });
 }
 

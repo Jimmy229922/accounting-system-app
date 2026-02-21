@@ -3,6 +3,22 @@ const fs = require('fs');
 const path = require('path');
 const { db } = require('../db');
 
+const BACKUP_FOLDER_NAME = 'PIC';
+const MANUAL_BACKUP_FILE_NAME = 'accounting-manual-backup.db';
+
+function getProgramRootPath() {
+    if (app.isPackaged) {
+        return path.dirname(process.execPath);
+    }
+    return path.resolve(__dirname, '../../../..');
+}
+
+function getSharedBackupRootPath() {
+    const backupRootPath = path.join(getProgramRootPath(), BACKUP_FOLDER_NAME);
+    fs.mkdirSync(backupRootPath, { recursive: true });
+    return backupRootPath;
+}
+
 function register() {
     const dbFilePath = db.name || path.join(app.getPath('userData'), 'accounting.db');
 
@@ -10,20 +26,24 @@ function register() {
 
     ipcMain.handle('backup-database', async () => {
         try {
-            const defaultName = `accounting-backup-${new Date().toISOString().slice(0, 10)}.db`;
-            const { canceled, filePath } = await dialog.showSaveDialog({
+            const defaultDir = getSharedBackupRootPath();
+            const defaultPath = path.join(defaultDir, MANUAL_BACKUP_FILE_NAME);
+
+            const { canceled, filePath: chosenPath } = await dialog.showSaveDialog({
                 title: 'حفظ نسخة احتياطية',
-                defaultPath: path.join(app.getPath('documents'), defaultName),
-                filters: [{ name: 'SQLite Database', extensions: ['db'] }],
-                properties: ['createDirectory', 'showOverwriteConfirmation']
+                defaultPath: defaultPath,
+                filters: [{ name: 'SQLite Database', extensions: ['db'] }]
             });
 
-            if (canceled || !filePath) {
+            if (canceled || !chosenPath) {
                 return { success: false, canceled: true };
             }
 
-            await db.backup(filePath);
-            return { success: true, path: filePath };
+            const targetDir = path.dirname(chosenPath);
+            fs.mkdirSync(targetDir, { recursive: true });
+
+            await db.backup(chosenPath);
+            return { success: true, path: chosenPath };
         } catch (error) {
             console.error('[backup-database] error:', error);
             return { success: false, error: error.message };
@@ -36,7 +56,7 @@ function register() {
 
         try {
             const { canceled, filePaths } = await dialog.showOpenDialog({
-                title: 'استعادة نسخة احتياطية',
+                title: 'Restore backup',
                 filters: [{ name: 'SQLite Database', extensions: ['db'] }],
                 properties: ['openFile']
             });
@@ -71,9 +91,14 @@ function register() {
     });
 
     ipcMain.handle('restart-app', () => {
-        app.relaunch();
-        app.quit();
-        return { success: true };
+        try {
+            app.relaunch();
+            app.quit();
+            return { success: true };
+        } catch (error) {
+            console.error('[restart-app] Error:', error);
+            return { success: false, error: error.message };
+        }
     });
 }
 

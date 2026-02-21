@@ -1,19 +1,27 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
+const { requirePermission } = require('./auth');
 
 function register() {
     // --- Purchase Invoices Handlers ---
 
     ipcMain.handle('get-purchase-invoices', () => {
-        return db.prepare(`
-            SELECT pi.*, c.name as supplier_name 
-            FROM purchase_invoices pi
-            LEFT JOIN customers c ON pi.supplier_id = c.id
-            ORDER BY pi.id DESC
-        `).all();
+        try {
+            return db.prepare(`
+                SELECT pi.*, c.name as supplier_name 
+                FROM purchase_invoices pi
+                LEFT JOIN customers c ON pi.supplier_id = c.id
+                ORDER BY pi.id DESC
+            `).all();
+        } catch (error) {
+            console.error('[get-purchase-invoices] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('save-purchase-invoice', (event, invoiceData) => {
+        const denied = requirePermission('purchases', 'add');
+        if (denied) return denied;
         const { supplier_id, invoice_number, invoice_date, notes, items, payment_type } = invoiceData;
         
         let paid_amount = 0;
@@ -120,6 +128,8 @@ function register() {
     });
 
     ipcMain.handle('update-purchase-invoice', (event, invoiceData) => {
+        const denied = requirePermission('purchases', 'edit');
+        if (denied) return denied;
         const { id, supplier_id, invoice_number, invoice_date, notes, items, payment_type } = invoiceData;
         
         const oldInvoice = db.prepare('SELECT * FROM purchase_invoices WHERE id = ?').get(id);

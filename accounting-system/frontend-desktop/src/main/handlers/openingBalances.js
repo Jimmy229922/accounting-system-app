@@ -1,20 +1,28 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
+const { requirePermission } = require('./auth');
 
 function register() {
     // --- Opening Balances Handlers ---
     ipcMain.handle('get-opening-balances', () => {
-        const stmt = db.prepare(`
-            SELECT ob.*, items.name AS item_name, warehouses.name AS warehouse_name
-            FROM opening_balances ob
-            LEFT JOIN items ON ob.item_id = items.id
-            LEFT JOIN warehouses ON ob.warehouse_id = warehouses.id
-            ORDER BY ob.created_at DESC
-        `);
-        return stmt.all();
+        try {
+            const stmt = db.prepare(`
+                SELECT ob.*, items.name AS item_name, warehouses.name AS warehouse_name
+                FROM opening_balances ob
+                LEFT JOIN items ON ob.item_id = items.id
+                LEFT JOIN warehouses ON ob.warehouse_id = warehouses.id
+                ORDER BY ob.created_at DESC
+            `);
+            return stmt.all();
+        } catch (error) {
+            console.error('[get-opening-balances] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('save-opening-balances', (event, payload) => {
+        const denied = requirePermission('opening-balance', 'add');
+        if (denied) return denied;
         const entries = Array.isArray(payload?.entries) ? payload.entries : [];
 
         const insertBalance = db.prepare(`
@@ -132,6 +140,8 @@ function register() {
     }
 
     ipcMain.handle('add-opening-balance-group', (event, payload) => {
+        const denied = requirePermission('opening-balance', 'add');
+        if (denied) return denied;
         const notes = String(payload?.notes || '').trim();
         const entries = normalizeOpeningBalanceEntries(payload?.entries);
 
@@ -182,6 +192,8 @@ function register() {
     });
 
     ipcMain.handle('update-opening-balance-group', (event, payload) => {
+        const denied = requirePermission('opening-balance', 'edit');
+        if (denied) return denied;
         const groupId = Number(payload?.groupId || payload?.id);
         const notes = String(payload?.notes || '').trim();
         const entries = normalizeOpeningBalanceEntries(payload?.entries);
@@ -214,6 +226,8 @@ function register() {
     });
 
     ipcMain.handle('delete-opening-balance-group', (event, groupId) => {
+        const denied = requirePermission('opening-balance', 'delete');
+        if (denied) return denied;
         const normalizedGroupId = Number(groupId);
         if (!normalizedGroupId) {
             return { success: false, error: 'Invalid group id' };
@@ -239,6 +253,8 @@ function register() {
 
     // Add single opening balance entry (Append mode)
     ipcMain.handle('add-opening-balance', (event, entry) => {
+        const denied = requirePermission('opening-balance', 'add');
+        if (denied) return denied;
         const { item_id, warehouse_id, quantity, cost_price } = entry;
         
         if (!item_id || !warehouse_id || !quantity) {
@@ -269,6 +285,8 @@ function register() {
 
     // Update opening balance entry
     ipcMain.handle('update-opening-balance', (event, entry) => {
+        const denied = requirePermission('opening-balance', 'edit');
+        if (denied) return denied;
         const { id, item_id, warehouse_id, quantity, cost_price } = entry;
         
         const getOldStmt = db.prepare('SELECT item_id, quantity FROM opening_balances WHERE id = ?');
@@ -305,6 +323,8 @@ function register() {
 
     // Delete opening balance entry
     ipcMain.handle('delete-opening-balance', (event, id) => {
+        const denied = requirePermission('opening-balance', 'delete');
+        if (denied) return denied;
         const getStmt = db.prepare('SELECT item_id, quantity FROM opening_balances WHERE id = ?');
         const row = getStmt.get(id);
         if (!row) return { success: false, error: 'Entry not found' };

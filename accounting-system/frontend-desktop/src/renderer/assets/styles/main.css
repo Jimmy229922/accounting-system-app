@@ -297,3 +297,36 @@ header {
 
 .pill-green { color: #16a34a; background: rgba(22,163,74,0.1); border-color: rgba(22,163,74,0.2); }
 .pill-amber { color: #d97706; background: rgba(217,119,6,0.1); border-color: rgba(217,119,6,0.2); }
+
+/* ── Permission No-Access Message ── */
+.perm-no-access {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 50vh;
+    padding: 40px 20px;
+}
+
+.perm-no-access-card {
+    text-align: center;
+    padding: 50px 40px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    box-shadow: 0 12px 35px var(--shadow-color);
+    max-width: 420px;
+}
+
+.perm-no-access-card i {
+    font-size: 3rem;
+    color: var(--danger-color);
+    margin-bottom: 16px;
+    display: block;
+}
+
+.perm-no-access-card h2 {
+    color: var(--text-color);
+    font-size: 1.2rem;
+    margin: 0 0 20px;
+    line-height: 1.5;
+}

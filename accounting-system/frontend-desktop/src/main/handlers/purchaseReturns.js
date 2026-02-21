@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
+const { requirePermission } = require('./auth');
 
 function register() {
     // =============================================
@@ -8,28 +9,40 @@ function register() {
 
     // Get all purchase returns
     ipcMain.handle('get-purchase-returns', () => {
-        return db.prepare(`
-            SELECT pr.*, c.name as supplier_name, pi.invoice_number as original_invoice_number
-            FROM purchase_returns pr
-            LEFT JOIN customers c ON pr.supplier_id = c.id
-            LEFT JOIN purchase_invoices pi ON pr.original_invoice_id = pi.id
-            ORDER BY pr.id DESC
-        `).all();
+        try {
+            return db.prepare(`
+                SELECT pr.*, c.name as supplier_name, pi.invoice_number as original_invoice_number
+                FROM purchase_returns pr
+                LEFT JOIN customers c ON pr.supplier_id = c.id
+                LEFT JOIN purchase_invoices pi ON pr.original_invoice_id = pi.id
+                ORDER BY pr.id DESC
+            `).all();
+        } catch (error) {
+            console.error('[get-purchase-returns] Error:', error);
+            return [];
+        }
     });
 
     // Get purchase invoices for a specific supplier (for returns)
     ipcMain.handle('get-supplier-purchase-invoices', (event, supplierId) => {
-        return db.prepare(`
-            SELECT pi.*, c.name as supplier_name
-            FROM purchase_invoices pi
-            LEFT JOIN customers c ON pi.supplier_id = c.id
-            WHERE pi.supplier_id = ?
-            ORDER BY pi.invoice_date DESC
-        `).all(supplierId);
+        try {
+            return db.prepare(`
+                SELECT pi.*, c.name as supplier_name
+                FROM purchase_invoices pi
+                LEFT JOIN customers c ON pi.supplier_id = c.id
+                WHERE pi.supplier_id = ?
+                ORDER BY pi.invoice_date DESC
+            `).all(supplierId);
+        } catch (error) {
+            console.error('[get-supplier-purchase-invoices] Error:', error);
+            return [];
+        }
     });
 
     // Save purchase return
     ipcMain.handle('save-purchase-return', (event, returnData) => {
+        const denied = requirePermission('purchase-returns', 'add');
+        if (denied) return denied;
         const { original_invoice_id, supplier_id, return_number, return_date, notes, items } = returnData;
 
         let totalAmount = 0;
@@ -135,6 +148,8 @@ function register() {
 
     // Update purchase return
     ipcMain.handle('update-purchase-return', (event, returnData) => {
+        const denied = requirePermission('purchase-returns', 'edit');
+        if (denied) return denied;
         const { id, original_invoice_id, supplier_id, return_number, return_date, notes, items } = returnData || {};
         const returnId = Number(id);
         if (!Number.isFinite(returnId) || returnId <= 0) {
@@ -282,6 +297,8 @@ function register() {
 
     // Delete purchase return
     ipcMain.handle('delete-purchase-return', (event, returnId) => {
+        const denied = requirePermission('purchase-returns', 'delete');
+        if (denied) return denied;
         try {
             const returnRecord = db.prepare('SELECT * FROM purchase_returns WHERE id = ?').get(returnId);
             if (!returnRecord) return { success: false, error: 'المرتجع غير موجود' };

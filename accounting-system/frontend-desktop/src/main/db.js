@@ -5,9 +5,34 @@ const { app } = require('electron');
 const dbPath = path.join(app.getPath('userData'), 'accounting.db');
 const db = new Database(dbPath);
 
+function isExpectedAddColumnError(error) {
+    return /duplicate column name/i.test(String(error?.message || ''));
+}
+
+function runAddColumnMigration(sql, table, column) {
+    try {
+        db.exec(sql);
+    } catch (error) {
+        if (isExpectedAddColumnError(error)) {
+            return false;
+        }
+
+        console.error(`[db-migration] Unexpected error while adding "${column}" to "${table}": ${error.message}`);
+        throw error;
+    }
+
+    return true;
+}
+
 function initDB() {
     // Enable foreign keys
     db.pragma('foreign_keys = ON');
+
+    // Performance optimizations
+    db.pragma('journal_mode = WAL');
+    db.pragma('busy_timeout = 5000');
+    db.pragma('cache_size = -16000');
+    db.pragma('synchronous = NORMAL');
 
     // 1. Units Table (جدول الوحدات)
     db.exec(`
@@ -115,11 +140,9 @@ function initDB() {
     `);
 
     // Add columns if they don't exist
-    try {
-        db.exec("ALTER TABLE purchase_invoices ADD COLUMN payment_type TEXT DEFAULT 'cash'");
-        db.exec("ALTER TABLE purchase_invoices ADD COLUMN paid_amount REAL DEFAULT 0");
-        db.exec("ALTER TABLE purchase_invoices ADD COLUMN remaining_amount REAL DEFAULT 0");
-    } catch (err) {}
+    runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN payment_type TEXT DEFAULT 'cash'", 'purchase_invoices', 'payment_type');
+    runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN paid_amount REAL DEFAULT 0", 'purchase_invoices', 'paid_amount');
+    runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN remaining_amount REAL DEFAULT 0", 'purchase_invoices', 'remaining_amount');
 
     // 6. Purchase Invoice Details Table (جدول تفاصيل فاتورة المشتريات)
     db.exec(`
@@ -153,11 +176,9 @@ function initDB() {
     `);
 
     // Add columns if they don't exist
-    try {
-        db.exec("ALTER TABLE sales_invoices ADD COLUMN payment_type TEXT DEFAULT 'cash'");
-        db.exec("ALTER TABLE sales_invoices ADD COLUMN paid_amount REAL DEFAULT 0");
-        db.exec("ALTER TABLE sales_invoices ADD COLUMN remaining_amount REAL DEFAULT 0");
-    } catch (err) {}
+    runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN payment_type TEXT DEFAULT 'cash'", 'sales_invoices', 'payment_type');
+    runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN paid_amount REAL DEFAULT 0", 'sales_invoices', 'paid_amount');
+    runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN remaining_amount REAL DEFAULT 0", 'sales_invoices', 'remaining_amount');
 
     // 8. Sales Invoice Details Table (جدول تفاصيل فاتورة المبيعات)
     db.exec(`
@@ -192,14 +213,9 @@ function initDB() {
     `);
 
     // Add columns if they don't exist
-    try {
-        db.exec("ALTER TABLE treasury_transactions ADD COLUMN customer_id INTEGER REFERENCES customers(id)");
-        db.exec("ALTER TABLE treasury_transactions ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)");
-    } catch (err) {}
-
-    try {
-        db.exec("ALTER TABLE treasury_transactions ADD COLUMN voucher_number TEXT");
-    } catch (err) {}
+    runAddColumnMigration("ALTER TABLE treasury_transactions ADD COLUMN customer_id INTEGER REFERENCES customers(id)", 'treasury_transactions', 'customer_id');
+    runAddColumnMigration("ALTER TABLE treasury_transactions ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)", 'treasury_transactions', 'supplier_id');
+    runAddColumnMigration("ALTER TABLE treasury_transactions ADD COLUMN voucher_number TEXT", 'treasury_transactions', 'voucher_number');
 
     // 10. Settings Table (جدول الإعدادات)
     db.exec(`
@@ -305,6 +321,51 @@ function initDB() {
             FOREIGN KEY (item_id) REFERENCES items(id)
         )
     `);
+
+    // 18. User Permissions Table (جدول صلاحيات المستخدمين)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS user_permissions (
+            user_id INTEGER NOT NULL,
+            page TEXT NOT NULL,
+            can_view INTEGER DEFAULT 0,
+            can_add INTEGER DEFAULT 0,
+            can_edit INTEGER DEFAULT 0,
+            can_delete INTEGER DEFAULT 0,
+            PRIMARY KEY (user_id, page),
+            FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE
+        )
+    `);
+
+    // ── Performance Indexes ──
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_items_unit_id ON items(unit_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_items_is_deleted ON items(is_deleted)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_items_barcode ON items(barcode)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_customers_type ON customers(type)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_invoices_customer_id ON sales_invoices(customer_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_invoices_invoice_date ON sales_invoices(invoice_date)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_invoices_invoice_number ON sales_invoices(invoice_number)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_invoice_details_invoice_id ON sales_invoice_details(invoice_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_invoice_details_item_id ON sales_invoice_details(item_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_purchase_invoices_supplier_id ON purchase_invoices(supplier_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_purchase_invoices_invoice_date ON purchase_invoices(invoice_date)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_purchase_invoices_invoice_number ON purchase_invoices(invoice_number)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_purchase_invoice_details_invoice_id ON purchase_invoice_details(invoice_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_purchase_invoice_details_item_id ON purchase_invoice_details(item_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_treasury_transactions_date ON treasury_transactions(transaction_date)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_treasury_transactions_type ON treasury_transactions(type)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_treasury_transactions_customer_id ON treasury_transactions(customer_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_returns_customer_id ON sales_returns(customer_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_returns_original_invoice_id ON sales_returns(original_invoice_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_return_details_return_id ON sales_return_details(return_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_return_details_item_id ON sales_return_details(item_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_purchase_returns_supplier_id ON purchase_returns(supplier_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_purchase_returns_original_invoice_id ON purchase_returns(original_invoice_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_purchase_return_details_return_id ON purchase_return_details(return_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_purchase_return_details_item_id ON purchase_return_details(item_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_opening_balances_item_id ON opening_balances(item_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_opening_balances_warehouse_id ON opening_balances(warehouse_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_user_permissions_user_id ON user_permissions(user_id)`);
 
     console.log('Database initialized at:', dbPath);
 }

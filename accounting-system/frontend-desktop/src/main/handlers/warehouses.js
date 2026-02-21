@@ -4,7 +4,12 @@ const { db } = require('../db');
 function register() {
     // --- Warehouses Handlers ---
     ipcMain.handle('get-warehouses', () => {
-        return db.prepare('SELECT * FROM warehouses ORDER BY name ASC').all();
+        try {
+            return db.prepare('SELECT * FROM warehouses ORDER BY name ASC').all();
+        } catch (error) {
+            console.error('[get-warehouses] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('add-warehouse', (event, name) => {

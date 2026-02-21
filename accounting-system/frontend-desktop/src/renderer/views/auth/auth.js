@@ -129,6 +129,7 @@
                 }
 
                 storeSessionToken(setupResult.sessionToken);
+                try { sessionStorage.removeItem('user_permissions_cache'); } catch (e) { /* ignore */ }
                 setStatus(t('auth.success.setupDone', 'تم تفعيل الحساب بنجاح. جاري الدخول...'), 'success');
                 showLoadingOverlay();
                 setTimeout(() => window.electronAPI.notifyAuthUnlocked(), 600);
@@ -146,6 +147,7 @@
             }
 
             storeSessionToken(loginResult.sessionToken);
+            try { sessionStorage.removeItem('user_permissions_cache'); } catch (e) { /* ignore */ }
             setStatus(t('auth.success.loginDone', 'تم تسجيل الدخول بنجاح.'), 'success');
             showLoadingOverlay();
             setTimeout(() => window.electronAPI.notifyAuthUnlocked(), 600);

@@ -5,7 +5,6 @@ const targetSeedDir = path.resolve(process.cwd(), 'APP_JS', 'seed');
 process.env.BACKEND_DATA_DIR = targetSeedDir;
 
 const { db, initDB } = require(path.resolve(process.cwd(), 'backend', 'src', 'desktop-compat', 'db.js'));
-const { INVITE_CODE } = require(path.resolve(process.cwd(), 'frontend-desktop', 'src', 'main', 'inviteConfig.js'));
 
 initDB();
 
@@ -35,10 +34,6 @@ const hash = crypto.scryptSync(password, Buffer.from(salt, 'hex'), 64).toString(
 const now = new Date();
 const nowIso = now.toISOString();
 
-// keep invite valid for 10 years to avoid invite prompt
-const inviteExpiry = new Date(now.getTime());
-inviteExpiry.setFullYear(inviteExpiry.getFullYear() + 10);
-
 const insertUser = db.prepare(`
   INSERT INTO auth_users (username, password_salt, password_hash, is_admin, is_active, created_at, last_login_at)
   VALUES (?, ?, ?, 1, 1, ?, ?)
@@ -51,8 +46,6 @@ upsertSetting.run('auth_password_salt', salt);
 upsertSetting.run('auth_password_hash', hash);
 upsertSetting.run('auth_created_at', nowIso);
 upsertSetting.run('auth_last_login_at', nowIso);
-upsertSetting.run('invite_code', INVITE_CODE);
-upsertSetting.run('invite_expiry', inviteExpiry.toISOString());
 
 // Keep app data empty except one default warehouse label
 const defaultWarehouseName = 'المخزن الافتراضي';

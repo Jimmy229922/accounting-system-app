@@ -1,4 +1,6 @@
 const { ipcMain } = require('electron');
+// Handlers are loaded from frontend-desktop/src/main/handlers via local wrappers.
+// We keep this index local only to customize backend-health-check for backend RPC mode.
 const { repairWarehouseNamesEncoding } = require('./utils');
 const auth = require('./auth');
 const units = require('./units');

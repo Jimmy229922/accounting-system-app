@@ -66,7 +66,7 @@ foreach ($dir in $userDataDirs) {
     Copy-Item -Path $seedDbPath -Destination $destDb -Force
 }
 
-Write-Host '[4/4] Creating desktop shortcut...'
+Write-Host '[4/5] Creating desktop shortcut...'
 $desktopPath = [Environment]::GetFolderPath('Desktop')
 $shortcutPath = Join-Path $desktopPath 'Accounting System.lnk'
 
@@ -78,8 +78,19 @@ $shortcut.Description = 'Accounting System'
 $shortcut.IconLocation = "$exePath,0"
 $shortcut.Save()
 
+Write-Host '[5/5] Cleaning up installer...'
+$installerDir = Join-Path $baseDir 'installer'
+Remove-Item -Path $installerPath -Force -ErrorAction SilentlyContinue
+Remove-Item -Path $installerDir -Force -Recurse -ErrorAction SilentlyContinue
+Write-Host 'Installer removed to save space.' -ForegroundColor DarkGray
+
 Write-Host ''
-Write-Host 'Setup completed.'
+Write-Host 'Setup completed.' -ForegroundColor Green
+Write-Host ''
+Write-Host 'عند فتح البرنامج لأول مرة:'
+Write-Host '  1) ستظهر شاشة تفعيل — ادخل كود الدعوة واضغط تفعيل.' -ForegroundColor Cyan
+Write-Host '  2) بعد التفعيل → سجل دخول بالبيانات التالية:' -ForegroundColor Cyan
+Write-Host ''
 Write-Host 'Login username: Jimmy'
 Write-Host 'Login password: A7med1221'
 Write-Host "Desktop shortcut: $shortcutPath"

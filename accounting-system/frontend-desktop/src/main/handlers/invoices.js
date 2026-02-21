@@ -1,27 +1,33 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
+const { requirePermission } = require('./auth');
 
 function register() {
     ipcMain.handle('get-invoice-with-details', (event, { id, type }) => {
-        const isSales = type === 'sales';
-        const invoiceTable = isSales ? 'sales_invoices' : 'purchase_invoices';
-        const detailsTable = isSales ? 'sales_invoice_details' : 'purchase_invoice_details';
+        try {
+            const isSales = type === 'sales';
+            const invoiceTable = isSales ? 'sales_invoices' : 'purchase_invoices';
+            const detailsTable = isSales ? 'sales_invoice_details' : 'purchase_invoice_details';
 
-        if (isSales) {
-            console.log(`[sales] get-invoice-with-details id=${id}`);
+            if (isSales) {
+                console.log(`[sales] get-invoice-with-details id=${id}`);
+            }
+            
+            const invoice = db.prepare(`SELECT * FROM ${invoiceTable} WHERE id = ?`).get(id);
+            if (!invoice) return null;
+
+            const details = db.prepare(`
+                SELECT d.*, i.name as item_name, i.stock_quantity as current_stock 
+                FROM ${detailsTable} d
+                LEFT JOIN items i ON d.item_id = i.id
+                WHERE d.invoice_id = ?
+            `).all(id);
+
+            return { ...invoice, items: details };
+        } catch (error) {
+            console.error('[get-invoice-with-details] Error:', error);
+            return null;
         }
-        
-        const invoice = db.prepare(`SELECT * FROM ${invoiceTable} WHERE id = ?`).get(id);
-        if (!invoice) return null;
-
-        const details = db.prepare(`
-            SELECT d.*, i.name as item_name, i.stock_quantity as current_stock 
-            FROM ${detailsTable} d
-            LEFT JOIN items i ON d.item_id = i.id
-            WHERE d.invoice_id = ?
-        `).all(id);
-
-        return { ...invoice, items: details };
     });
 
     // --- Helper: Get Next Invoice Number ---
@@ -105,42 +111,65 @@ function register() {
 
     // Get specific invoice details
     ipcMain.handle('get-sales-invoice-details', (event, invoiceId) => {
-        return db.prepare(`
-            SELECT d.*, i.name as item_name
-            FROM sales_invoice_details d
-            LEFT JOIN items i ON d.item_id = i.id
-            WHERE d.invoice_id = ?
-        `).all(invoiceId);
+        try {
+            return db.prepare(`
+                SELECT d.*, i.name as item_name
+                FROM sales_invoice_details d
+                LEFT JOIN items i ON d.item_id = i.id
+                WHERE d.invoice_id = ?
+            `).all(invoiceId);
+        } catch (error) {
+            console.error('[get-sales-invoice-details] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('get-purchase-invoice-details', (event, invoiceId) => {
-        return db.prepare(`
-            SELECT d.*, i.name as item_name
-            FROM purchase_invoice_details d
-            LEFT JOIN items i ON d.item_id = i.id
-            WHERE d.invoice_id = ?
-        `).all(invoiceId);
+        try {
+            return db.prepare(`
+                SELECT d.*, i.name as item_name
+                FROM purchase_invoice_details d
+                LEFT JOIN items i ON d.item_id = i.id
+                WHERE d.invoice_id = ?
+            `).all(invoiceId);
+        } catch (error) {
+            console.error('[get-purchase-invoice-details] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('get-sales-return-details', (event, returnId) => {
-        return db.prepare(`
-            SELECT d.*, i.name as item_name
-            FROM sales_return_details d
-            LEFT JOIN items i ON d.item_id = i.id
-            WHERE d.return_id = ?
-        `).all(returnId);
+        try {
+            return db.prepare(`
+                SELECT d.*, i.name as item_name
+                FROM sales_return_details d
+                LEFT JOIN items i ON d.item_id = i.id
+                WHERE d.return_id = ?
+            `).all(returnId);
+        } catch (error) {
+            console.error('[get-sales-return-details] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('get-purchase-return-details', (event, returnId) => {
-        return db.prepare(`
-            SELECT d.*, i.name as item_name
-            FROM purchase_return_details d
-            LEFT JOIN items i ON d.item_id = i.id
-            WHERE d.return_id = ?
-        `).all(returnId);
+        try {
+            return db.prepare(`
+                SELECT d.*, i.name as item_name
+                FROM purchase_return_details d
+                LEFT JOIN items i ON d.item_id = i.id
+                WHERE d.return_id = ?
+            `).all(returnId);
+        } catch (error) {
+            console.error('[get-purchase-return-details] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('delete-invoice', (event, { id, type }) => {
+        const page = type === 'sales' ? 'sales' : 'purchases';
+        const denied = requirePermission(page, 'delete');
+        if (denied) return denied;
         const isSales = type === 'sales';
         const invoiceTable = isSales ? 'sales_invoices' : 'purchase_invoices';
         const detailsTable = isSales ? 'sales_invoice_details' : 'purchase_invoice_details';

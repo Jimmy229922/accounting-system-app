@@ -1,19 +1,27 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
+const { requirePermission } = require('./auth');
 
 function register() {
     // --- Sales Invoices Handlers ---
 
     ipcMain.handle('get-sales-invoices', () => {
-        return db.prepare(`
-            SELECT si.*, c.name as customer_name 
-            FROM sales_invoices si
-            LEFT JOIN customers c ON si.customer_id = c.id
-            ORDER BY si.id DESC
-        `).all();
+        try {
+            return db.prepare(`
+                SELECT si.*, c.name as customer_name 
+                FROM sales_invoices si
+                LEFT JOIN customers c ON si.customer_id = c.id
+                ORDER BY si.id DESC
+            `).all();
+        } catch (error) {
+            console.error('[get-sales-invoices] Error:', error);
+            return [];
+        }
     });
 
     ipcMain.handle('save-sales-invoice', (event, invoiceData) => {
+        const denied = requirePermission('sales', 'add');
+        if (denied) return denied;
         const { customer_id, invoice_date, notes, items, payment_type } = invoiceData;
         let { invoice_number } = invoiceData;
 
@@ -146,6 +154,8 @@ function register() {
     });
 
     ipcMain.handle('update-sales-invoice', (event, invoiceData) => {
+        const denied = requirePermission('sales', 'edit');
+        if (denied) return denied;
         const { id, customer_id, invoice_number, invoice_date, notes, items, payment_type } = invoiceData;
 
         console.log(`[sales] update-sales-invoice id=${id} invoice_number=${invoice_number} customer_id=${customer_id} items=${items?.length ?? 0}`);

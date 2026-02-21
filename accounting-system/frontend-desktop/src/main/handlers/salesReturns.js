@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
+const { requirePermission } = require('./auth');
 
 function register() {
     // =============================================
@@ -8,28 +9,40 @@ function register() {
 
     // Get all sales returns
     ipcMain.handle('get-sales-returns', () => {
-        return db.prepare(`
-            SELECT sr.*, c.name as customer_name, si.invoice_number as original_invoice_number
-            FROM sales_returns sr
-            LEFT JOIN customers c ON sr.customer_id = c.id
-            LEFT JOIN sales_invoices si ON sr.original_invoice_id = si.id
-            ORDER BY sr.id DESC
-        `).all();
+        try {
+            return db.prepare(`
+                SELECT sr.*, c.name as customer_name, si.invoice_number as original_invoice_number
+                FROM sales_returns sr
+                LEFT JOIN customers c ON sr.customer_id = c.id
+                LEFT JOIN sales_invoices si ON sr.original_invoice_id = si.id
+                ORDER BY sr.id DESC
+            `).all();
+        } catch (error) {
+            console.error('[get-sales-returns] Error:', error);
+            return [];
+        }
     });
 
     // Get sales invoices for a specific customer (for returns)
     ipcMain.handle('get-customer-sales-invoices', (event, customerId) => {
-        return db.prepare(`
-            SELECT si.*, c.name as customer_name
-            FROM sales_invoices si
-            LEFT JOIN customers c ON si.customer_id = c.id
-            WHERE si.customer_id = ?
-            ORDER BY si.invoice_date DESC
-        `).all(customerId);
+        try {
+            return db.prepare(`
+                SELECT si.*, c.name as customer_name
+                FROM sales_invoices si
+                LEFT JOIN customers c ON si.customer_id = c.id
+                WHERE si.customer_id = ?
+                ORDER BY si.invoice_date DESC
+            `).all(customerId);
+        } catch (error) {
+            console.error('[get-customer-sales-invoices] Error:', error);
+            return [];
+        }
     });
 
     // Save sales return
     ipcMain.handle('save-sales-return', (event, returnData) => {
+        const denied = requirePermission('sales-returns', 'add');
+        if (denied) return denied;
         const { original_invoice_id, customer_id, return_number, return_date, notes, items } = returnData;
 
         let totalAmount = 0;
@@ -123,6 +136,8 @@ function register() {
 
     // Update sales return
     ipcMain.handle('update-sales-return', (event, returnData) => {
+        const denied = requirePermission('sales-returns', 'edit');
+        if (denied) return denied;
         const { id, original_invoice_id, customer_id, return_number, return_date, notes, items } = returnData || {};
         const returnId = Number(id);
         if (!Number.isFinite(returnId) || returnId <= 0) {
@@ -249,6 +264,8 @@ function register() {
 
     // Delete sales return
     ipcMain.handle('delete-sales-return', (event, returnId) => {
+        const denied = requirePermission('sales-returns', 'delete');
+        if (denied) return denied;
         try {
             const returnRecord = db.prepare('SELECT * FROM sales_returns WHERE id = ?').get(returnId);
             if (!returnRecord) return { success: false, error: 'المرتجع غير موجود' };

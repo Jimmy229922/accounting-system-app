@@ -1,18 +1,26 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
+const { requirePermission } = require('./auth');
 
 function register() {
     // --- Settings Handlers ---
     ipcMain.handle('get-settings', () => {
-        const rows = db.prepare('SELECT * FROM settings').all();
-        const settings = {};
-        rows.forEach(row => {
-            settings[row.key] = row.value;
-        });
-        return settings;
+        try {
+            const rows = db.prepare('SELECT * FROM settings').all();
+            const settings = {};
+            rows.forEach(row => {
+                settings[row.key] = row.value;
+            });
+            return settings;
+        } catch (error) {
+            console.error('[get-settings] Error:', error);
+            return {};
+        }
     });
 
     ipcMain.handle('save-settings', (event, settings) => {
+        const denied = requirePermission('settings', 'edit');
+        if (denied) return denied;
         try {
             const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (@key, @value)');
             const transaction = db.transaction((data) => {
