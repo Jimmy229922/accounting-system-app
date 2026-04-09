@@ -2,6 +2,8 @@ const inviteForm = document.getElementById('inviteForm');
 const inviteInput = document.getElementById('inviteCode');
 const statusEl = document.getElementById('status');
 const submitBtn = document.getElementById('submitBtn');
+const machineIdDisplay = document.getElementById('machineIdDisplay');
+const copyMachineIdBtn = document.getElementById('copyMachineId');
 
 function setStatus(msg, type = 'info') {
     statusEl.textContent = msg || '';
@@ -16,6 +18,13 @@ async function autoCheckStatus() {
         if (status.valid) {
             setStatus('تم التفعيل مسبقاً، يتم الدخول...', 'success');
             window.electronAPI.notifyInviteUnlocked();
+            return;
+        }
+
+        // Only load machine ID if not already validated
+        const machineId = await window.electronAPI.getMachineId();
+        if (machineId) {
+            machineIdDisplay.value = machineId;
         }
     } catch (err) {
         // no-op if status fails
@@ -23,6 +32,14 @@ async function autoCheckStatus() {
 }
 
 autoCheckStatus();
+
+copyMachineIdBtn.addEventListener('click', () => {
+    if (machineIdDisplay.value) {
+        navigator.clipboard.writeText(machineIdDisplay.value).then(() => {
+            alert('تم نسخ رقم الجهاز بنجاح!');
+        });
+    }
+});
 
 inviteForm.addEventListener('submit', async (e) => {
     e.preventDefault();

@@ -3,15 +3,20 @@
 
 html {
     overflow-y: scroll; /* Prevent layout shift (shaking) when scrollbar appears/disappears */
-    background-color: var(--bg-color); /* Ensure background is set on root */
+    scrollbar-gutter: stable;
+    background-color: var(--bg-color, #f4f6fb); /* Fallback prevents white flash before theme vars load */
 }
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: var(--bg-color);
+    background-color: var(--bg-color, #f4f6fb);
     color: var(--text-color);
+    min-height: 100vh;
+}
+
+#app {
     min-height: 100vh;
 }
 

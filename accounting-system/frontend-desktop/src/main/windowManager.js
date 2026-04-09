@@ -1,7 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain, screen } = require('electron');
 const path = require('path');
 const { db } = require('./db');
-const { INVITE_CODE } = require('./inviteConfig');
+const { INVITE_CODE, getMachineId, generateActivationCode } = require('./inviteConfig');
 
 let mainWindow = null;
 let inviteWindow = null;
@@ -12,11 +12,21 @@ let isMainWindowClosingConfirmed = false;
 
 function isInviteValid() {
     try {
-        const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('invite_code', 'invite_expiry')").all();
+        const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('invite_code', 'invite_expiry', 'renew_count')").all();
         const map = {};
         rows.forEach(r => { map[r.key] = r.value; });
+        
+        const machineId = getMachineId();
+        const renewCount = parseInt(map.renew_count || '0', 10);
+        
+        let codeMatches = false;
+        if (map.invite_code === INVITE_CODE) {
+            codeMatches = true;
+        } else {
+            const expectedDynamicCode = generateActivationCode(`${machineId}-${renewCount}`);
+            codeMatches = (map.invite_code === expectedDynamicCode);
+        }
 
-        const codeMatches = map.invite_code === INVITE_CODE;
         const expiry = map.invite_expiry ? new Date(map.invite_expiry) : null;
         const withinRange = expiry ? expiry > new Date() : false;
         return codeMatches && withinRange;

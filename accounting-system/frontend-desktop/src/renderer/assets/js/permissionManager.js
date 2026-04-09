@@ -217,33 +217,58 @@
 
         // Hide add buttons
         if (!perm.can_add) {
-            const addSelectors = [
-                '.btn-save-item', 'button[type="submit"]', '.btn-success',
-                '.btn-primary:not(.btn-show-report):not(.filter-btn):not(.btn-refresh)',
-                '[data-action="add"]', '.users-submit-btn'
-            ];
-            // Only hide forms/add buttons (not search/filter buttons)
+            // Hide buttons that open add modals or directly perform add actions
+            document.querySelectorAll('.btn-add, [onclick*="openAdd"], [onclick*="showAdd"], [data-action="add"], .btn-primary:not(.btn-show-report):not(.filter-btn):not(.btn-refresh)').forEach((btn) => {
+                if (btn.closest('.rp-modal-overlay') || btn.closest('#permissionsModal')) return;
+                btn.style.display = 'none';
+            });
+            // Disable forms for adding
             document.querySelectorAll('form:not(#resetPasswordForm):not(#permissionsForm)').forEach((form) => {
-                if (!form.closest('.rp-modal-overlay') && !form.closest('#permissionsModal')) {
-                    form.style.display = 'none';
+                if (!form.closest('.rp-modal') && !form.closest('#permissionsModal') && !form.closest('.filters')) {
+                    const submitBtn = form.querySelector('button[type="submit"], fieldset button.btn-success');
+                    if (submitBtn) submitBtn.style.display = 'none';
                 }
             });
         }
 
         // Hide edit buttons
         if (!perm.can_edit) {
-            document.querySelectorAll('.btn-edit, [data-action="edit"], button[data-action="toggle"]').forEach((btn) => {
+            document.querySelectorAll('.btn-edit, [onclick*="openEdit"], [onclick*="edit"], [data-action="edit"], button[data-action="toggle"]').forEach((btn) => {
                 btn.style.display = 'none';
             });
         }
 
         // Hide delete buttons
         if (!perm.can_delete) {
-            document.querySelectorAll('.btn-delete, [data-action="delete"], .btn-danger').forEach((btn) => {
+            document.querySelectorAll('.btn-delete, [onclick*="delete"], [onclick*="Delete"], [data-action="delete"], .btn-danger').forEach((btn) => {
                 if (btn.closest('.rp-modal-overlay') || btn.closest('#permissionsModal')) return;
                 btn.style.display = 'none';
             });
         }
+
+        // Periodically run this to catch dynamically added buttons (e.g., inside fetched tables)
+        const observer = new MutationObserver(() => {
+            if (!perm.can_add) {
+                document.querySelectorAll('.btn-add, [onclick*="openAdd"], [onclick*="showAdd"], [data-action="add"], .btn-primary:not(.btn-show-report):not(.filter-btn):not(.btn-refresh)').forEach((btn) => {
+                    if (btn.closest('.rp-modal-overlay') || btn.closest('#permissionsModal')) return;
+                    btn.style.display = 'none';
+                });
+            }
+            if (!perm.can_edit) {
+                document.querySelectorAll('.btn-edit, [onclick*="openEdit"], [onclick*="edit"], [data-action="edit"], button[data-action="toggle"]').forEach((btn) => {
+                    btn.style.display = 'none';
+                });
+            }
+            if (!perm.can_delete) {
+                document.querySelectorAll('.btn-delete, [onclick*="delete"], [onclick*="Delete"], [data-action="delete"], .btn-danger').forEach((btn) => {
+                    if (btn.closest('.rp-modal-overlay') || btn.closest('#permissionsModal')) return;
+                    btn.style.display = 'none';
+                });
+            }
+        });
+        
+        const contentArea = document.querySelector('main') || document.body;
+        observer.observe(contentArea, { childList: true, subtree: true });
     }
 
     function showNoAccessMessage() {

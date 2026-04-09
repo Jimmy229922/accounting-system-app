@@ -7,8 +7,29 @@ const BACKUP_FOLDER_NAME = 'PIC';
 const MANUAL_BACKUP_FILE_NAME = 'accounting-manual-backup.db';
 
 function getProgramRootPath() {
+    const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
+    if (configuredRoot) {
+        return configuredRoot;
+    }
+
     if (app.isPackaged) {
-        return path.dirname(process.execPath);
+        const { shell } = require('electron');
+        const desktopPath = app.getPath('desktop');
+        const appFolder = path.join(desktopPath, 'برنامج الحسابات');
+        
+        if (!fs.existsSync(appFolder)) {
+            fs.mkdirSync(appFolder, { recursive: true });
+        }
+        
+        const shortcutPath = path.join(appFolder, 'تشغيل نظام الحسابات.lnk');
+        if (!fs.existsSync(shortcutPath)) {
+            shell.writeShortcutLink(shortcutPath, 'create', {
+                target: process.execPath,
+                description: 'برنامج الحسابات'
+            });
+        }
+        
+        return appFolder;
     }
     return path.resolve(__dirname, '../../../..');
 }

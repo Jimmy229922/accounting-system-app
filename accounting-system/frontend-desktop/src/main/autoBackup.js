@@ -3,12 +3,33 @@ const fs = require('fs');
 const path = require('path');
 const { db } = require('./db');
 
-const AUTO_BACKUP_FOLDER_NAME = 'Data';
+const AUTO_BACKUP_FOLDER_NAME = 'DATA';
 const AUTO_BACKUP_FILE_NAME = 'accounting-auto-backup.db';
 
 function getProgramRootPath() {
+    const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
+    if (configuredRoot) {
+        return configuredRoot;
+    }
+
     if (app.isPackaged) {
-        return path.dirname(process.execPath);
+        const { shell } = require('electron');
+        const desktopPath = app.getPath('desktop');
+        const appFolder = path.join(desktopPath, 'برنامج الحسابات');
+        
+        if (!fs.existsSync(appFolder)) {
+            fs.mkdirSync(appFolder, { recursive: true });
+        }
+        
+        const shortcutPath = path.join(appFolder, 'تشغيل نظام الحسابات.lnk');
+        if (!fs.existsSync(shortcutPath)) {
+            shell.writeShortcutLink(shortcutPath, 'create', {
+                target: process.execPath,
+                description: 'برنامج الحسابات'
+            });
+        }
+        
+        return appFolder;
     }
     return path.resolve(__dirname, '../../..');
 }

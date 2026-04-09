@@ -11,7 +11,16 @@
 <body>
     <div class="invite-card">
         <h1>تفعيل البرنامج</h1>
-        <p>أدخل كود الدعوة لتفعيل النظام لمدة شهر. تواصل مع المطور للحصول على الكود.</p>
+        <p>أدخل كود الدعوة لتفعيل النظام. تواصل مع المطور للحصول على الكود.</p>
+        
+        <div class="machine-id-box">
+            <label>رقم جهازك (أرسل هذا الرقم للمطور):</label>
+            <div class="copy-group">
+                <input type="text" id="machineIdDisplay" readonly>
+                <button type="button" id="copyMachineId" class="btn-icon" title="نسخ">📋</button>
+            </div>
+        </div>
+
         <form id="inviteForm">
             <div class="form-group">
                 <label for="inviteCode">كود الدعوة</label>

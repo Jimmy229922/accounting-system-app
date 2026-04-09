@@ -137,6 +137,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveSettings: (settings) => invokeChannel('save-settings', settings),
 
     // Invite Code API
+    getMachineId: () => invokeChannel('get-machine-id'),
     checkInviteStatus: () => invokeChannel('get-invite-status'),
     submitInviteCode: (code) => invokeChannel('submit-invite-code', code),
     notifyInviteUnlocked: () => ipcRenderer.send('invite-unlocked'),

