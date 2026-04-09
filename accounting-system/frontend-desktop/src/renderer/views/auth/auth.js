@@ -1,14 +1,12 @@
 ﻿document.addEventListener('DOMContentLoaded', async () => {
     let ar = {};
+    const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         ar = await window.i18n.loadArabicDictionary();
     }
 
     function t(key, fallback = '') {
-        if (window.i18n && typeof window.i18n.getText === 'function') {
-            return window.i18n.getText(ar, key, fallback);
-        }
-        return fallback;
+        return pageI18n ? pageI18n.t(key, fallback) : fallback;
     }
 
     const form = document.getElementById('authForm');

@@ -1,52 +1,13 @@
 ﻿let ar = {};
-const t = (key, fallback = '') => window.i18n?.getText(ar, key, fallback) ?? fallback;
-const fmt = (template, values) => template.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '');
+const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
+const t = (key, fallback = '') => (pageI18n ? pageI18n.t(key, fallback) : fallback);
+const fmt = (template, values = {}) => (pageI18n ? pageI18n.fmt(template, values) : String(template || ''));
 
 function getNavHTML() {
-    return `
-        <nav class="top-nav">
-            <div class="nav-brand">${t('common.appName', 'نظام المحاسبة')}</div>
-            <ul class="nav-links">
-                <li><a href="../dashboard/index.html">${t('common.nav.dashboard', 'لوحة التحكم')}</a></li>
-                <li class="dropdown">
-                    <a href="#" class="active">${t('common.nav.masterData', 'البيانات الأساسية')}</a>
-                    <div class="dropdown-content">
-                        <a href="../items/units.html">${t('common.nav.units', 'الوحدات')}</a>
-                        <a href="../items/items.html">${t('common.nav.items', 'الأصناف')}</a>
-                        <a href="index.html">${t('common.nav.customers', 'العملاء والموردين')}</a>
-                        <a href="../opening-balance/index.html">${t('common.nav.openingBalance', 'بيانات أول المدة')}</a>
-                        <a href="../auth-users/index.html">${t('common.nav.userManagement', 'إدارة المستخدمين')}</a>
-                    </div>
-                </li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.sales', 'المبيعات')}</a>
-                    <div class="dropdown-content">
-                        <a href="../sales/index.html">${t('common.nav.salesInvoice', 'فاتورة المبيعات')}</a>
-                        <a href="../sales-returns/index.html">${t('common.nav.salesReturns', 'مردودات المبيعات')}</a>
-                    </div>
-                </li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.purchases', 'المشتريات')}</a>
-                    <div class="dropdown-content">
-                        <a href="../purchases/index.html">${t('common.nav.purchasesInvoice', 'فاتورة المشتريات')}</a>
-                        <a href="../purchase-returns/index.html">${t('common.nav.purchaseReturns', 'مردودات المشتريات')}</a>
-                    </div>
-                </li>
-                <li><a href="../inventory/index.html">${t('common.nav.inventory', 'المخزن')}</a></li>
-                <li><a href="../finance/index.html">${t('common.nav.finance', 'المالية')}</a></li>
-                <li><a href="../payments/receipt.html">${t('common.nav.receipt', 'تحصيل من عميل')}</a></li>
-                <li><a href="../payments/payment.html">${t('common.nav.payment', 'سداد لمورد')}</a></li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.reports', 'التقارير')}</a>
-                    <div class="dropdown-content">
-                        <a href="../reports/index.html">${t('common.nav.generalReports', 'التقارير العامة')}</a>
-                        <a href="../customer-reports/index.html">${t('common.nav.customerReports', 'تقارير العملاء')}</a>
-                        <a href="../reports/debtor-creditor/index.html">${t('common.nav.debtorCreditor', 'كشف المدين والدائن')}</a>
-                    </div>
-                </li>
-                <li><a href="../settings/index.html">${t('common.nav.settings', 'الإعدادات')}</a></li>
-            </ul>
-        </nav>`;
+    if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
+        return window.navManager.getTopNavHTML(t);
+    }
+    return '';
 }
 
 function applyI18nToDOM() {

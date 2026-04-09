@@ -22,6 +22,124 @@ function buildNavigationHtml(items) {
         .join('');
 }
 
+function normalizePath(value) {
+    return String(value || '').replace(/\\/g, '/').toLowerCase();
+}
+
+function resolveViewsPrefix(pathname = window.location.pathname) {
+    const normalized = normalizePath(pathname);
+    if (normalized.includes('/views/reports/debtor-creditor/')) {
+        return '../../';
+    }
+    return '../';
+}
+
+function buildTopNavItems(prefix) {
+    const withPrefix = (target) => `${prefix}${target}`;
+    return [
+        { key: 'common.nav.dashboard', fallback: 'Dashboard', href: withPrefix('dashboard/index.html') },
+        {
+            key: 'common.nav.masterData',
+            fallback: 'Master Data',
+            children: [
+                { key: 'common.nav.units', fallback: 'Units', href: withPrefix('items/units.html') },
+                { key: 'common.nav.items', fallback: 'Items', href: withPrefix('items/items.html') },
+                { key: 'common.nav.customersSuppliers', fallback: 'Customers & Suppliers', href: withPrefix('customers/index.html') },
+                { key: 'common.nav.openingBalance', fallback: 'Opening Balance', href: withPrefix('opening-balance/index.html') },
+                { key: 'common.nav.userManagement', fallback: 'User Management', href: withPrefix('auth-users/index.html') }
+            ]
+        },
+        {
+            key: 'common.nav.sales',
+            fallback: 'Sales',
+            children: [
+                { key: 'common.nav.salesInvoice', fallback: 'Sales Invoice', href: withPrefix('sales/index.html') },
+                { key: 'common.nav.salesReturns', fallback: 'Sales Returns', href: withPrefix('sales-returns/index.html') }
+            ]
+        },
+        {
+            key: 'common.nav.purchases',
+            fallback: 'Purchases',
+            children: [
+                { key: 'common.nav.purchaseInvoice', fallback: 'Purchase Invoice', href: withPrefix('purchases/index.html') },
+                { key: 'common.nav.purchaseReturns', fallback: 'Purchase Returns', href: withPrefix('purchase-returns/index.html') }
+            ]
+        },
+        { key: 'common.nav.inventory', fallback: 'Inventory', href: withPrefix('inventory/index.html') },
+        { key: 'common.nav.finance', fallback: 'Finance', href: withPrefix('finance/index.html') },
+        { key: 'common.nav.receipt', fallback: 'Receipt', href: withPrefix('payments/receipt.html') },
+        { key: 'common.nav.payment', fallback: 'Payment', href: withPrefix('payments/payment.html') },
+        {
+            key: 'common.nav.reports',
+            fallback: 'Reports',
+            children: [
+                { key: 'common.nav.generalReports', fallback: 'General Reports', href: withPrefix('reports/index.html') },
+                { key: 'common.nav.customerReports', fallback: 'Customer Reports', href: withPrefix('customer-reports/index.html') },
+                { key: 'common.nav.debtorCreditor', fallback: 'Debtor & Creditor', href: withPrefix('reports/debtor-creditor/index.html') }
+            ]
+        },
+        { key: 'common.nav.settings', fallback: 'Settings', href: withPrefix('settings/index.html') }
+    ];
+}
+
+function isTopNavLinkActive(href) {
+    if (!href) return false;
+    try {
+        const current = normalizePath(window.location.pathname);
+        const target = normalizePath(new URL(href, window.location.href).pathname);
+        return current.endsWith(target);
+    } catch (_) {
+        return false;
+    }
+}
+
+function buildTopNavLink(item, t) {
+    const activeClass = isTopNavLinkActive(item.href) ? ' class="active"' : '';
+    return `<li><a href="${item.href}"${activeClass}>${t(item.key, item.fallback)}</a></li>`;
+}
+
+function buildTopNavDropdown(item, t) {
+    const hasActiveChild = item.children.some((child) => isTopNavLinkActive(child.href));
+    const activeClass = hasActiveChild ? ' class="active"' : '';
+    const childrenHtml = item.children
+        .map((child) => {
+            const childActive = isTopNavLinkActive(child.href) ? ' class="active"' : '';
+            return `<a href="${child.href}"${childActive}>${t(child.key, child.fallback)}</a>`;
+        })
+        .join('');
+
+    return `
+        <li class="dropdown">
+            <a href="#"${activeClass}>${t(item.key, item.fallback)}</a>
+            <div class="dropdown-content">
+                ${childrenHtml}
+            </div>
+        </li>
+    `;
+}
+
+function getTopNavHTML(t, options = {}) {
+    const translate = typeof t === 'function' ? t : ((_, fallback = '') => fallback);
+    const basePrefix = options.basePrefix || resolveViewsPrefix(options.pathname);
+    const wrap = options.wrap !== false;
+
+    const items = buildTopNavItems(basePrefix);
+    const linksHtml = items
+        .map((item) => (item.children ? buildTopNavDropdown(item, translate) : buildTopNavLink(item, translate)))
+        .join('');
+
+    const innerHtml = `
+        <div class="nav-brand">${translate('common.nav.brand', 'Accounting System')}</div>
+        <ul class="nav-links">${linksHtml}</ul>
+    `;
+
+    if (!wrap) {
+        return innerHtml;
+    }
+
+    return `<nav class="top-nav">${innerHtml}</nav>`;
+}
+
 async function renderNavigation(targetSelector, configPath) {
     const target = document.querySelector(targetSelector);
     if (!target) return;
@@ -36,5 +154,7 @@ async function renderNavigation(targetSelector, configPath) {
 
 window.navManager = {
     loadNavigation,
-    renderNavigation
+    renderNavigation,
+    resolveViewsPrefix,
+    getTopNavHTML
 };

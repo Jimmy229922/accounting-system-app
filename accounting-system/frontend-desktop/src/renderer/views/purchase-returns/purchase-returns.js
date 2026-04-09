@@ -15,17 +15,14 @@ let allPurchaseReturns = [];
 let purchaseReturnsPage = 1;
 const purchaseReturnsPerPage = 50;
 let ar = {};
+const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
 
 function t(key, fallback = '') {
-    if (window.i18n && typeof window.i18n.getText === 'function') {
-        return window.i18n.getText(ar, key, fallback);
-    }
-    return fallback;
+    return pageI18n ? pageI18n.t(key, fallback) : fallback;
 }
 
 function fmt(template, values = {}) {
-    if (!template) return '';
-    return Object.entries(values).reduce((acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)), template);
+    return pageI18n ? pageI18n.fmt(template, values) : String(template || '');
 }
 
 function toArray(value) {
@@ -65,51 +62,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function getNavHTML() {
-    return `
-        <nav class="top-nav">
-            <div class="nav-brand">${t('common.nav.brand', 'Accounting System')}</div>
-            <ul class="nav-links">
-                <li><a href="../dashboard/index.html">${t('common.nav.dashboard', 'Dashboard')}</a></li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.masterData', 'Master Data')}</a>
-                    <div class="dropdown-content">
-                        <a href="../items/units.html">${t('common.nav.units', 'Units')}</a>
-                        <a href="../items/items.html">${t('common.nav.items', 'Items')}</a>
-                        <a href="../customers/index.html">${t('common.nav.customersSuppliers', 'Customers & Suppliers')}</a>
-                        <a href="../opening-balance/index.html">${t('common.nav.openingBalance', 'Opening Balance')}</a>
-                        <a href="../auth-users/index.html">${t('common.nav.userManagement', 'إدارة المستخدمين')}</a>
-                    </div>
-                </li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.sales', 'Sales')}</a>
-                    <div class="dropdown-content">
-                        <a href="../sales/index.html">${t('common.nav.salesInvoice', 'Sales Invoice')}</a>
-                        <a href="../sales-returns/index.html">${t('common.nav.salesReturns', 'Sales Returns')}</a>
-                    </div>
-                </li>
-                <li class="dropdown">
-                    <a href="#" class="active">${t('common.nav.purchases', 'Purchases')}</a>
-                    <div class="dropdown-content">
-                        <a href="../purchases/index.html">${t('common.nav.purchaseInvoice', 'Purchase Invoice')}</a>
-                        <a href="../purchase-returns/index.html" class="active">${t('common.nav.purchaseReturns', 'Purchase Returns')}</a>
-                    </div>
-                </li>
-                <li><a href="../inventory/index.html">${t('common.nav.inventory', 'Inventory')}</a></li>
-                <li><a href="../finance/index.html">${t('common.nav.finance', 'Finance')}</a></li>
-                <li><a href="../payments/receipt.html">${t('common.nav.receipt', 'Customer Receipt')}</a></li>
-                <li><a href="../payments/payment.html">${t('common.nav.payment', 'Supplier Payment')}</a></li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.reports', 'Reports')}</a>
-                    <div class="dropdown-content">
-                        <a href="../reports/index.html">${t('common.nav.generalReports', 'General Reports')}</a>
-                        <a href="../customer-reports/index.html">${t('common.nav.customerReports', 'تقارير العملاء')}</a>
-                        <a href="../reports/debtor-creditor/index.html">${t('common.nav.debtorCreditor', 'Debtor / Creditor')}</a>
-                    </div>
-                </li>
-                <li><a href="../settings/index.html">${t('common.nav.settings', 'Settings')}</a></li>
-            </ul>
-        </nav>
-    `;
+    if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
+        return window.navManager.getTopNavHTML(t);
+    }
+    return '';
 }
 
 function renderPage() {

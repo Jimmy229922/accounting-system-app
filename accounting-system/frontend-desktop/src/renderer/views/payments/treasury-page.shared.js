@@ -6,9 +6,9 @@
         let recentTransactions = [];
         let entityAutocomplete = null;
 
-        const t = (key, fallback = '') => window.i18n?.getText(ar, key, fallback) ?? fallback;
-        const fmt = (template, values = {}) =>
-            String(template || '').replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '');
+        const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
+        const t = (key, fallback = '') => (pageI18n ? pageI18n.t(key, fallback) : fallback);
+        const fmt = (template, values = {}) => (pageI18n ? pageI18n.fmt(template, values) : String(template || ''));
         const tx = (suffix, fallback = '') => t(`${config.i18nPrefix}.${suffix}`, fallback);
         const text = (name) => {
             const entry = config.text?.[name];
@@ -82,54 +82,10 @@
         }
 
         function getNavHTML() {
-            const receiptActiveClass = config.navActive === 'receipt' ? ' class="active"' : '';
-            const paymentActiveClass = config.navActive === 'payment' ? ' class="active"' : '';
-
-            return `
-                <nav class="top-nav">
-                    <div class="nav-brand">${t('common.appName', 'نظام المحاسبة')}</div>
-                    <ul class="nav-links">
-                        <li><a href="../../views/dashboard/index.html">${t('common.nav.dashboard', 'لوحة التحكم')}</a></li>
-                        <li class="dropdown">
-                            <a href="#">${t('common.nav.masterData', 'البيانات الأساسية')}</a>
-                            <div class="dropdown-content">
-                                <a href="../../views/items/units.html">${t('common.nav.units', 'الوحدات')}</a>
-                                <a href="../../views/items/items.html">${t('common.nav.items', 'الأصناف')}</a>
-                                <a href="../../views/customers/index.html">${t('common.nav.customers', 'العملاء والموردين')}</a>
-                                <a href="../../views/opening-balance/index.html">${t('common.nav.openingBalance', 'بيانات أول المدة')}</a>
-                                <a href="../../views/auth-users/index.html">${t('common.nav.userManagement', 'إدارة المستخدمين')}</a>
-                            </div>
-                        </li>
-                        <li class="dropdown">
-                            <a href="#">${t('common.nav.sales', 'المبيعات')}</a>
-                            <div class="dropdown-content">
-                                <a href="../../views/sales/index.html">${t('common.nav.salesInvoice', 'فاتورة المبيعات')}</a>
-                                <a href="../../views/sales-returns/index.html">${t('common.nav.salesReturns', 'مردودات المبيعات')}</a>
-                            </div>
-                        </li>
-                        <li class="dropdown">
-                            <a href="#">${t('common.nav.purchases', 'المشتريات')}</a>
-                            <div class="dropdown-content">
-                                <a href="../../views/purchases/index.html">${t('common.nav.purchasesInvoice', 'فاتورة المشتريات')}</a>
-                                <a href="../../views/purchase-returns/index.html">${t('common.nav.purchaseReturns', 'مردودات المشتريات')}</a>
-                            </div>
-                        </li>
-                        <li><a href="../../views/inventory/index.html">${t('common.nav.inventory', 'المخزن')}</a></li>
-                        <li><a href="../../views/finance/index.html">${t('common.nav.finance', 'المالية')}</a></li>
-                        <li><a href="receipt.html"${receiptActiveClass}>${t('common.nav.receipt', 'تحصيل من عميل')}</a></li>
-                        <li><a href="payment.html"${paymentActiveClass}>${t('common.nav.payment', 'سداد لمورد')}</a></li>
-                        <li class="dropdown">
-                            <a href="#">${t('common.nav.reports', 'التقارير')}</a>
-                            <div class="dropdown-content">
-                                <a href="../../views/reports/index.html">${t('common.nav.generalReports', 'التقارير العامة')}</a>
-                                <a href="../../views/customer-reports/index.html">${t('common.nav.customerReports', 'تقارير العملاء')}</a>
-                                <a href="../../views/reports/debtor-creditor/index.html">${t('common.nav.debtorCreditor', 'كشف المدين والدائن')}</a>
-                            </div>
-                        </li>
-                        <li><a href="../../views/settings/index.html">${t('common.nav.settings', 'الإعدادات')}</a></li>
-                    </ul>
-                </nav>
-            `;
+            if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
+                return window.navManager.getTopNavHTML(t);
+            }
+            return '';
         }
 
         function renderStatsCards() {

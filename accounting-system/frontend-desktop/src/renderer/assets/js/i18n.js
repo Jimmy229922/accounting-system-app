@@ -37,8 +37,31 @@ function getText(dict, key, fallback = '') {
     return typeof value === 'string' ? value : fallback;
 }
 
+function formatTemplate(template, values = {}) {
+    const source = String(template || '');
+    return source.replace(/\{(\w+)\}/g, (match, key) => {
+        if (Object.prototype.hasOwnProperty.call(values, key)) {
+            return String(values[key]);
+        }
+        return match;
+    });
+}
+
+function createPageHelpers(dictAccessor) {
+    const getDict = typeof dictAccessor === 'function'
+        ? dictAccessor
+        : () => (dictAccessor && typeof dictAccessor === 'object' ? dictAccessor : {});
+
+    return {
+        t: (key, fallback = '') => getText(getDict(), key, fallback),
+        fmt: (template, values = {}) => formatTemplate(template, values)
+    };
+}
+
 window.i18n = {
     loadArabicDictionary,
-    getText
+    getText,
+    formatTemplate,
+    createPageHelpers
 };
 
