@@ -121,6 +121,9 @@ class Autocomplete {
         // Always show all if filter is empty (on focus)
         if (filter === '') matches = this.options;
 
+        // Limit results to 100 to prevent browser freezing
+        matches = matches.slice(0, 100);
+
         if (matches.length === 0) {
             this.closeList();
             return;
