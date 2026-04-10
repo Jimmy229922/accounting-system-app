@@ -9,25 +9,33 @@ const AUTO_BACKUP_FILE_NAME = 'accounting-auto-backup.db';
 function getProgramRootPath() {
     const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
     if (configuredRoot) {
+        const normalizedConfiguredRoot = path.normalize(configuredRoot);
+        if (app.isPackaged && path.basename(normalizedConfiguredRoot).toLowerCase() === 'app_js') {
+            return path.join(normalizedConfiguredRoot, 'برنامج الحسابات');
+        }
         return configuredRoot;
     }
 
     if (app.isPackaged) {
         const { shell } = require('electron');
-        const desktopPath = app.getPath('desktop');
-        const appFolder = path.join(desktopPath, 'برنامج الحسابات');
+        const preferredPortableRoot = path.join(app.getPath('desktop'), 'APP_JS');
+        const appFolder = path.join(preferredPortableRoot, 'برنامج الحسابات');
         
         if (!fs.existsSync(appFolder)) {
             fs.mkdirSync(appFolder, { recursive: true });
         }
         
         const shortcutPath = path.join(appFolder, 'تشغيل نظام الحسابات.lnk');
-        if (!fs.existsSync(shortcutPath)) {
-            shell.writeShortcutLink(shortcutPath, 'create', {
-                target: process.execPath,
-                description: 'برنامج الحسابات'
-            });
-        }
+        shell.writeShortcutLink(shortcutPath, 'create', {
+            target: process.execPath,
+            description: 'برنامج الحسابات'
+        });
+
+        const desktopShortcutPath = path.join(app.getPath('desktop'), 'تشغيل نظام الحسابات.lnk');
+        shell.writeShortcutLink(desktopShortcutPath, 'create', {
+            target: process.execPath,
+            description: 'برنامج الحسابات'
+        });
         
         return appFolder;
     }

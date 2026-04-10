@@ -17,28 +17,41 @@ if (!gotTheLock) {
 
 if (app.isPackaged && process.env.ACC_SYSTEM_USE_DEFAULT_USERDATA !== '1') {
     try {
+        const { shell } = require('electron');
         const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
+        const preferredPortableRoot = path.join(app.getPath('desktop'), 'APP_JS');
         let programRoot = configuredRoot;
-        
-        if (!programRoot) {
-            const { shell } = require('electron');
-            const desktopPath = app.getPath('desktop');
-            programRoot = path.join(desktopPath, 'برنامج الحسابات');
-            
-            if (!fs.existsSync(programRoot)) {
-                fs.mkdirSync(programRoot, { recursive: true });
-            }
-            
-            const shortcutPath = path.join(programRoot, 'تشغيل نظام الحسابات.lnk');
-            if (!fs.existsSync(shortcutPath)) {
-                shell.writeShortcutLink(shortcutPath, 'create', {
-                    target: process.execPath,
-                    icon: process.execPath,
-                    iconIndex: 0,
-                    description: 'تشغيل النظام'
-                });
+
+        if (programRoot) {
+            const normalizedConfiguredRoot = path.normalize(programRoot);
+            if (path.basename(normalizedConfiguredRoot).toLowerCase() === 'app_js') {
+                programRoot = path.join(normalizedConfiguredRoot, 'برنامج الحسابات');
             }
         }
+        
+        if (!programRoot) {
+            programRoot = path.join(preferredPortableRoot, 'برنامج الحسابات');
+        }
+
+        if (!fs.existsSync(programRoot)) {
+            fs.mkdirSync(programRoot, { recursive: true });
+        }
+
+        const shortcutPath = path.join(programRoot, 'تشغيل نظام الحسابات.lnk');
+        shell.writeShortcutLink(shortcutPath, 'create', {
+            target: process.execPath,
+            icon: process.execPath,
+            iconIndex: 0,
+            description: 'تشغيل النظام'
+        });
+
+        const desktopShortcutPath = path.join(app.getPath('desktop'), 'تشغيل نظام الحسابات.lnk');
+        shell.writeShortcutLink(desktopShortcutPath, 'create', {
+            target: process.execPath,
+            icon: process.execPath,
+            iconIndex: 0,
+            description: 'تشغيل النظام'
+        });
 
         const portableUserDataPath = path.join(programRoot, 'DATA', 'userData');
         fs.mkdirSync(portableUserDataPath, { recursive: true });
