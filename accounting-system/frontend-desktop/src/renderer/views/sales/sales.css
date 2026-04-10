@@ -164,10 +164,31 @@
     margin-bottom: 12px;
 }
 
+.items-section-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .items-section-title {
     margin: 0;
     color: var(--text-color);
     font-size: 1rem;
+    font-weight: 800;
+}
+
+.selected-item-availability {
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.selected-item-availability.has-overage {
+    color: var(--text-muted);
+}
+
+.selected-item-overage {
+    color: var(--danger-color);
     font-weight: 800;
 }
 
@@ -333,6 +354,11 @@
     padding: 14px;
 }
 
+.totals-panel {
+    display: grid;
+    gap: 4px;
+}
+
 #invoiceNotes {
     min-height: 118px;
     resize: vertical;
@@ -344,15 +370,84 @@
     align-items: center;
     color: var(--text-color);
     font-size: 0.95rem;
+    line-height: 1.35;
+}
+
+.total-row span:last-child {
+    direction: ltr;
+    font-weight: 700;
+}
+
+.invoice-financial-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.invoice-financial-grid .form-group label {
+    font-size: 0.84rem;
+}
+
+.invoice-financial-grid .form-control {
+    min-height: 40px;
+    font-size: 0.9rem;
+}
+
+.customer-due-value {
+    font-weight: 900;
+    font-size: 1.65rem;
+    line-height: 1;
+}
+
+.total-row-secondary {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.total-row-secondary span:last-child {
+    color: var(--text-color);
+}
+
+.total-row-paid-summary {
+    font-size: 0.84rem;
+    color: var(--text-muted);
+    margin-top: -2px;
+}
+
+.total-row-due {
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--table-border);
+    align-items: baseline;
+}
+
+.customer-due-label {
+    font-size: 1.55rem;
+    font-weight: 900;
+    color: var(--primary-color);
+}
+
+.customer-due-value.due-positive {
+    color: var(--danger-color);
+}
+
+.customer-due-value.due-negative {
+    color: var(--success-color);
 }
 
 .grand-total {
-    margin-top: 10px;
-    padding-top: 12px;
+    margin-top: 8px;
+    padding-top: 10px;
     border-top: 1px dashed var(--table-border);
-    font-size: 1.3rem;
-    font-weight: 800;
+    font-size: 1.05rem;
+    font-weight: 700;
     color: var(--primary-color);
+}
+
+.grand-total span:last-child {
+    font-size: 1.2rem;
+    font-weight: 800;
 }
 
 .btn {
@@ -441,6 +536,10 @@
     .invoice-footer-grid {
         grid-template-columns: 1fr;
     }
+
+    .invoice-financial-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 780px) {
@@ -473,5 +572,9 @@
 
     .items-section .btn-outline {
         width: 100%;
+    }
+
+    .invoice-financial-grid {
+        grid-template-columns: 1fr;
     }
 }

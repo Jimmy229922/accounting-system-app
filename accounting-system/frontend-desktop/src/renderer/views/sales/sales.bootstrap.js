@@ -62,6 +62,18 @@ function initializeElements() {
             onRowInput
         }
     });
+
+    if (salesState.dom.discountTypeSelect) {
+        salesState.dom.discountTypeSelect.addEventListener('change', () => calculateInvoiceTotal());
+    }
+
+    if (salesState.dom.discountValueInput) {
+        salesState.dom.discountValueInput.addEventListener('input', () => calculateInvoiceTotal());
+    }
+
+    if (salesState.dom.paidAmountInput) {
+        salesState.dom.paidAmountInput.addEventListener('input', () => calculateInvoiceTotal());
+    }
 }
 
 async function handleCustomerChange() {
@@ -75,15 +87,18 @@ async function handleCustomerChange() {
     } else {
         const balanceDiv = document.getElementById('customerBalance');
         if (balanceDiv) balanceDiv.style.display = 'none';
+        clearSelectedItemAvailability();
     }
 }
 
 async function initializeNewInvoice() {
+    salesState.originalInvoiceItemTotalsByItemId = {};
     const nextId = await salesApi.getNextInvoiceNumber();
     const invoiceNumberInput = document.getElementById('invoiceNumber');
     if (invoiceNumberInput) {
         invoiceNumberInput.value = nextId;
     }
+    calculateInvoiceTotal();
 }
 
 async function loadInvoiceForEdit(id) {
@@ -95,6 +110,13 @@ async function loadInvoiceForEdit(id) {
         }
 
         salesState.editingInvoiceId = id;
+        salesState.originalInvoiceItemTotalsByItemId = {};
+        (invoice.items || []).forEach((item) => {
+            const itemId = parseInt(item.item_id, 10);
+            const qty = Number(item.quantity) || 0;
+            if (!Number.isFinite(itemId) || qty <= 0) return;
+            salesState.originalInvoiceItemTotalsByItemId[itemId] = (salesState.originalInvoiceItemTotalsByItemId[itemId] || 0) + qty;
+        });
 
         salesState.dom.customerSelect.value = invoice.customer_id;
         if (salesState.customerAutocomplete) salesState.customerAutocomplete.refresh();
@@ -114,9 +136,32 @@ async function loadInvoiceForEdit(id) {
         const paymentTypeInput = document.getElementById('paymentType');
         if (paymentTypeInput) paymentTypeInput.value = invoice.payment_type || 'cash';
 
+        const subtotalFromDetails = (invoice.items || []).reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
+        const storedTotal = Number(invoice.total_amount) || 0;
+        const fallbackDiscountAmount = Math.max(subtotalFromDetails - storedTotal, 0);
+        const discountTypeInput = salesState.dom.discountTypeSelect;
+        const discountValueInput = salesState.dom.discountValueInput;
+        const paidAmountInput = salesState.dom.paidAmountInput;
+
+        if (discountTypeInput) {
+            discountTypeInput.value = invoice.discount_type === 'percent' ? 'percent' : 'amount';
+        }
+
+        if (discountValueInput) {
+            const sourceDiscountValue = Number(invoice.discount_value);
+            const valueToUse = Number.isFinite(sourceDiscountValue) ? sourceDiscountValue : fallbackDiscountAmount;
+            discountValueInput.value = valueToUse.toFixed(2);
+        }
+
+        if (paidAmountInput) {
+            const paid = Number(invoice.paid_amount) || 0;
+            paidAmountInput.value = paid.toFixed(2);
+        }
+
         salesState.dom.invoiceItemsBody.innerHTML = '';
         invoice.items.forEach((item) => addInvoiceRow(item));
         calculateInvoiceTotal();
+        updateSelectedItemAvailability(salesState.dom.invoiceItemsBody.querySelector('tr'));
 
         salesRender.setEditModeUI(t);
     } catch (error) {
@@ -216,6 +261,92 @@ async function loadItems() {
     salesState.allItems = await salesApi.getItems();
 }
 
+function clearSelectedItemAvailability() {
+    if (!salesState.dom.selectedItemAvailability) return;
+    salesState.dom.selectedItemAvailability.classList.remove('has-overage');
+    salesState.dom.selectedItemAvailability.textContent = '';
+}
+
+function formatQty(value) {
+    const qty = Number(value);
+    if (!Number.isFinite(qty)) return '0';
+    if (Number.isInteger(qty)) return String(qty);
+    return qty.toFixed(3).replace(/\.?0+$/, '');
+}
+
+function getEffectiveBaseAvailable(itemId) {
+    const match = Number.isFinite(itemId) ? salesState.allItems.find((i) => i.id === itemId) : null;
+    const currentStock = Number(match?.stock_quantity) || 0;
+    const originalInEditedInvoice = Number(salesState.originalInvoiceItemTotalsByItemId?.[itemId]) || 0;
+    return currentStock + originalInEditedInvoice;
+}
+
+function getReservedQuantityInDraft(itemId, excludedRow = null) {
+    if (!Number.isFinite(itemId) || !salesState.dom.invoiceItemsBody) return 0;
+
+    let reserved = 0;
+    salesState.dom.invoiceItemsBody.querySelectorAll('tr').forEach((candidateRow) => {
+        if (excludedRow && candidateRow === excludedRow) return;
+
+        const itemSelect = candidateRow.querySelector('.item-select');
+        const candidateItemId = parseInt(itemSelect?.value, 10);
+        if (!Number.isFinite(candidateItemId) || candidateItemId !== itemId) return;
+
+        const quantityInput = candidateRow.querySelector('.quantity-input');
+        const qty = parseLocaleFloat(quantityInput?.value);
+        if (Number.isFinite(qty) && qty > 0) {
+            reserved += qty;
+        }
+    });
+
+    return reserved;
+}
+
+function updateSelectedItemAvailability(row) {
+    if (!salesState.dom.selectedItemAvailability) return;
+    if (!row) {
+        clearSelectedItemAvailability();
+        return;
+    }
+
+    const itemSelect = row.querySelector('.item-select');
+    if (!itemSelect || !itemSelect.value) {
+        clearSelectedItemAvailability();
+        return;
+    }
+
+    const itemId = parseInt(itemSelect.value, 10);
+    const match = Number.isFinite(itemId) ? salesState.allItems.find((i) => i.id === itemId) : null;
+    if (!match) {
+        clearSelectedItemAvailability();
+        return;
+    }
+
+    const baseAvailableQty = getEffectiveBaseAvailable(itemId);
+    const reservedByOtherRows = getReservedQuantityInDraft(itemId, row);
+    const availableQty = Math.max(baseAvailableQty - reservedByOtherRows, 0);
+    const qtyInput = row.querySelector('.quantity-input');
+    const enteredQtyRaw = qtyInput ? parseLocaleFloat(qtyInput.value) : 0;
+    const enteredQty = Number.isFinite(enteredQtyRaw) && enteredQtyRaw > 0 ? enteredQtyRaw : 0;
+
+    if (enteredQty > 0) {
+        const remainingQty = Math.max(availableQty - enteredQty, 0);
+        const overQty = Math.max(enteredQty - availableQty, 0);
+        if (overQty > 0) {
+            salesState.dom.selectedItemAvailability.classList.add('has-overage');
+            salesState.dom.selectedItemAvailability.innerHTML = `المتاح: ${formatQty(availableQty)} | المتبقي بعد الإدخال: ${formatQty(remainingQty)} | <span class="selected-item-overage">يوجد ${formatQty(overQty)} زيادة</span>`;
+            return;
+        }
+
+        salesState.dom.selectedItemAvailability.classList.remove('has-overage');
+        salesState.dom.selectedItemAvailability.textContent = `المتاح: ${formatQty(availableQty)} | المتبقي بعد الإدخال: ${formatQty(remainingQty)}`;
+        return;
+    }
+
+    salesState.dom.selectedItemAvailability.classList.remove('has-overage');
+    salesState.dom.selectedItemAvailability.textContent = `المتاح: ${formatQty(availableQty)}`;
+}
+
 function addInvoiceRow(existingItem = null) {
     if (!existingItem && !salesState.dom.customerSelect?.value) {
         alert(t('sales.selectCustomerFirst', 'الرجاء اختيار العميل أولا'));
@@ -233,6 +364,7 @@ function addInvoiceRow(existingItem = null) {
 
     const selectElement = row.querySelector('.item-select');
     new Autocomplete(selectElement);
+    selectElement.addEventListener('change', () => onItemSelect(selectElement));
 
     if (existingItem) {
         updateProfitIndicator(row);
@@ -244,12 +376,21 @@ function removeRow(removeBtnEl) {
     if (!row) return;
     row.remove();
     calculateInvoiceTotal();
+
+    const fallbackRow = salesState.dom.invoiceItemsBody.querySelector('tr:last-child');
+    if (fallbackRow) {
+        updateSelectedItemAvailability(fallbackRow);
+    } else {
+        clearSelectedItemAvailability();
+    }
 }
 
 function onRowInput(input) {
     calculateRowTotal(input);
     if (input.classList.contains('quantity-input')) {
-        maybeAutoAddRow(input.closest('tr'));
+        const row = input.closest('tr');
+        maybeAutoAddRow(row);
+        updateSelectedItemAvailability(row);
     }
 }
 
@@ -293,17 +434,16 @@ function updateProfitIndicator(row) {
 
 function onItemSelect(select) {
     const row = select.closest('tr');
-    const selectedOption = select.options[select.selectedIndex];
-    const price = selectedOption.dataset.price || 0;
-
     const itemId = parseInt(select.value, 10);
     const match = Number.isFinite(itemId) ? salesState.allItems.find((i) => i.id === itemId) : null;
     const unitName = match && match.unit_name ? match.unit_name : '';
+    const salePrice = match ? Number(match.sale_price || 0) : 0;
 
     const unitEl = row.querySelector('.unit-label');
     if (unitEl) unitEl.textContent = unitName;
 
-    row.querySelector('.price-input').value = price;
+    row.querySelector('.price-input').value = Number.isFinite(salePrice) ? salePrice : 0;
+    updateSelectedItemAvailability(row);
     calculateRowTotal(select);
     updateProfitIndicator(row);
     maybeAutoAddRow(row);
@@ -333,6 +473,41 @@ function parseLocaleFloat(value) {
     return Number.isFinite(num) ? num : NaN;
 }
 
+function roundMoney(value) {
+    const n = Number(value) || 0;
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function getInvoiceFinancials(subtotal) {
+    const safeSubtotal = Number.isFinite(subtotal) ? Math.max(subtotal, 0) : 0;
+    const discountType = salesState.dom.discountTypeSelect?.value === 'percent' ? 'percent' : 'amount';
+
+    const discountValueRaw = parseLocaleFloat(salesState.dom.discountValueInput?.value || '0');
+    const discountValue = Number.isFinite(discountValueRaw) && discountValueRaw > 0 ? discountValueRaw : 0;
+
+    let discountAmount = discountType === 'percent'
+        ? safeSubtotal * (discountValue / 100)
+        : discountValue;
+
+    if (!Number.isFinite(discountAmount) || discountAmount < 0) discountAmount = 0;
+    discountAmount = Math.min(discountAmount, safeSubtotal);
+
+    const netTotal = Math.max(safeSubtotal - discountAmount, 0);
+
+    const paidAmountRaw = parseLocaleFloat(salesState.dom.paidAmountInput?.value || '0');
+    const paidAmount = Number.isFinite(paidAmountRaw) && paidAmountRaw > 0 ? paidAmountRaw : 0;
+    const customerRemaining = netTotal - paidAmount;
+
+    return {
+        discountType,
+        discountValue: roundMoney(discountValue),
+        discountAmount: roundMoney(discountAmount),
+        netTotal: roundMoney(netTotal),
+        paidAmount: roundMoney(paidAmount),
+        customerRemaining: roundMoney(customerRemaining)
+    };
+}
+
 function calculateRowTotal(element) {
     const row = element.closest('tr');
     const quantity = parseLocaleFloat(row.querySelector('.quantity-input').value);
@@ -345,12 +520,40 @@ function calculateRowTotal(element) {
 }
 
 function calculateInvoiceTotal() {
-    let total = 0;
+    let subtotal = 0;
     salesState.dom.invoiceItemsBody.querySelectorAll('tr').forEach((row) => {
         const rowTotal = parseFloat(row.querySelector('.row-total').textContent) || 0;
-        total += rowTotal;
+        subtotal += rowTotal;
     });
-    salesState.dom.invoiceTotalSpan.textContent = total.toFixed(2);
+
+    const financials = getInvoiceFinancials(subtotal);
+
+    if (salesState.dom.invoiceSubtotalSpan) {
+        salesState.dom.invoiceSubtotalSpan.textContent = subtotal.toFixed(2);
+    }
+
+    if (salesState.dom.invoiceDiscountAmountSpan) {
+        salesState.dom.invoiceDiscountAmountSpan.textContent = financials.discountAmount.toFixed(2);
+    }
+
+    salesState.dom.invoiceTotalSpan.textContent = financials.netTotal.toFixed(2);
+
+    if (salesState.dom.invoicePaidDisplaySpan) {
+        salesState.dom.invoicePaidDisplaySpan.textContent = financials.paidAmount.toFixed(2);
+    }
+
+    if (salesState.dom.invoiceRemainingSpan) {
+        if (financials.customerRemaining > 0) {
+            salesState.dom.invoiceRemainingSpan.textContent = fmt(t('sales.customerDuePositive', 'عليه {amount}'), { amount: financials.customerRemaining.toFixed(2) });
+            salesState.dom.invoiceRemainingSpan.className = 'customer-due-value due-positive';
+        } else if (financials.customerRemaining < 0) {
+            salesState.dom.invoiceRemainingSpan.textContent = fmt(t('sales.customerDueNegative', 'له {amount}'), { amount: Math.abs(financials.customerRemaining).toFixed(2) });
+            salesState.dom.invoiceRemainingSpan.className = 'customer-due-value due-negative';
+        } else {
+            salesState.dom.invoiceRemainingSpan.textContent = '0.00';
+            salesState.dom.invoiceRemainingSpan.className = 'customer-due-value';
+        }
+    }
 }
 
 function collectInvoiceItemsFromForm() {
@@ -386,6 +589,36 @@ function collectInvoiceItemsFromForm() {
     return { items, isValid: isValid && items.length > 0 };
 }
 
+function getDraftOverQuantityViolations() {
+    const totalsByItem = new Map();
+
+    salesState.dom.invoiceItemsBody.querySelectorAll('tr').forEach((row) => {
+        const itemId = parseInt(row.querySelector('.item-select')?.value, 10);
+        const qty = parseLocaleFloat(row.querySelector('.quantity-input')?.value);
+
+        if (!Number.isFinite(itemId) || !Number.isFinite(qty) || qty <= 0) return;
+        totalsByItem.set(itemId, (totalsByItem.get(itemId) || 0) + qty);
+    });
+
+    const violations = [];
+    totalsByItem.forEach((enteredQty, itemId) => {
+        const match = salesState.allItems.find((i) => i.id === itemId);
+        if (!match) return;
+
+        const availableQty = Math.max(getEffectiveBaseAvailable(itemId), 0);
+        if (enteredQty > availableQty) {
+            violations.push({
+                itemName: match.name || `#${itemId}`,
+                enteredQty,
+                availableQty,
+                overQty: enteredQty - availableQty
+            });
+        }
+    });
+
+    return violations;
+}
+
 async function updateInvoice() {
     if (!salesState.editingInvoiceId) {
         alert(t('sales.updateNoId', 'لا يمكن تحديث الفاتورة: رقم تعريف الفاتورة غير موجود'));
@@ -409,6 +642,15 @@ async function updateInvoice() {
         return;
     }
 
+    const overQtyViolations = getDraftOverQuantityViolations();
+    if (overQtyViolations.length > 0) {
+        const topViolation = overQtyViolations[0];
+        alert(`لا يمكن حفظ الفاتورة: الصنف "${topViolation.itemName}" يوجد به ${formatQty(topViolation.overQty)} زيادة عن المتاح (${formatQty(topViolation.availableQty)}).`);
+        return;
+    }
+
+    const financials = getInvoiceFinancials(parseFloat(salesState.dom.invoiceSubtotalSpan?.textContent || '0') || 0);
+
     const invoiceData = {
         id: salesState.editingInvoiceId,
         customer_id,
@@ -417,7 +659,10 @@ async function updateInvoice() {
         payment_type,
         notes,
         items,
-        total_amount: parseFloat(salesState.dom.invoiceTotalSpan.textContent)
+        discount_type: financials.discountType,
+        discount_value: financials.discountValue,
+        paid_amount: financials.paidAmount,
+        total_amount: financials.netTotal
     };
 
     try {
@@ -451,13 +696,26 @@ async function saveInvoice() {
         return;
     }
 
+    const overQtyViolations = getDraftOverQuantityViolations();
+    if (overQtyViolations.length > 0) {
+        const topViolation = overQtyViolations[0];
+        alert(`لا يمكن حفظ الفاتورة: الصنف "${topViolation.itemName}" يوجد به ${formatQty(topViolation.overQty)} زيادة عن المتاح (${formatQty(topViolation.availableQty)}).`);
+        return;
+    }
+
+    const financials = getInvoiceFinancials(parseFloat(salesState.dom.invoiceSubtotalSpan?.textContent || '0') || 0);
+
     const invoiceData = {
         customer_id,
         invoice_number,
         invoice_date,
         notes,
         items,
-        payment_type
+        payment_type,
+        discount_type: financials.discountType,
+        discount_value: financials.discountValue,
+        paid_amount: financials.paidAmount,
+        total_amount: financials.netTotal
     };
 
     const result = await salesApi.saveInvoice(invoiceData);
@@ -483,13 +741,26 @@ async function resetForm() {
     if (invoiceNumberInput) invoiceNumberInput.value = '';
     if (notesInput) notesInput.value = '';
     if (paymentTypeInput) paymentTypeInput.value = 'credit';
+    if (salesState.dom.discountTypeSelect) salesState.dom.discountTypeSelect.value = 'amount';
+    if (salesState.dom.discountValueInput) salesState.dom.discountValueInput.value = '0';
+    if (salesState.dom.paidAmountInput) salesState.dom.paidAmountInput.value = '0';
 
     salesState.dom.invoiceItemsBody.innerHTML = '';
+    if (salesState.dom.invoiceSubtotalSpan) salesState.dom.invoiceSubtotalSpan.textContent = '0.00';
+    if (salesState.dom.invoiceDiscountAmountSpan) salesState.dom.invoiceDiscountAmountSpan.textContent = '0.00';
     salesState.dom.invoiceTotalSpan.textContent = '0.00';
+    if (salesState.dom.invoicePaidDisplaySpan) salesState.dom.invoicePaidDisplaySpan.textContent = '0.00';
+    if (salesState.dom.invoiceRemainingSpan) {
+        salesState.dom.invoiceRemainingSpan.textContent = '0.00';
+        salesState.dom.invoiceRemainingSpan.className = 'customer-due-value';
+    }
+    clearSelectedItemAvailability();
 
     salesState.editingInvoiceId = null;
+    salesState.originalInvoiceItemTotalsByItemId = {};
     salesRender.setCreateModeUI(t);
 
     window.history.replaceState({}, document.title, window.location.pathname);
+    await loadItems();
     await initializeNewInvoice();
 }

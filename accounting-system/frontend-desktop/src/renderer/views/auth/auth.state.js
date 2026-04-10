@@ -10,6 +10,7 @@
                 subtitleText: null,
                 usernameInput: null,
                 passwordInput: null,
+                passwordToggleBtn: null,
                 confirmGroup: null,
                 confirmPasswordInput: null,
                 submitBtn: null,
@@ -24,6 +25,7 @@
         state.dom.subtitleText = document.getElementById('subtitleText');
         state.dom.usernameInput = document.getElementById('username');
         state.dom.passwordInput = document.getElementById('password');
+        state.dom.passwordToggleBtn = document.getElementById('passwordToggleBtn');
         state.dom.confirmGroup = document.getElementById('confirmGroup');
         state.dom.confirmPasswordInput = document.getElementById('confirmPassword');
         state.dom.submitBtn = document.getElementById('submitBtn');

@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.authPageState.initializeDomRefs(authState);
 
     authState.dom.form.addEventListener('submit', handleSubmit);
+    if (authState.dom.passwordToggleBtn) {
+        authState.dom.passwordToggleBtn.addEventListener('click', togglePasswordVisibility);
+    }
 
     await initAuthMode();
     } catch (error) {
@@ -27,8 +30,10 @@ async function initAuthMode() {
         const authStatus = await authApi.getAuthStatus();
         if (authStatus.requiresSetup) {
             authUi.applyMode(authState, 'setup', t);
+            setPasswordVisibility(false);
         } else {
             authUi.applyMode(authState, 'login', t);
+            setPasswordVisibility(false);
             if (authStatus.username) {
                 authState.dom.usernameInput.value = authStatus.username;
                 authState.dom.usernameInput.select();
@@ -38,6 +43,30 @@ async function initAuthMode() {
         authUi.applyMode(authState, 'setup', t);
         authUi.setStatus(authState, t('auth.errors.authCheckFailed', 'تعذر قراءة حالة الحساب. أنشئ حساب جديد للمتابعة.'), 'error');
     }
+}
+
+function setPasswordVisibility(isVisible) {
+    const shouldShow = Boolean(isVisible);
+    authState.dom.passwordInput.type = shouldShow ? 'text' : 'password';
+
+    if (!authState.dom.passwordToggleBtn) {
+        return;
+    }
+
+    const label = shouldShow ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور';
+    const icon = shouldShow ? '🙈' : '🐵';
+    const iconEl = authState.dom.passwordToggleBtn.querySelector('.password-toggle-icon');
+
+    authState.dom.passwordToggleBtn.setAttribute('aria-label', label);
+    authState.dom.passwordToggleBtn.setAttribute('title', label);
+    authState.dom.passwordToggleBtn.setAttribute('aria-pressed', shouldShow ? 'true' : 'false');
+    if (iconEl) {
+        iconEl.textContent = icon;
+    }
+}
+
+function togglePasswordVisibility() {
+    setPasswordVisibility(authState.dom.passwordInput.type === 'password');
 }
 
 async function handleSubmit(event) {
@@ -71,6 +100,7 @@ async function handleSubmit(event) {
     } finally {
         authState.dom.submitBtn.disabled = false;
         authState.dom.passwordInput.value = '';
+        setPasswordVisibility(false);
         authState.dom.confirmPasswordInput.value = '';
     }
 }

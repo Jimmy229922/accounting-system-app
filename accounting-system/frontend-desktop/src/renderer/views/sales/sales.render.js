@@ -50,7 +50,10 @@
 
                     <div class="items-section">
                         <div class="items-section-head">
-                            <h3 class="items-section-title">${t('sales.invoiceItems', 'أصناف الفاتورة')}</h3>
+                            <div class="items-section-title-wrap">
+                                <h3 class="items-section-title">${t('sales.invoiceItems', 'أصناف الفاتورة')}</h3>
+                                <span id="selectedItemAvailability" class="selected-item-availability"></span>
+                            </div>
                             <button class="btn btn-outline" type="button" data-action="add-row">${t('sales.addItemBtn', '+ إضافة صنف')}</button>
                         </div>
 
@@ -80,9 +83,43 @@
                         </div>
 
                         <div class="totals-panel">
+                            <div class="invoice-financial-grid">
+                                <div class="form-group">
+                                    <label>${t('sales.discountType', 'نوع الخصم')}</label>
+                                    <select id="discountType" class="form-control">
+                                        <option value="amount">${t('sales.discountTypeAmount', 'مبلغ')}</option>
+                                        <option value="percent">${t('sales.discountTypePercent', 'نسبة %')}</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>${t('sales.discountValue', 'قيمة الخصم')}</label>
+                                    <input type="text" id="discountValue" class="form-control" value="0" autocomplete="off" placeholder="0">
+                                </div>
+                                <div class="form-group">
+                                    <label>${t('sales.paidNow', 'المدفوع الآن')}</label>
+                                    <input type="text" id="paidAmount" class="form-control" value="0" autocomplete="off" placeholder="0">
+                                </div>
+                            </div>
+
+                            <div class="total-row total-row-secondary">
+                                <span>${t('sales.subtotalBeforeDiscount', 'الإجمالي قبل الخصم:')}</span>
+                                <span id="invoiceSubtotal">0.00</span>
+                            </div>
+                            <div class="total-row total-row-secondary">
+                                <span>${t('sales.discountAmount', 'قيمة الخصم:')}</span>
+                                <span id="invoiceDiscountAmount">0.00</span>
+                            </div>
                             <div class="total-row grand-total">
-                                <span>${t('sales.grandTotal', 'الإجمالي النهائي:')}</span>
+                                <span>${t('sales.netAfterDiscount', 'الصافي بعد الخصم:')}</span>
                                 <span id="invoiceTotal">0.00</span>
+                            </div>
+                            <div class="total-row total-row-paid-summary">
+                                <span>${t('sales.paidNow', 'المدفوع')}:</span>
+                                <span id="invoicePaidDisplay">0.00</span>
+                            </div>
+                            <div class="total-row total-row-due">
+                                <span class="customer-due-label">${t('sales.customerDue', 'المتبقي على العميل:')}</span>
+                                <span id="invoiceRemaining" class="customer-due-value">0.00</span>
                             </div>
                             <button class="btn btn-success" type="button" data-action="submit-invoice">
                                 ${t('sales.saveAndPost', 'حفظ وترحيل الفاتورة')}
@@ -99,7 +136,7 @@
         let itemsOptions = `<option value="">${t('sales.selectItem', 'اختر الصنف')}</option>`;
         allItems.forEach((item) => {
             const isSelected = existingItem && existingItem.item_id === item.id ? 'selected' : '';
-            itemsOptions += `<option value="${item.id}" data-price="${item.sale_price}" data-cost="${item.cost_price || 0}" ${isSelected}>${item.name} (${fmt(t('sales.available', 'متاح: {qty}'), { qty: item.stock_quantity })})</option>`;
+            itemsOptions += `<option value="${item.id}" data-price="${item.sale_price}" data-cost="${item.cost_price || 0}" ${isSelected}>${item.name}</option>`;
         });
         return itemsOptions;
     }

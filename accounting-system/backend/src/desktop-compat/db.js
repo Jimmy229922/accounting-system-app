@@ -137,6 +137,9 @@ function initDB() {
             invoice_date TEXT DEFAULT CURRENT_DATE,
             payment_type TEXT DEFAULT 'cash', -- 'cash' or 'credit'
             total_amount REAL DEFAULT 0,
+            discount_type TEXT DEFAULT 'amount',
+            discount_value REAL DEFAULT 0,
+            discount_amount REAL DEFAULT 0,
             paid_amount REAL DEFAULT 0,
             remaining_amount REAL DEFAULT 0,
             notes TEXT,
@@ -149,6 +152,9 @@ function initDB() {
     runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN payment_type TEXT DEFAULT 'cash'", 'purchase_invoices', 'payment_type');
     runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN paid_amount REAL DEFAULT 0", 'purchase_invoices', 'paid_amount');
     runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN remaining_amount REAL DEFAULT 0", 'purchase_invoices', 'remaining_amount');
+    runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN discount_type TEXT DEFAULT 'amount'", 'purchase_invoices', 'discount_type');
+    runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN discount_value REAL DEFAULT 0", 'purchase_invoices', 'discount_value');
+    runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN discount_amount REAL DEFAULT 0", 'purchase_invoices', 'discount_amount');
 
     // 6. Purchase Invoice Details Table (جدول تفاصيل فاتورة المشتريات)
     db.exec(`
@@ -173,6 +179,9 @@ function initDB() {
             invoice_date TEXT DEFAULT CURRENT_DATE,
             payment_type TEXT DEFAULT 'cash', -- 'cash' or 'credit'
             total_amount REAL DEFAULT 0,
+            discount_type TEXT DEFAULT 'amount',
+            discount_value REAL DEFAULT 0,
+            discount_amount REAL DEFAULT 0,
             paid_amount REAL DEFAULT 0,
             remaining_amount REAL DEFAULT 0,
             notes TEXT,
@@ -185,6 +194,9 @@ function initDB() {
     runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN payment_type TEXT DEFAULT 'cash'", 'sales_invoices', 'payment_type');
     runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN paid_amount REAL DEFAULT 0", 'sales_invoices', 'paid_amount');
     runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN remaining_amount REAL DEFAULT 0", 'sales_invoices', 'remaining_amount');
+    runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN discount_type TEXT DEFAULT 'amount'", 'sales_invoices', 'discount_type');
+    runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN discount_value REAL DEFAULT 0", 'sales_invoices', 'discount_value');
+    runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN discount_amount REAL DEFAULT 0", 'sales_invoices', 'discount_amount');
 
     // 8. Sales Invoice Details Table (جدول تفاصيل فاتورة المبيعات)
     db.exec(`

@@ -2,6 +2,46 @@ const { ipcMain } = require('electron');
 const { db } = require('../db');
 const { requirePermission } = require('./auth');
 
+function toPositiveNumber(value) {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function roundMoney(value) {
+    const n = Number(value) || 0;
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function calculateInvoiceFinancials({ subtotalAmount, discountType, discountValue, paidAmount }) {
+    const subtotal = roundMoney(Math.max(Number(subtotalAmount) || 0, 0));
+    const normalizedDiscountType = discountType === 'percent' ? 'percent' : 'amount';
+    const rawDiscountValue = toPositiveNumber(discountValue);
+    const normalizedDiscountValue = normalizedDiscountType === 'percent'
+        ? Math.min(rawDiscountValue, 100)
+        : rawDiscountValue;
+
+    let discountAmount = normalizedDiscountType === 'percent'
+        ? subtotal * (normalizedDiscountValue / 100)
+        : normalizedDiscountValue;
+    discountAmount = roundMoney(Math.min(Math.max(discountAmount, 0), subtotal));
+
+    const totalAmount = roundMoney(Math.max(subtotal - discountAmount, 0));
+    const paid = roundMoney(toPositiveNumber(paidAmount));
+    const remaining = roundMoney(Math.max(totalAmount - paid, 0));
+    const balanceDelta = roundMoney(totalAmount - paid);
+
+    return {
+        subtotal_amount: subtotal,
+        discount_type: normalizedDiscountType,
+        discount_value: roundMoney(normalizedDiscountValue),
+        discount_amount: discountAmount,
+        total_amount: totalAmount,
+        paid_amount: paid,
+        remaining_amount: remaining,
+        balance_delta: balanceDelta
+    };
+}
+
 function register() {
     // --- Sales Invoices Handlers ---
 
@@ -22,7 +62,7 @@ function register() {
     ipcMain.handle('save-sales-invoice', (event, invoiceData) => {
         const denied = requirePermission('sales', 'add');
         if (denied) return denied;
-        const { customer_id, invoice_date, notes, items, payment_type } = invoiceData;
+        const { customer_id, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
         let { invoice_number } = invoiceData;
 
         // Ensure invoice_number is always present (avoid empty/null numbers that bypass duplicate checks)
@@ -52,26 +92,21 @@ function register() {
             }
         }
 
-        let paid_amount = 0;
-        let remaining_amount = 0;
-
-        // Calculate total amount first
-        let totalAmount = 0;
+        let subtotalAmount = 0;
         for (const item of items) {
-            totalAmount += item.total_price;
+            subtotalAmount += Number(item.total_price) || 0;
         }
 
-        if (payment_type === 'cash') {
-            paid_amount = totalAmount;
-            remaining_amount = 0;
-        } else {
-            paid_amount = 0;
-            remaining_amount = totalAmount;
-        }
+        const financials = calculateInvoiceFinancials({
+            subtotalAmount,
+            discountType: discount_type,
+            discountValue: discount_value,
+            paidAmount: paid_amount
+        });
 
         const insertInvoice = db.prepare(`
-            INSERT INTO sales_invoices (customer_id, invoice_number, invoice_date, total_amount, paid_amount, remaining_amount, payment_type, notes)
-            VALUES (@customer_id, @invoice_number, @invoice_date, @total_amount, @paid_amount, @remaining_amount, @payment_type, @notes)
+            INSERT INTO sales_invoices (customer_id, invoice_number, invoice_date, total_amount, discount_type, discount_value, discount_amount, paid_amount, remaining_amount, payment_type, notes)
+            VALUES (@customer_id, @invoice_number, @invoice_date, @total_amount, @discount_type, @discount_value, @discount_amount, @paid_amount, @remaining_amount, @payment_type, @notes)
         `);
 
         const insertDetail = db.prepare(`
@@ -86,8 +121,8 @@ function register() {
         `);
 
         const insertTreasuryTransaction = db.prepare(`
-            INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type)
-            VALUES ('income', @amount, @date, @description, @invoice_id, 'sales')
+            INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, customer_id)
+            VALUES ('income', @amount, @date, @description, @invoice_id, 'sales', @customer_id)
         `);
 
         const updateCustomerBalance = db.prepare(`
@@ -101,9 +136,12 @@ function register() {
                 customer_id: data.customer_id,
                 invoice_number: data.invoice_number,
                 invoice_date: data.invoice_date,
-                total_amount: totalAmount,
-                paid_amount: paid_amount,
-                remaining_amount: remaining_amount,
+                total_amount: financials.total_amount,
+                discount_type: financials.discount_type,
+                discount_value: financials.discount_value,
+                discount_amount: financials.discount_amount,
+                paid_amount: financials.paid_amount,
+                remaining_amount: financials.remaining_amount,
                 payment_type: data.payment_type,
                 notes: data.notes
             });
@@ -125,18 +163,19 @@ function register() {
                 });
             }
 
-            if (data.payment_type === 'cash') {
-                // Add Treasury Transaction (Income)
+            if (financials.paid_amount > 0) {
                 insertTreasuryTransaction.run({
-                    amount: totalAmount,
+                    amount: financials.paid_amount,
                     date: data.invoice_date,
-                    description: `فاتورة بيع رقم ${data.invoice_number || invoiceId} (كاش)`,
-                    invoice_id: invoiceId
+                    description: `فاتورة بيع رقم ${data.invoice_number || invoiceId} (مدفوع ${financials.paid_amount.toFixed(2)})`,
+                    invoice_id: invoiceId,
+                    customer_id: data.customer_id
                 });
-            } else {
-                // Update Customer Balance (Credit)
+            }
+
+            if (financials.balance_delta !== 0) {
                 updateCustomerBalance.run({
-                    amount: totalAmount,
+                    amount: financials.balance_delta,
                     id: data.customer_id
                 });
             }
@@ -156,7 +195,7 @@ function register() {
     ipcMain.handle('update-sales-invoice', (event, invoiceData) => {
         const denied = requirePermission('sales', 'edit');
         if (denied) return denied;
-        const { id, customer_id, invoice_number, invoice_date, notes, items, payment_type } = invoiceData;
+        const { id, customer_id, invoice_number, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
 
         console.log(`[sales] update-sales-invoice id=${id} invoice_number=${invoice_number} customer_id=${customer_id} items=${items?.length ?? 0}`);
         
@@ -173,21 +212,17 @@ function register() {
 
         if (!oldInvoice) return { success: false, error: 'Invoice not found' };
 
-        // Calculate new totals
-        let totalAmount = 0;
+        let subtotalAmount = 0;
         for (const item of items) {
-            totalAmount += item.total_price;
+            subtotalAmount += Number(item.total_price) || 0;
         }
-        
-        let paid_amount = 0;
-        let remaining_amount = 0;
-        if (payment_type === 'cash') {
-            paid_amount = totalAmount;
-            remaining_amount = 0;
-        } else {
-            paid_amount = 0;
-            remaining_amount = totalAmount;
-        }
+
+        const financials = calculateInvoiceFinancials({
+            subtotalAmount,
+            discountType: discount_type,
+            discountValue: discount_value,
+            paidAmount: paid_amount
+        });
 
         const transaction = db.transaction(() => {
             // --- REVERSE OLD EFFECTS ---
@@ -209,9 +244,9 @@ function register() {
                 }
             }
 
-            // Reverse Balance (Subtract old debt)
-            if (oldInvoice.remaining_amount > 0) {
-                db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(oldInvoice.remaining_amount, oldInvoice.customer_id);
+            const oldBalanceDelta = roundMoney((Number(oldInvoice.total_amount) || 0) - (Number(oldInvoice.paid_amount) || 0));
+            if (oldBalanceDelta !== 0) {
+                db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(oldBalanceDelta, oldInvoice.customer_id);
             }
 
             // Delete old Treasury Transaction
@@ -228,11 +263,23 @@ function register() {
             db.prepare(`
                 UPDATE sales_invoices 
                 SET customer_id = @customer_id, invoice_number = @invoice_number, invoice_date = @invoice_date, 
-                    total_amount = @total_amount, paid_amount = @paid_amount, remaining_amount = @remaining_amount, 
+                    total_amount = @total_amount, discount_type = @discount_type, discount_value = @discount_value, discount_amount = @discount_amount,
+                    paid_amount = @paid_amount, remaining_amount = @remaining_amount, 
                     payment_type = @payment_type, notes = @notes
                 WHERE id = @id
             `).run({
-                id, customer_id, invoice_number, invoice_date, total_amount: totalAmount, paid_amount, remaining_amount, payment_type, notes
+                id,
+                customer_id,
+                invoice_number,
+                invoice_date,
+                total_amount: financials.total_amount,
+                discount_type: financials.discount_type,
+                discount_value: financials.discount_value,
+                discount_amount: financials.discount_amount,
+                paid_amount: financials.paid_amount,
+                remaining_amount: financials.remaining_amount,
+                payment_type,
+                notes
             });
 
             // Insert New Details & Update Stock
@@ -253,21 +300,21 @@ function register() {
                 updateItemStock.run({ quantity: item.quantity, item_id: item.item_id });
             }
 
-            // Update Balance (Add new debt)
-            if (remaining_amount > 0) {
-                db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(remaining_amount, customer_id);
+            if (financials.balance_delta !== 0) {
+                db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(financials.balance_delta, customer_id);
             }
 
             // Add Treasury Transaction (Income)
-            if (paid_amount > 0) {
+            if (financials.paid_amount > 0) {
                 db.prepare(`
-                    INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type)
-                    VALUES ('income', @amount, @date, @description, @invoice_id, 'sales')
+                    INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, customer_id)
+                    VALUES ('income', @amount, @date, @description, @invoice_id, 'sales', @customer_id)
                 `).run({
-                    amount: paid_amount,
+                    amount: financials.paid_amount,
                     date: invoice_date,
-                    description: `تعديل فاتورة بيع رقم ${invoice_number || id} (كاش)`,
-                    invoice_id: id
+                    description: `تعديل فاتورة بيع رقم ${invoice_number || id} (مدفوع ${financials.paid_amount.toFixed(2)})`,
+                    invoice_id: id,
+                    customer_id
                 });
             }
         });

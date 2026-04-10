@@ -192,15 +192,17 @@ function register() {
                 }
             }
 
-            // 2. Reverse Balance (if credit/remaining > 0)
-            if (invoice.remaining_amount > 0) {
-                // Sales increased debt (balance), so subtract
-                // Purchase increased credit (balance), so subtract (assuming balance is always positive for debt/credit)
-                // Wait, usually Customer Balance = Debt. Supplier Balance = Credit.
-                // Sales: Customer owes us. Balance increases. Delete -> Balance decreases.
-                // Purchase: We owe supplier. Balance increases. Delete -> Balance decreases.
-                // So in both cases, we subtract.
-                db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(invoice.remaining_amount, invoice[personIdField]);
+            // 2. Reverse Balance
+            if (isSales) {
+                const salesBalanceDelta = (Number(invoice.total_amount) || 0) - (Number(invoice.paid_amount) || 0);
+                if (salesBalanceDelta !== 0) {
+                    db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(salesBalanceDelta, invoice[personIdField]);
+                }
+            } else {
+                const purchaseBalanceDelta = (Number(invoice.total_amount) || 0) - (Number(invoice.paid_amount) || 0);
+                if (purchaseBalanceDelta !== 0) {
+                    db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(purchaseBalanceDelta, invoice[personIdField]);
+                }
             }
 
             // 3. Reverse Treasury (if paid > 0)
