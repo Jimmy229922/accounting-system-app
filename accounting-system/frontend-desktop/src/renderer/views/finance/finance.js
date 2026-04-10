@@ -3,6 +3,7 @@ let transactionsTableBody;
 let transactionForm;
 let transDateInput;
 let newTransactionBtn;
+let transactionsById = new Map();
 let ar = {};
 const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
 
@@ -48,7 +49,7 @@ function renderPage() {
                     <p>${t('finance.heroSubtitle', 'إدارة ومتابعة جميع الحركات المالية والإيرادات والمصروفات')}</p>
                 </div>
                 <div class="hero-bottom">
-                    <button class="btn btn-primary" id="newTransactionBtn" onclick="showForm()">
+                    <button class="btn btn-primary" id="newTransactionBtn" data-action="show-form">
                         <i class="fas fa-plus-circle"></i> ${t('finance.newTransactionBtn', 'تسجيل حركة يدوية')}
                     </button>
                 </div>
@@ -103,7 +104,7 @@ function renderPage() {
             <div id="transactionForm" class="form-card">
                 <div class="form-header">
                     <h3>${t('finance.newTransactionTitle', 'تسجيل حركة مالية جديدة')}</h3>
-                    <button class="btn btn-outline btn-sm" onclick="hideForm()">${t('finance.close', 'إغلاق')}</button>
+                    <button class="btn btn-outline btn-sm" data-action="hide-form">${t('finance.close', 'إغلاق')}</button>
                 </div>
                 
                 <div class="form-grid">
@@ -129,15 +130,15 @@ function renderPage() {
                 </div>
 
                 <div style="text-align: left;">
-                    <button class="btn btn-outline" onclick="hideForm()">${t('finance.cancel', 'إلغاء')}</button>
-                    <button class="btn btn-success" onclick="saveTransaction()">${t('finance.saveTransaction', 'حفظ الحركة')}</button>
+                    <button class="btn btn-outline" data-action="hide-form">${t('finance.cancel', 'إلغاء')}</button>
+                    <button class="btn btn-success" data-action="save-transaction">${t('finance.saveTransaction', 'حفظ الحركة')}</button>
                 </div>
             </div>
 
             <!-- Edit Transaction Modal -->
             <div id="editModal" class="modal">
                 <div class="modal-content">
-                    <span class="close" onclick="closeEditModal()">&times;</span>
+                    <span class="close" data-action="close-edit-modal">&times;</span>
                     <h3>${t('finance.editTransactionTitle', 'تعديل حركة')}</h3>
                     <input type="hidden" id="editTransId">
                     <div class="form-grid">
@@ -161,7 +162,7 @@ function renderPage() {
                             <input type="text" id="editTransDesc" class="form-control">
                         </div>
                     </div>
-                    <button class="btn btn-primary" onclick="updateTransaction()">${t('finance.saveEdits', 'حفظ التعديلات')}</button>
+                    <button class="btn btn-primary" data-action="update-transaction">${t('finance.saveEdits', 'حفظ التعديلات')}</button>
                 </div>
             </div>
 
@@ -194,6 +195,8 @@ function initializeElements() {
     transactionForm = document.getElementById('transactionForm');
     transDateInput = document.getElementById('transDate');
     newTransactionBtn = document.getElementById('newTransactionBtn');
+    document.getElementById('app').addEventListener('click', handleAppClick);
+    document.addEventListener('click', handleOutsideModalClick);
 }
 
 async function loadFinanceData() {
@@ -235,8 +238,10 @@ async function loadFinanceData() {
 
 function renderTransactions(transactions) {
     transactionsTableBody.innerHTML = '';
+    transactionsById = new Map();
     
     transactions.forEach(tr => {
+        transactionsById.set(String(tr.id), tr);
         const row = document.createElement('tr');
         const typeBadge = tr.type === 'income' 
             ? `<span class="badge badge-income">${t('finance.incomeBadge', 'قبض')}</span>` 
@@ -255,10 +260,10 @@ function renderTransactions(transactions) {
         const isAuto = tr.related_invoice_id != null;
         const actions = isAuto ? 
             `<span style="color: #999; font-size: 0.8rem; margin-left: 8px;">${t('finance.autoLabel', '(آلي)')}</span>
-             <button class="btn btn-danger btn-sm" onclick="deleteTransaction(${tr.id})">${t('finance.deleteBtn', 'حذف')}</button>` :
+             <button class="btn btn-danger btn-sm" data-action="delete-transaction" data-id="${tr.id}">${t('finance.deleteBtn', 'حذف')}</button>` :
             `
-            <button class="btn btn-warning btn-sm" onclick='openEditModal(${JSON.stringify(tr)})'>${t('finance.editBtn', 'تعديل')}</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteTransaction(${tr.id})">${t('finance.deleteBtn', 'حذف')}</button>
+            <button class="btn btn-warning btn-sm" data-action="edit-transaction" data-id="${tr.id}">${t('finance.editBtn', 'تعديل')}</button>
+            <button class="btn btn-danger btn-sm" data-action="delete-transaction" data-id="${tr.id}">${t('finance.deleteBtn', 'حذف')}</button>
             `;
 
         row.innerHTML = `
@@ -272,6 +277,52 @@ function renderTransactions(transactions) {
         `;
         transactionsTableBody.appendChild(row);
     });
+}
+
+function handleAppClick(event) {
+    const target = event.target.closest('[data-action]');
+    if (!target) return;
+
+    const action = target.dataset.action;
+    if (action === 'show-form') {
+        showForm();
+        return;
+    }
+
+    if (action === 'hide-form') {
+        hideForm();
+        return;
+    }
+
+    if (action === 'save-transaction') {
+        saveTransaction();
+        return;
+    }
+
+    if (action === 'close-edit-modal') {
+        closeEditModal();
+        return;
+    }
+
+    if (action === 'update-transaction') {
+        updateTransaction();
+        return;
+    }
+
+    if (action === 'edit-transaction') {
+        const transaction = transactionsById.get(String(target.dataset.id || ''));
+        if (transaction) {
+            openEditModal(transaction);
+        }
+        return;
+    }
+
+    if (action === 'delete-transaction') {
+        const id = Number.parseInt(target.dataset.id || '', 10);
+        if (Number.isFinite(id)) {
+            deleteTransaction(id);
+        }
+    }
 }
 
 function showForm() {
@@ -379,7 +430,7 @@ async function updateTransaction() {
 }
 
 // Close modal when clicking outside
-window.onclick = function(event) {
+function handleOutsideModalClick(event) {
     const modal = document.getElementById('editModal');
     if (event.target == modal) {
         modal.style.display = "none";

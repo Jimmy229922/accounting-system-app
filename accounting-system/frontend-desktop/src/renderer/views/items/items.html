@@ -115,7 +115,7 @@
                             <div></div>
 
                             <div class="form-actions">
-                                <button class="btn-save-item" onclick="saveNewItem()">
+                                <button class="btn-save-item" data-action="save-new-item">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                                     <span data-i18n="items.saveItem">حفظ الصنف</span>
                                 </button>
@@ -177,7 +177,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h3 data-i18n="items.editModalTitle">تعديل بيانات الصنف</h3>
-                    <button class="close-modal" onclick="closeEditModal()">&times;</button>
+                    <button class="close-modal" data-action="close-edit-modal">&times;</button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="editItemId">
@@ -223,8 +223,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline" onclick="closeEditModal()" data-i18n="items.cancelBtn">إلغاء</button>
-                    <button class="btn btn-primary" onclick="saveEditedItem()" data-i18n="items.saveEdits">حفظ التعديلات</button>
+                    <button class="btn btn-outline" data-action="close-edit-modal" data-i18n="items.cancelBtn">إلغاء</button>
+                    <button class="btn btn-primary" data-action="save-edited-item" data-i18n="items.saveEdits">حفظ التعديلات</button>
                 </div>
             </div>
         </div>
@@ -234,14 +234,14 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h3 data-i18n="items.deleteModalTitle">تأكيد الحذف</h3>
-                    <button class="close-modal" onclick="hideDeleteModal()">&times;</button>
+                    <button class="close-modal" data-action="hide-delete-modal">&times;</button>
                 </div>
                 <div class="modal-body">
                     <p data-i18n="items.deleteConfirmMessage">هل أنت متأكد من رغبتك في حذف هذا الصنف؟ لا يمكن التراجع عن هذا الإجراء.</p>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline" onclick="hideDeleteModal()" data-i18n="items.cancelBtn">إلغاء</button>
-                    <button class="btn btn-danger" onclick="confirmDelete()" data-i18n="items.deleteBtnTitle">حذف</button>
+                    <button class="btn btn-outline" data-action="hide-delete-modal" data-i18n="items.cancelBtn">إلغاء</button>
+                    <button class="btn btn-danger" data-action="confirm-delete-item" data-i18n="items.deleteBtnTitle">حذف</button>
                 </div>
             </div>
         </div>

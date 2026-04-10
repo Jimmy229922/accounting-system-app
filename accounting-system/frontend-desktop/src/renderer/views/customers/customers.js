@@ -131,6 +131,39 @@ function setupEventListeners() {
         if (e.target === deleteModal) closeDeleteModal();
     });
     confirmDeleteBtn.addEventListener('click', confirmDeleteCustomer);
+
+    customersTableBody.addEventListener('click', handleTableActionClick);
+    if (paginationContainer) {
+        paginationContainer.addEventListener('click', handlePaginationActionClick);
+    }
+}
+
+function handleTableActionClick(event) {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+
+    const id = Number.parseInt(actionEl.dataset.id || '', 10);
+    if (!Number.isFinite(id)) return;
+
+    const action = actionEl.dataset.action;
+    if (action === 'edit-customer') {
+        editCustomer(id);
+        return;
+    }
+
+    if (action === 'delete-customer') {
+        deleteCustomer(id);
+    }
+}
+
+function handlePaginationActionClick(event) {
+    const actionEl = event.target.closest('[data-action="change-customers-page"]');
+    if (!actionEl) return;
+
+    const page = Number.parseInt(actionEl.dataset.page || '', 10);
+    if (Number.isFinite(page)) {
+        changeCustomersPage(page);
+    }
 }
 
 async function loadCustomers() {
@@ -239,10 +272,10 @@ function renderTable() {
             <td class="${balanceClass}" dir="ltr">${formatCurrency(Math.abs(balance))}<span class="balance-tag">${balanceTag}</span></td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn-icon btn-edit" onclick="editCustomer(${customer.id})">
+                    <button class="btn-icon btn-edit" data-action="edit-customer" data-id="${customer.id}">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn-icon btn-delete" onclick="deleteCustomer(${customer.id})">
+                    <button class="btn-icon btn-delete" data-action="delete-customer" data-id="${customer.id}">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -264,11 +297,11 @@ function renderCustomersPagination(totalPages) {
     }
 
     paginationContainer.innerHTML = `
-        <button class="pagination-btn" onclick="changeCustomersPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+        <button class="pagination-btn" data-action="change-customers-page" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </button>
         <span style="color: var(--text-secondary); font-weight: 600;">${fmt(t('customers.pagination.page', 'صفحة {current} من {total}'), {current: currentPage, total: totalPages})}</span>
-        <button class="pagination-btn" onclick="changeCustomersPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+        <button class="pagination-btn" data-action="change-customers-page" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
     `;
@@ -384,17 +417,17 @@ function updateOpeningBalanceHint() {
     customerBalanceHint.textContent = fmt(t('customers.balanceHint.customer', 'سيتم حفظ الرصيد كـ "{direction}" على العميل.'), {direction});
 }
 
-window.editCustomer = (id) => {
+function editCustomer(id) {
     const customer = allCustomers.find((c) => c.id === id);
     if (customer) {
         openModal(customer);
     }
-};
+}
 
-window.deleteCustomer = (id) => {
+function deleteCustomer(id) {
     customerToDeleteId = id;
     deleteModal.classList.add('show');
-};
+}
 
 function closeDeleteModal() {
     deleteModal.classList.remove('show');

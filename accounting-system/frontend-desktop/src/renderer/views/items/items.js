@@ -119,6 +119,11 @@ function initializeElements() {
         searchInput.addEventListener('input', (e) => handleSearch(e.target.value));
     }
 
+    const appRoot = document.getElementById('app');
+    if (appRoot) {
+        appRoot.addEventListener('click', handleAppActionClick);
+    }
+
     // Close modals on outside click
     window.addEventListener('click', (e) => {
         if (e.target === deleteModal) hideDeleteModal();
@@ -140,6 +145,60 @@ function initializeElements() {
         const updateEditMargin = () => calculateProfitMargin(editCostPriceInput, editSalePriceInput, 'editProfitMargin');
         editCostPriceInput.addEventListener('input', updateEditMargin);
         editSalePriceInput.addEventListener('input', updateEditMargin);
+    }
+}
+
+function handleAppActionClick(event) {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+
+    const action = actionEl.dataset.action;
+    if (action === 'save-new-item') {
+        saveNewItem();
+        return;
+    }
+
+    if (action === 'open-edit-modal') {
+        const id = Number.parseInt(actionEl.dataset.id || '', 10);
+        if (Number.isFinite(id)) {
+            openEditModal(id);
+        }
+        return;
+    }
+
+    if (action === 'show-delete-modal') {
+        const id = Number.parseInt(actionEl.dataset.id || '', 10);
+        if (Number.isFinite(id)) {
+            showDeleteModal(id);
+        }
+        return;
+    }
+
+    if (action === 'change-page') {
+        const page = Number.parseInt(actionEl.dataset.page || '', 10);
+        if (Number.isFinite(page)) {
+            changePage(page);
+        }
+        return;
+    }
+
+    if (action === 'close-edit-modal') {
+        closeEditModal();
+        return;
+    }
+
+    if (action === 'save-edited-item') {
+        saveEditedItem();
+        return;
+    }
+
+    if (action === 'hide-delete-modal') {
+        hideDeleteModal();
+        return;
+    }
+
+    if (action === 'confirm-delete-item') {
+        confirmDelete();
     }
 }
 
@@ -314,10 +373,10 @@ function renderTable() {
             <td>${reorderLvl}</td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn-icon btn-edit" onclick="openEditModal(${item.id})" title="${t('items.editBtnTitle', 'تعديل')}">
+                    <button class="btn-icon btn-edit" data-action="open-edit-modal" data-id="${item.id}" title="${t('items.editBtnTitle', 'تعديل')}">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     </button>
-                    <button class="btn-icon btn-delete" onclick="showDeleteModal(${item.id})" title="${t('items.deleteBtnTitle', 'حذف')}">
+                    <button class="btn-icon btn-delete" data-action="show-delete-modal" data-id="${item.id}" title="${t('items.deleteBtnTitle', 'حذف')}">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                     </button>
                 </div>
@@ -338,11 +397,11 @@ function renderPagination(totalPages) {
     }
 
     paginationContainer.innerHTML = `
-        <button class="pagination-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+        <button class="pagination-btn" data-action="change-page" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </button>
         <span style="color: var(--text-secondary); font-weight: 600;">${fmt(t('items.pagination.page', 'صفحة {current} من {total}'), {current: currentPage, total: totalPages})}</span>
-        <button class="pagination-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+        <button class="pagination-btn" data-action="change-page" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
     `;
