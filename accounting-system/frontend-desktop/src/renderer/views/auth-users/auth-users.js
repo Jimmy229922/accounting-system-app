@@ -3,6 +3,8 @@ let authUsersStatusEl, authUsersTableWrap, authUsersNotice;
 let authUsersTotalStat, authUsersActiveStat, authUsersInactiveStat, authUsersTableMeta;
 let ar = {};
 const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
+const authUsersRender = window.authUsersPageRender;
+const authUsersUtils = window.authUsersPageUtils;
 
 const AUTH_SESSION_KEY = 'auth_session_token';
 
@@ -10,237 +12,18 @@ function t(key, fallback = '') {
     return pageI18n ? pageI18n.t(key, fallback) : fallback;
 }
 
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-async function getAuthSessionToken() {
-    try {
-        if (window.electronAPI && typeof window.electronAPI.getAuthSessionToken === 'function') {
-            const tokenFromMain = await window.electronAPI.getAuthSessionToken();
-            if (tokenFromMain) {
-                return tokenFromMain;
-            }
-        }
-    } catch (error) {
-        // Fallback to localStorage below.
-    }
-
-    try {
-        return localStorage.getItem(AUTH_SESSION_KEY) || '';
-    } catch (error) {
-        return '';
-    }
-}
+const escapeHtml = authUsersUtils.escapeHtml;
+const getAuthSessionToken = () => authUsersUtils.getAuthSessionToken(AUTH_SESSION_KEY);
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         ar = await window.i18n.loadArabicDictionary();
     }
 
-    renderPage();
+    authUsersRender.renderPage({ t });
     initializeElements();
     await loadAuthUsersSection();
 });
-
-function renderPage() {
-    const app = document.getElementById('app');
-    app.innerHTML = `
-        <nav class="top-nav">
-            <div class="nav-brand">${t('common.nav.brand')}</div>
-            <ul class="nav-links">
-                <li><a href="../dashboard/index.html">${t('common.nav.dashboard')}</a></li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.masterData')}</a>
-                    <div class="dropdown-content">
-                        <a href="../items/units.html">${t('common.nav.units')}</a>
-                        <a href="../items/items.html">${t('common.nav.items')}</a>
-                        <a href="../customers/index.html">${t('common.nav.customersSuppliers')}</a>
-                        <a href="../opening-balance/index.html">${t('common.nav.openingBalance')}</a>
-                        <a href="../auth-users/index.html" class="active">${t('common.nav.userManagement', 'إدارة المستخدمين')}</a>
-                    </div>
-                </li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.sales')}</a>
-                    <div class="dropdown-content">
-                        <a href="../sales/index.html">${t('common.nav.salesInvoice')}</a>
-                        <a href="../sales-returns/index.html">${t('common.nav.salesReturns')}</a>
-                    </div>
-                </li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.purchases')}</a>
-                    <div class="dropdown-content">
-                        <a href="../purchases/index.html">${t('common.nav.purchaseInvoice')}</a>
-                        <a href="../purchase-returns/index.html">${t('common.nav.purchaseReturns')}</a>
-                    </div>
-                </li>
-                <li><a href="../inventory/index.html">${t('common.nav.inventory')}</a></li>
-                <li><a href="../finance/index.html">${t('common.nav.finance')}</a></li>
-                <li><a href="../payments/receipt.html">${t('common.nav.receipt')}</a></li>
-                <li><a href="../payments/payment.html">${t('common.nav.payment')}</a></li>
-                <li class="dropdown">
-                    <a href="#">${t('common.nav.reports')}</a>
-                    <div class="dropdown-content">
-                        <a href="../reports/index.html">${t('common.nav.generalReports')}</a>
-                        <a href="../customer-reports/index.html">${t('common.nav.customerStatement')}</a>
-                        <a href="../reports/debtor-creditor/index.html">${t('common.nav.debtorCreditor')}</a>
-                    </div>
-                </li>
-                <li><a href="../settings/index.html">${t('common.nav.settings')}</a></li>
-            </ul>
-        </nav>
-
-        <main class="content">
-            <div class="users-page">
-                <section class="users-hero">
-                    <div class="users-hero-main">
-                        <div class="users-hero-icon" aria-hidden="true"><i class="fas fa-user-shield"></i></div>
-                        <div>
-                            <h1>${t('authUsers.title', 'إدارة المستخدمين')}</h1>
-                            <p class="users-subtitle">${t('authUsers.subtitle', 'إدارة حسابات الموظفين (إضافة، تفعيل/تعطيل، وتغيير كلمة المرور).')}</p>
-                        </div>
-                    </div>
-                    <div class="users-hero-stats">
-                        <div class="users-stat-card">
-                            <span>${t('authUsers.stats.total', 'إجمالي الحسابات')}</span>
-                            <strong id="authUsersTotalStat">0</strong>
-                        </div>
-                        <div class="users-stat-card stat-active">
-                            <span>${t('authUsers.stats.active', 'الحسابات المفعلة')}</span>
-                            <strong id="authUsersActiveStat">0</strong>
-                        </div>
-                        <div class="users-stat-card stat-inactive">
-                            <span>${t('authUsers.stats.inactive', 'الحسابات غير المفعلة')}</span>
-                            <strong id="authUsersInactiveStat">0</strong>
-                        </div>
-                    </div>
-                </section>
-
-                <div id="authUsersNotice" class="users-notice notice-info">${t('authUsers.loadingPermissions', 'جارٍ تحميل صلاحيات الحساب...')}</div>
-
-                <div id="authUsersAdminPanel" hidden>
-                    <section class="users-card">
-                        <div class="users-card-head">
-                            <h2>${t('authUsers.addUser', 'إضافة مستخدم')}</h2>
-                            <span class="users-card-hint">${t('authUsers.formHint', 'املأ البيانات ثم اضغط إضافة.')}</span>
-                        </div>
-
-                        <form id="authUsersForm" class="users-form">
-                            <div class="form-group">
-                                <label for="authUsername">${t('authUsers.username', 'اسم المستخدم')}</label>
-                                <input id="authUsername" type="text" class="form-control" autocomplete="off" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="authPassword">${t('authUsers.password', 'كلمة المرور')}</label>
-                                <input id="authPassword" type="password" class="form-control" autocomplete="new-password" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="authConfirmPassword">${t('authUsers.confirmPassword', 'تأكيد كلمة المرور')}</label>
-                                <input id="authConfirmPassword" type="password" class="form-control" autocomplete="new-password" required>
-                            </div>
-                            <div class="users-form-actions">
-                                <label class="form-check-line" for="authActivateNow">
-                                    <input id="authActivateNow" type="checkbox" checked>
-                                    ${t('authUsers.activateNow', 'تفعيل الحساب مباشرة بعد الإنشاء')}
-                                </label>
-                                <button type="submit" class="btn-secondary users-submit-btn">
-                                    <i class="fas fa-user-plus" aria-hidden="true"></i>
-                                    <span>${t('authUsers.addUser', 'إضافة مستخدم')}</span>
-                                </button>
-                            </div>
-                        </form>
-                    </section>
-
-                    <small id="authUsersStatus" class="status-text"></small>
-
-                    <section class="users-card users-list-card">
-                        <div class="users-card-head">
-                            <h2>${t('authUsers.listTitle', 'قائمة المستخدمين')}</h2>
-                            <span id="authUsersTableMeta" class="users-table-meta">${t('authUsers.tableMeta', 'يتم عرض 0 مستخدم')}</span>
-                        </div>
-                        <div id="authUsersTableWrap" class="users-table-wrap"></div>
-                    </section>
-                </div>
-            </div>
-
-            <!-- Password Reset Modal -->
-            <div id="resetPasswordModal" class="rp-modal-overlay">
-                <div class="rp-modal">
-                    <div class="rp-modal-header">
-                        <h3><i class="fas fa-key"></i> ${t('authUsers.changePassword', 'تغيير كلمة السر')}</h3>
-                        <button type="button" class="rp-modal-close" id="rpModalClose">&times;</button>
-                    </div>
-                    <form id="resetPasswordForm" class="rp-modal-body">
-                        <input type="hidden" id="rpUserId" value="">
-                        <div class="form-group">
-                            <label for="rpNewPassword">${t('authUsers.newPassword', 'كلمة المرور الجديدة')}</label>
-                            <input id="rpNewPassword" type="password" class="form-control" autocomplete="new-password" minlength="6" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="rpConfirmPassword">${t('authUsers.confirmNewPassword', 'تأكيد كلمة المرور الجديدة')}</label>
-                            <input id="rpConfirmPassword" type="password" class="form-control" autocomplete="new-password" minlength="6" required>
-                        </div>
-                        <div class="rp-modal-actions">
-                            <button type="submit" class="btn-secondary users-submit-btn">
-                                <i class="fas fa-check"></i> ${t('authUsers.savePassword', 'حفظ كلمة المرور')}
-                            </button>
-                            <button type="button" class="btn-cancel" id="rpModalCancel">${t('common.cancel', 'إلغاء')}</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Permissions Modal -->
-            <div id="permissionsModal" class="rp-modal-overlay">
-                <div class="rp-modal perm-modal">
-                    <div class="rp-modal-header">
-                        <h3><i class="fas fa-shield-alt"></i> ${t('authUsers.permissions.manage', 'إدارة الصلاحيات')} — <span id="permUserName"></span></h3>
-                        <button type="button" class="rp-modal-close" id="permModalClose">&times;</button>
-                    </div>
-                    <div class="rp-modal-body perm-modal-body">
-                        <input type="hidden" id="permUserId" value="">
-                        <div id="permAdminNote" class="perm-admin-note" style="display:none;">
-                            <i class="fas fa-info-circle"></i> ${t('authUsers.permissions.adminNote', 'حسابات الأدمن تمتلك جميع الصلاحيات تلقائياً.')}
-                        </div>
-                        <div class="perm-actions-row">
-                            <button type="button" class="btn-sm btn-secondary" id="permSelectAll">
-                                <i class="fas fa-check-double"></i> ${t('authUsers.permissions.selectAll', 'تحديد الكل')}
-                            </button>
-                            <button type="button" class="btn-sm btn-secondary" id="permDeselectAll">
-                                <i class="fas fa-times"></i> ${t('authUsers.permissions.deselectAll', 'إلغاء تحديد الكل')}
-                            </button>
-                        </div>
-                        <div class="perm-table-wrap">
-                            <table class="perm-table">
-                                <thead>
-                                    <tr>
-                                        <th>${t('authUsers.permissions.page', 'الصفحة')}</th>
-                                        <th>${t('authUsers.permissions.view', 'عرض')}</th>
-                                        <th>${t('authUsers.permissions.add', 'إضافة')}</th>
-                                        <th>${t('authUsers.permissions.edit', 'تعديل')}</th>
-                                        <th>${t('authUsers.permissions.delete', 'حذف')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="permTableBody"></tbody>
-                            </table>
-                        </div>
-                        <div class="rp-modal-actions">
-                            <button type="button" class="btn-secondary users-submit-btn" id="permSaveBtn">
-                                <i class="fas fa-save"></i> ${t('authUsers.permissions.save', 'حفظ الصلاحيات')}
-                            </button>
-                            <button type="button" class="btn-cancel" id="permModalCancel">${t('common.cancel', 'إلغاء')}</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    `;
-}
 
 function initializeElements() {
     authUsersForm = document.getElementById('authUsersForm');
@@ -291,43 +74,16 @@ function initializeElements() {
     if (permDeselectAll) permDeselectAll.addEventListener('click', () => toggleAllPermissions(false));
 }
 
-function setNotice(message, type = 'info') {
-    if (!authUsersNotice) return;
-    authUsersNotice.textContent = message || '';
-    authUsersNotice.classList.remove('notice-info', 'notice-success', 'notice-warning', 'notice-error');
-    authUsersNotice.classList.add(`notice-${type}`);
-}
-
-function setStatus(element, message, type = 'info') {
-    if (!element) return;
-    element.textContent = message || '';
-    element.classList.remove('status-info', 'status-success', 'status-error');
-
-    if (!message) return;
-    if (type === 'error') {
-        element.classList.add('status-error');
-        return;
-    }
-    if (type === 'success') {
-        element.classList.add('status-success');
-        return;
-    }
-    element.classList.add('status-info');
-}
-
-function updateUsersStats(users = []) {
-    const safeUsers = Array.isArray(users) ? users : [];
-    const total = safeUsers.length;
-    const active = safeUsers.filter((user) => Boolean(user?.isActive)).length;
-    const inactive = total - active;
-
-    if (authUsersTotalStat) authUsersTotalStat.textContent = total.toString();
-    if (authUsersActiveStat) authUsersActiveStat.textContent = active.toString();
-    if (authUsersInactiveStat) authUsersInactiveStat.textContent = inactive.toString();
-    if (authUsersTableMeta) {
-        authUsersTableMeta.textContent = t('authUsers.tableMeta', 'يتم عرض {count} مستخدم').replace('{count}', total);
-    }
-}
+const setNotice = (message, type = 'info') => authUsersUtils.setNotice({ el: authUsersNotice, message, type });
+const setStatus = (element, message, type = 'info') => authUsersUtils.setStatus({ el: element, message, type });
+const updateUsersStats = (users = []) => authUsersUtils.updateUsersStats({
+    users,
+    totalEl: authUsersTotalStat,
+    activeEl: authUsersActiveStat,
+    inactiveEl: authUsersInactiveStat,
+    tableMetaEl: authUsersTableMeta,
+    t
+});
 
 async function loadAuthUsersSection() {
     const api = window.electronAPI || {};

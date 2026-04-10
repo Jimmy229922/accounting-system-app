@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
     const defaultWarehouseName = 'المخزن الافتراضي';
     const legacyWarehouseName = 'المخزن الرئيسي';
+    const openingBalanceRender = window.openingBalancePageRender;
+    const openingBalanceUtils = window.openingBalancePageUtils;
+    const normalizePossiblyMojibake = openingBalanceUtils.normalizePossiblyMojibake;
     
     // Initialize
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
@@ -20,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (nav) nav.innerHTML = getNavHTML();
 
     // Apply i18n to DOM
-    applyI18nToDOM();
+    openingBalanceUtils.applyI18nToDOM(t);
 
     setupInteractions();
     await loadData();
@@ -34,36 +37,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             return window.navManager.getTopNavHTML(t, { wrap: false });
         }
         return '';
-    }
-
-    function applyI18nToDOM() {
-        document.querySelectorAll('[data-i18n]').forEach(el => {
-            const key = el.getAttribute('data-i18n');
-            const val = t(key);
-            if (val) el.textContent = val;
-        });
-        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-            const key = el.getAttribute('data-i18n-placeholder');
-            const val = t(key);
-            if (val) el.placeholder = val;
-        });
-    }
-
-    function normalizePossiblyMojibake(value) {
-        if (typeof value !== 'string') return '';
-        if (!/[\u00D8\u00D9]/.test(value)) return value;
-
-        try {
-            const bytes = Uint8Array.from(Array.from(value, (char) => char.charCodeAt(0) & 0xFF));
-            const decoded = new TextDecoder('utf-8').decode(bytes);
-            if (decoded && !decoded.includes('�') && /[\u0600-\u06FF]/.test(decoded)) {
-                return decoded;
-            }
-        } catch (error) {
-            // Fallback to original value
-        }
-
-        return value;
     }
 
     // Listen for focus event to reload data when returning to this tab/window
@@ -153,23 +126,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderWarehousesTable() {
         const tbody = document.getElementById('warehouses-tbody');
-        if (warehouses.length > 0) {
-            tbody.innerHTML = warehouses.map(w => `
-                <tr>
-                    <td>${normalizePossiblyMojibake(w.name)}</td>
-                    <td>
-                        <button class="btn-edit-warehouse btn btn-outline" data-id="${w.id}" data-name="${normalizePossiblyMojibake(w.name)}" title="${t('openingBalance.editEntry', 'تعديل')}" style="padding: 6px 12px; font-size: 0.85rem;">
-                            <i class="fas fa-edit"></i> ${t('openingBalance.editEntry', 'تعديل')}
-                        </button>
-                        <button class="btn-delete-warehouse btn btn-danger" data-id="${w.id}" title="${t('openingBalance.deleteEntry', 'حذف')}" style="padding: 6px 12px; font-size: 0.85rem;">
-                            <i class="fas fa-trash"></i> ${t('openingBalance.deleteEntry', 'حذف')}
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        } else {
-            tbody.innerHTML = `<tr><td colspan="2" class="empty-state">${t('openingBalance.noWarehouses', 'لا توجد مخازن مضافة')}</td></tr>`;
-        }
+        tbody.innerHTML = openingBalanceRender.renderWarehousesRows({
+            warehouses,
+            t,
+            normalizeName: normalizePossiblyMojibake
+        });
         
         attachWarehouseTableListeners();
     }
@@ -407,30 +368,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     function renderHistory(filteredHistory = null) {
         const data = filteredHistory || history;
         const tbody = document.getElementById('history-tbody');
-        
+
+        tbody.innerHTML = openingBalanceRender.renderHistoryRows({
+            data,
+            t,
+            formatCurrency,
+            normalizeName: normalizePossiblyMojibake
+        });
+
         if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${t('openingBalance.noData', 'لا توجد بيانات')}</td></tr>`;
             return;
         }
-
-        tbody.innerHTML = data.map(row => `
-            <tr>
-                <td>${row.item_name || '-'}</td>
-                <td><span class="warehouse-badge">${normalizePossiblyMojibake(row.warehouse_name || '-')}</span></td>
-                <td>${row.quantity}</td>
-                <td>${formatCurrency(row.cost_price)}</td>
-                <td>${formatCurrency(row.quantity * row.cost_price)}</td>
-                <td class="muted">${row.created_at ? new Date(row.created_at).toLocaleDateString('ar-EG') : '-'}</td>
-                <td>
-                    <button class="btn-edit-entry btn btn-sm btn-outline btn-icon-text" data-id="${row.id}" title="${t('openingBalance.editEntry', 'تعديل')}">
-                        <i class="fas fa-edit"></i> ${t('openingBalance.editEntry', 'تعديل')}
-                    </button>
-                    <button class="btn-delete-entry btn btn-sm btn-danger btn-icon-text" data-id="${row.id}" title="${t('openingBalance.deleteEntry', 'حذف')}">
-                        <i class="fas fa-trash"></i> ${t('openingBalance.deleteEntry', 'حذف')}
-                    </button>
-                </td>
-            </tr>
-        `).join('');
 
         // Add Event Listeners
         document.querySelectorAll('.btn-edit-entry').forEach(btn => {

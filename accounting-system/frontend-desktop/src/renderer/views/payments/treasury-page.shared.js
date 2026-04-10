@@ -183,10 +183,10 @@
                                         </div>
 
                                         <div class="quick-actions receipt-quick-actions">
-                                            <button type="button" class="quick-btn" onclick="setQuickAmount(100)"><i class="fas fa-plus"></i> 100</button>
-                                            <button type="button" class="quick-btn" onclick="setQuickAmount(500)"><i class="fas fa-plus"></i> 500</button>
-                                            <button type="button" class="quick-btn" onclick="setQuickAmount(1000)"><i class="fas fa-plus"></i> 1000</button>
-                                            <button type="button" class="quick-btn" onclick="payFullBalance()"><i class="fas fa-check-double"></i> ${text('fullBalanceBtn')}</button>
+                                            <button type="button" class="quick-btn" data-action="quick-amount" data-amount="100"><i class="fas fa-plus"></i> 100</button>
+                                            <button type="button" class="quick-btn" data-action="quick-amount" data-amount="500"><i class="fas fa-plus"></i> 500</button>
+                                            <button type="button" class="quick-btn" data-action="quick-amount" data-amount="1000"><i class="fas fa-plus"></i> 1000</button>
+                                            <button type="button" class="quick-btn" data-action="pay-full-balance"><i class="fas fa-check-double"></i> ${text('fullBalanceBtn')}</button>
                                         </div>
 
                                         <div class="receipt-balance-preview" id="${config.ids.balancePreview}">
@@ -254,11 +254,36 @@
             document.getElementById('date').valueAsDate = new Date();
             generateVoucherNumber();
             document.getElementById(config.ids.form).addEventListener('submit', handleSubmit);
+            document.getElementById('app').addEventListener('click', handleActionClick);
             document
                 .getElementById(config.ids.entitySelect)
                 .addEventListener('change', handleEntityChange);
             document.getElementById('amount').addEventListener('input', updatePreview);
             document.getElementById('voucherSearchBtn').addEventListener('click', searchVoucher);
+        }
+
+        function handleActionClick(event) {
+            const actionEl = event.target.closest('[data-action]');
+            if (!actionEl) return;
+
+            const action = actionEl.dataset.action;
+            if (action === 'quick-amount') {
+                const amount = Number.parseFloat(actionEl.dataset.amount || '0');
+                setQuickAmount(Number.isFinite(amount) ? amount : 0);
+                return;
+            }
+
+            if (action === 'pay-full-balance') {
+                payFullBalance();
+                return;
+            }
+
+            if (action === 'close-voucher-search') {
+                const resultContainer = document.getElementById('voucherSearchResult');
+                if (resultContainer) {
+                    resultContainer.style.display = 'none';
+                }
+            }
         }
 
         async function loadData() {
@@ -564,7 +589,7 @@
                         <div class="voucher-result-header">
                             <i class="fas fa-file-alt"></i>
                             <span>${text('searchResults')} (${results.length})</span>
-                            <button type="button" class="btn-close-search" onclick="document.getElementById('voucherSearchResult').style.display='none'">&times;</button>
+                            <button type="button" class="btn-close-search" data-action="close-voucher-search">&times;</button>
                         </div>
                         ${results
                             .map(
@@ -601,7 +626,7 @@
                         <div class="voucher-result-header">
                             <i class="fas fa-search"></i>
                             <span>${text('noSearchResults')}</span>
-                            <button type="button" class="btn-close-search" onclick="document.getElementById('voucherSearchResult').style.display='none'">&times;</button>
+                            <button type="button" class="btn-close-search" data-action="close-voucher-search">&times;</button>
                         </div>
                     `;
                 }
@@ -609,9 +634,6 @@
                 console.error(err);
             }
         }
-
-        window.setQuickAmount = setQuickAmount;
-        window.payFullBalance = payFullBalance;
 
         document.addEventListener('DOMContentLoaded', async () => {
             ar = (await window.i18n?.loadArabicDictionary?.()) || {};

@@ -1,21 +1,8 @@
-﻿let supplierSelect;
-let invoiceSelect;
-let returnDateInput;
-let returnNumberInput;
-let supplierAutocomplete = null;
-let invoiceAutocomplete = null;
-let currentInvoiceItems = [];
-let isSubmitting = false;
-let editingReturnId = null;
-let editingOriginalInvoiceId = null;
-let editingReturnItemsMap = new Map();
-let originalInvoicePreviewEl;
-let originalInvoicePreviewTextEl;
-let allPurchaseReturns = [];
-let purchaseReturnsPage = 1;
-const purchaseReturnsPerPage = 50;
-let ar = {};
-const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
+﻿const purchaseReturnsState = window.purchaseReturnsPageState.createInitialState();
+const purchaseReturnsApi = window.purchaseReturnsPageApi;
+const purchaseReturnsRender = window.purchaseReturnsPageRender;
+const purchaseReturnsEvents = window.purchaseReturnsPageEvents;
+const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => purchaseReturnsState.ar) : null;
 
 function t(key, fallback = '') {
     return pageI18n ? pageI18n.t(key, fallback) : fallback;
@@ -27,6 +14,72 @@ function fmt(template, values = {}) {
 
 function toArray(value) {
     return Array.isArray(value) ? value : [];
+}
+
+function getNavHTML() {
+    if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
+        return window.navManager.getTopNavHTML(t);
+    }
+    return '';
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
+        purchaseReturnsState.ar = await window.i18n.loadArabicDictionary();
+    }
+
+    purchaseReturnsRender.renderPage({ t, getNavHTML });
+    initializeElements();
+
+    await Promise.all([loadSuppliers(), loadReturnsHistory()]);
+
+    const editId = getEditIdFromUrl();
+    if (editId) {
+        await loadReturnForEdit(editId);
+    }
+});
+
+function getEditIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('editId');
+}
+
+function clearEditQueryFromUrl() {
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+function initializeElements() {
+    window.purchaseReturnsPageState.initializeDomRefs(purchaseReturnsState);
+
+    if (purchaseReturnsState.dom.returnDateInput) {
+        purchaseReturnsState.dom.returnDateInput.valueAsDate = new Date();
+    }
+    loadNextReturnNumber();
+    updateOriginalInvoicePreview();
+
+    purchaseReturnsEvents.bindEvents({
+        root: purchaseReturnsState.dom.app,
+        dom: purchaseReturnsState.dom,
+        handlers: {
+            onSupplierChange: handleSupplierChange,
+            onInvoiceChange: handleInvoiceChange,
+            onCheckboxChange,
+            onQtyInput,
+            onPriceInput: calculateTotal,
+            onResetForm: resetForm,
+            onSaveReturn: saveReturn,
+            onHistoryPrev: () => changePurchaseReturnsPage(purchaseReturnsState.purchaseReturnsPage - 1),
+            onHistoryNext: () => changePurchaseReturnsPage(purchaseReturnsState.purchaseReturnsPage + 1),
+            onDeleteReturn: deleteReturn
+        }
+    });
+}
+
+async function loadNextReturnNumber() {
+    const next = await purchaseReturnsApi.getNextReturnNumber();
+    if (purchaseReturnsState.dom.returnNumberInput) {
+        purchaseReturnsState.dom.returnNumberInput.value = `PR-${String(next).padStart(4, '0')}`;
+    }
 }
 
 function formatAmount(value) {
@@ -46,259 +99,87 @@ function formatInvoiceOptionText(invoiceNumber, invoiceDate, totalAmount) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
-        ar = await window.i18n.loadArabicDictionary();
-    }
-
-    renderPage();
-    initializeElements();
-    await Promise.all([loadSuppliers(), loadReturnsHistory()]);
-
-    const editId = getEditIdFromUrl();
-    if (editId) {
-        await loadReturnForEdit(editId);
-    }
-});
-
-function getNavHTML() {
-    if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
-        return window.navManager.getTopNavHTML(t);
-    }
-    return '';
-}
-
-function renderPage() {
-    document.title = t('purchaseReturns.title', 'مردودات المشتريات');
-
-    const app = document.getElementById('app');
-    app.innerHTML = `
-        ${getNavHTML()}
-
-        <div class="content">
-            <div class="page-header">
-                <div class="page-title">
-                    <i class="fas fa-undo-alt"></i>
-                    ${t('purchaseReturns.title', 'مردودات المشتريات')}
-                </div>
-            </div>
-
-            <div class="return-form-container">
-                <h2 class="form-title">
-                    <i class="fas fa-file-invoice"></i>
-                    ${t('purchaseReturns.newReturnTitle', 'تسجيل مرتجع مشتريات جديد')}
-                </h2>
-
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>${t('purchaseReturns.supplier', 'المورد')}</label>
-                        <select id="supplierSelect" class="form-control">
-                            <option value="">${t('common.actions.selectSupplier', 'اختر المورد')}</option>
-                        </select>
-                    </div>
-                    <div class="form-group form-group-original-invoice">
-                        <label>${t('purchaseReturns.originalInvoice', 'فاتورة الشراء الأصلية')}</label>
-                        <select id="invoiceSelect" class="form-control" disabled>
-                            <option value="">${t('common.actions.selectInvoice', 'اختر الفاتورة')}</option>
-                        </select>
-                        <div id="originalInvoicePreview" class="original-invoice-preview is-empty">
-                            <span>${t('purchaseReturns.originalInvoicePreview', 'تفاصيل الفاتورة المختارة')}</span>
-                            <strong id="originalInvoicePreviewText">${t('purchaseReturns.noInvoiceSelected', 'لم يتم اختيار فاتورة شراء أصلية بعد')}</strong>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>${t('purchaseReturns.returnNumber', 'رقم المرتجع')}</label>
-                        <input type="text" id="returnNumber" class="form-control" placeholder="${t('common.actions.auto', 'Auto')}" readonly style="background: var(--bg-color); cursor: not-allowed;">
-                    </div>
-                    <div class="form-group">
-                        <label>${t('purchaseReturns.returnDate', 'تاريخ المرتجع')}</label>
-                        <input type="date" id="returnDate" class="form-control">
-                    </div>
-                </div>
-
-                <div id="itemsSection" class="items-section" style="display: none;">
-                    <table class="items-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 5%;">${t('purchaseReturns.returnItem', 'إرجاع')}</th>
-                                <th style="width: 30%;">${t('purchaseReturns.item', 'الصنف')}</th>
-                                <th style="width: 10%;">${t('purchaseReturns.unit', 'الوحدة')}</th>
-                                <th style="width: 12%;">${t('purchaseReturns.boughtQty', 'الكمية المشتراة')}</th>
-                                <th style="width: 12%;">${t('purchaseReturns.returnedQty', 'تم إرجاعها')}</th>
-                                <th style="width: 12%;">${t('purchaseReturns.returnQty', 'كمية الإرجاع')}</th>
-                                <th style="width: 12%;">${t('purchaseReturns.price', 'السعر')}</th>
-                                <th style="width: 12%;">${t('purchaseReturns.total', 'الإجمالي')}</th>
-                            </tr>
-                        </thead>
-                        <tbody id="itemsBody"></tbody>
-                    </table>
-                </div>
-
-                <div class="notes-section" style="margin-bottom: 15px;">
-                    <div class="form-group">
-                        <label>${t('purchaseReturns.notes', 'ملاحظات')}</label>
-                        <textarea id="returnNotes" rows="2" placeholder="${t('purchaseReturns.notesPlaceholder', 'ملاحظات اختيارية...')}"></textarea>
-                    </div>
-                </div>
-
-                <div class="form-footer">
-                    <div class="total-section">
-                        <span>${t('purchaseReturns.returnTotal', 'إجمالي المرتجع:')}</span>
-                        <span class="total-value" id="returnTotal">0.00</span>
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-secondary" onclick="resetForm()">
-                            <i class="fas fa-eraser"></i> ${t('common.actions.clear', 'مسح')}
-                        </button>
-                        <button class="btn btn-warning" id="saveBtn" onclick="saveReturn()" disabled>
-                            <i class="fas fa-save"></i> ${t('purchaseReturns.saveReturn', 'حفظ المرتجع')}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="history-card">
-                <div class="history-header">
-                    <h3><i class="fas fa-history"></i> ${t('purchaseReturns.historyTitle', 'سجل المرتجعات')}</h3>
-                </div>
-                <div id="historyContent">
-                    <div class="empty-state">
-                        <i class="fas fa-inbox"></i>
-                        <p>${t('common.state.noReturns', 'لا توجد مرتجعات مسجلة')}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function getEditIdFromUrl() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('editId');
-}
-
-function clearEditQueryFromUrl() {
-    window.history.replaceState({}, document.title, window.location.pathname);
-}
-
-function setFormMode(isEditing) {
-    const formTitle = document.querySelector('.form-title');
-    const saveBtn = document.getElementById('saveBtn');
-
-    const titleText = isEditing
-        ? t('purchaseReturns.editReturnTitle', 'تعديل مرتجع مشتريات')
-        : t('purchaseReturns.newReturnTitle', 'تسجيل مرتجع مشتريات جديد');
-    const saveText = isEditing
-        ? t('purchaseReturns.updateReturn', 'تحديث المرتجع')
-        : t('purchaseReturns.saveReturn', 'حفظ المرتجع');
-
-    if (formTitle) {
-        formTitle.innerHTML = `<i class="fas fa-file-invoice"></i> ${titleText}`;
-    }
-
-    if (saveBtn) {
-        saveBtn.innerHTML = `<i class="fas fa-save"></i> ${saveText}`;
-    }
-}
-
-function initializeElements() {
-    supplierSelect = document.getElementById('supplierSelect');
-    invoiceSelect = document.getElementById('invoiceSelect');
-    returnDateInput = document.getElementById('returnDate');
-    returnNumberInput = document.getElementById('returnNumber');
-    originalInvoicePreviewEl = document.getElementById('originalInvoicePreview');
-    originalInvoicePreviewTextEl = document.getElementById('originalInvoicePreviewText');
-
-    returnDateInput.valueAsDate = new Date();
-    loadNextReturnNumber();
-    updateOriginalInvoicePreview();
-
-    supplierSelect.addEventListener('change', async () => {
-        const supplierId = supplierSelect.value;
-        if (supplierId) {
-            if (editingReturnId) {
-                editingOriginalInvoiceId = null;
-                editingReturnItemsMap = new Map();
-            }
-
-            invoiceSelect.disabled = false;
-            await loadSupplierInvoices(supplierId);
-            return;
-        }
-
-        invoiceSelect.disabled = true;
-        invoiceSelect.innerHTML = `<option value="">${t('common.actions.selectInvoice', 'اختر الفاتورة')}</option>`;
-        if (invoiceAutocomplete) invoiceAutocomplete.refresh();
-        hideItemsSection();
-        updateOriginalInvoicePreview();
-    });
-
-    invoiceSelect.addEventListener('change', async () => {
-        const invoiceId = invoiceSelect.value;
-        updateOriginalInvoicePreview();
-        if (invoiceId) {
-            if (editingReturnId && Number(invoiceId) !== Number(editingOriginalInvoiceId)) {
-                editingReturnItemsMap = new Map();
-            }
-            await loadInvoiceItems(invoiceId);
-        } else {
-            hideItemsSection();
-        }
-    });
-}
-
-async function loadNextReturnNumber() {
-    const next = await window.electronAPI.getNextInvoiceNumber('purchase_return');
-    returnNumberInput.value = `PR-${String(next).padStart(4, '0')}`;
-}
-
 async function loadSuppliers() {
-    const customers = toArray(await window.electronAPI.getCustomers());
-    const filtered = customers.filter((c) => c.type === 'supplier' || c.type === 'both');
+    const suppliers = toArray(await purchaseReturnsApi.getSuppliers());
 
-    supplierSelect.innerHTML = `<option value="">${t('common.actions.selectSupplier', 'اختر المورد')}</option>`;
-    filtered.forEach((supplier) => {
+    purchaseReturnsState.dom.supplierSelect.innerHTML = `<option value="">${t('common.actions.selectSupplier', 'اختر المورد')}</option>`;
+    suppliers.forEach((supplier) => {
         const option = document.createElement('option');
         option.value = supplier.id;
         option.textContent = supplier.name;
-        supplierSelect.appendChild(option);
+        purchaseReturnsState.dom.supplierSelect.appendChild(option);
     });
 
-    if (supplierAutocomplete) {
-        supplierAutocomplete.refresh();
+    if (purchaseReturnsState.supplierAutocomplete) {
+        purchaseReturnsState.supplierAutocomplete.refresh();
     } else {
-        supplierAutocomplete = new Autocomplete(supplierSelect);
+        purchaseReturnsState.supplierAutocomplete = new Autocomplete(purchaseReturnsState.dom.supplierSelect);
     }
 }
 
-async function loadSupplierInvoices(supplierId) {
-    const invoices = toArray(await window.electronAPI.getSupplierPurchaseInvoices(supplierId));
+async function handleSupplierChange() {
+    const supplierId = purchaseReturnsState.dom.supplierSelect.value;
+    if (supplierId) {
+        if (purchaseReturnsState.editingReturnId) {
+            purchaseReturnsState.editingOriginalInvoiceId = null;
+            purchaseReturnsState.editingReturnItemsMap = new Map();
+        }
 
-    invoiceSelect.innerHTML = `<option value="">${t('common.actions.selectInvoice', 'اختر الفاتورة')}</option>`;
+        purchaseReturnsState.dom.invoiceSelect.disabled = false;
+        await loadSupplierInvoices(supplierId);
+        return;
+    }
+
+    purchaseReturnsState.dom.invoiceSelect.disabled = true;
+    purchaseReturnsState.dom.invoiceSelect.innerHTML = `<option value="">${t('common.actions.selectInvoice', 'اختر الفاتورة')}</option>`;
+    if (purchaseReturnsState.invoiceAutocomplete) purchaseReturnsState.invoiceAutocomplete.refresh();
+
+    hideItemsSection();
+    updateOriginalInvoicePreview();
+}
+
+async function loadSupplierInvoices(supplierId) {
+    const invoices = toArray(await purchaseReturnsApi.getSupplierInvoices(supplierId));
+
+    purchaseReturnsState.dom.invoiceSelect.innerHTML = `<option value="">${t('common.actions.selectInvoice', 'اختر الفاتورة')}</option>`;
     invoices.forEach((invoice) => {
         const option = document.createElement('option');
         option.value = invoice.id;
         option.textContent = formatInvoiceOptionText(invoice.invoice_number, invoice.invoice_date, invoice.total_amount);
-        invoiceSelect.appendChild(option);
+        purchaseReturnsState.dom.invoiceSelect.appendChild(option);
     });
 
-    if (invoiceAutocomplete) {
-        invoiceAutocomplete.refresh();
+    if (purchaseReturnsState.invoiceAutocomplete) {
+        purchaseReturnsState.invoiceAutocomplete.refresh();
     } else {
-        invoiceAutocomplete = new Autocomplete(invoiceSelect);
+        purchaseReturnsState.invoiceAutocomplete = new Autocomplete(purchaseReturnsState.dom.invoiceSelect);
     }
 
     updateOriginalInvoicePreview();
 }
 
+async function handleInvoiceChange() {
+    const invoiceId = purchaseReturnsState.dom.invoiceSelect.value;
+    updateOriginalInvoicePreview();
+
+    if (invoiceId) {
+        if (purchaseReturnsState.editingReturnId && Number(invoiceId) !== Number(purchaseReturnsState.editingOriginalInvoiceId)) {
+            purchaseReturnsState.editingReturnItemsMap = new Map();
+        }
+        await loadInvoiceItems(invoiceId);
+    } else {
+        hideItemsSection();
+    }
+}
+
 async function loadInvoiceItems(invoiceId) {
-    const result = await window.electronAPI.getInvoiceItemsForReturn(invoiceId, 'purchase');
+    const result = await purchaseReturnsApi.getInvoiceItems(invoiceId);
     if (!result || !result.success) {
         Toast.show((result && result.error) || t('purchaseReturns.toast.loadItemsError', 'Failed to load invoice items'), 'error');
         return;
     }
 
-    currentInvoiceItems = toArray(result.items);
+    purchaseReturnsState.currentInvoiceItems = toArray(result.items);
     normalizeInvoiceItemsForEdit(invoiceId);
     renderInvoiceItems();
     applyEditSelections(invoiceId);
@@ -314,12 +195,12 @@ function getAvailableToReturn(item) {
 }
 
 function normalizeInvoiceItemsForEdit(invoiceId) {
-    if (!editingReturnId || Number(invoiceId) !== Number(editingOriginalInvoiceId) || editingReturnItemsMap.size === 0) {
+    if (!purchaseReturnsState.editingReturnId || Number(invoiceId) !== Number(purchaseReturnsState.editingOriginalInvoiceId) || purchaseReturnsState.editingReturnItemsMap.size === 0) {
         return;
     }
 
-    currentInvoiceItems = currentInvoiceItems.map((item) => {
-        const editItem = editingReturnItemsMap.get(Number(item.item_id));
+    purchaseReturnsState.currentInvoiceItems = purchaseReturnsState.currentInvoiceItems.map((item) => {
+        const editItem = purchaseReturnsState.editingReturnItemsMap.get(Number(item.item_id));
         if (!editItem) return item;
 
         return {
@@ -329,18 +210,42 @@ function normalizeInvoiceItemsForEdit(invoiceId) {
     });
 }
 
-function applyEditSelections(invoiceId) {
-    if (!editingReturnId || Number(invoiceId) !== Number(editingOriginalInvoiceId) || editingReturnItemsMap.size === 0) {
+function renderInvoiceItems() {
+    purchaseReturnsState.dom.itemsBody.innerHTML = '';
+
+    if (purchaseReturnsState.currentInvoiceItems.length === 0) {
+        hideItemsSection();
         return;
     }
 
-    currentInvoiceItems.forEach((item, index) => {
-        const editItem = editingReturnItemsMap.get(Number(item.item_id));
+    purchaseReturnsState.dom.itemsSection.style.display = 'block';
+
+    purchaseReturnsState.currentInvoiceItems.forEach((item, index) => {
+        const row = purchaseReturnsRender.createInvoiceItemRow({
+            item,
+            index,
+            t,
+            toSafeNumber,
+            getAvailableToReturn
+        });
+        purchaseReturnsState.dom.itemsBody.appendChild(row);
+    });
+
+    calculateTotal();
+}
+
+function applyEditSelections(invoiceId) {
+    if (!purchaseReturnsState.editingReturnId || Number(invoiceId) !== Number(purchaseReturnsState.editingOriginalInvoiceId) || purchaseReturnsState.editingReturnItemsMap.size === 0) {
+        return;
+    }
+
+    purchaseReturnsState.currentInvoiceItems.forEach((item, index) => {
+        const editItem = purchaseReturnsState.editingReturnItemsMap.get(Number(item.item_id));
         if (!editItem) return;
 
-        const checkbox = document.querySelector(`.return-checkbox[data-index="${index}"]`);
-        const qtyInput = document.querySelector(`.return-qty-input[data-index="${index}"]`);
-        const priceInput = document.querySelector(`.return-price-input[data-index="${index}"]`);
+        const checkbox = purchaseReturnsState.dom.itemsBody.querySelector(`.return-checkbox[data-index="${index}"]`);
+        const qtyInput = purchaseReturnsState.dom.itemsBody.querySelector(`.return-qty-input[data-index="${index}"]`);
+        const priceInput = purchaseReturnsState.dom.itemsBody.querySelector(`.return-price-input[data-index="${index}"]`);
         if (!checkbox || !qtyInput || !priceInput || checkbox.disabled) return;
 
         checkbox.checked = true;
@@ -356,58 +261,10 @@ function applyEditSelections(invoiceId) {
     calculateTotal();
 }
 
-function renderInvoiceItems() {
-    const itemsBody = document.getElementById('itemsBody');
-    const itemsSection = document.getElementById('itemsSection');
-    itemsBody.innerHTML = '';
-
-    if (currentInvoiceItems.length === 0) {
-        hideItemsSection();
-        return;
-    }
-
-    itemsSection.style.display = 'block';
-
-    currentInvoiceItems.forEach((item, index) => {
-        const quantity = toSafeNumber(item.quantity);
-        const returnedQty = toSafeNumber(item.returned_quantity);
-        const availableToReturn = getAvailableToReturn(item);
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><input type="checkbox" class="return-checkbox" data-index="${index}" onchange="onCheckboxChange(this)" ${availableToReturn <= 0 ? 'disabled' : ''}></td>
-            <td class="item-name">${item.item_name || t('common.state.deletedItem', 'Deleted Item')}</td>
-            <td>${item.unit_name || '-'}</td>
-            <td>${quantity}</td>
-            <td class="returned-qty">${returnedQty > 0 ? returnedQty : '-'}</td>
-            <td>
-                <input type="number" class="return-qty-input" data-index="${index}"
-                    min="0" max="${availableToReturn}" step="any"
-                    value="0" disabled onchange="onQtyChange(this)" oninput="onQtyChange(this)"
-                    style="max-width: 120px; margin: 0 auto;">
-            </td>
-            <td>
-                <input type="number" class="return-price-input" data-index="${index}"
-                    value="${toSafeNumber(item.cost_price)}" step="any" disabled onchange="calculateTotal()" oninput="calculateTotal()"
-                    style="max-width: 120px; margin: 0 auto;">
-            </td>
-            <td class="row-total" data-index="${index}">0.00</td>
-        `;
-
-        if (availableToReturn <= 0) {
-            row.style.opacity = '0.5';
-        }
-
-        itemsBody.appendChild(row);
-    });
-
-    calculateTotal();
-}
-
 function onCheckboxChange(checkbox) {
     const index = checkbox.dataset.index;
-    const qtyInput = document.querySelector(`.return-qty-input[data-index="${index}"]`);
-    const priceInput = document.querySelector(`.return-price-input[data-index="${index}"]`);
+    const qtyInput = purchaseReturnsState.dom.itemsBody.querySelector(`.return-qty-input[data-index="${index}"]`);
+    const priceInput = purchaseReturnsState.dom.itemsBody.querySelector(`.return-price-input[data-index="${index}"]`);
 
     if (!qtyInput || !priceInput) return;
 
@@ -415,7 +272,7 @@ function onCheckboxChange(checkbox) {
         qtyInput.disabled = false;
         priceInput.disabled = false;
 
-        const item = currentInvoiceItems[index];
+        const item = purchaseReturnsState.currentInvoiceItems[index];
         const available = getAvailableToReturn(item);
         qtyInput.value = String(available);
         qtyInput.focus();
@@ -428,9 +285,9 @@ function onCheckboxChange(checkbox) {
     calculateTotal();
 }
 
-function onQtyChange(input) {
+function onQtyInput(input) {
     const index = input.dataset.index;
-    const item = currentInvoiceItems[index];
+    const item = purchaseReturnsState.currentInvoiceItems[index];
     const maxQty = getAvailableToReturn(item);
 
     let val = Number.parseFloat(input.value);
@@ -446,9 +303,9 @@ function calculateTotal() {
     let total = 0;
     let hasItems = false;
 
-    document.querySelectorAll('.return-checkbox').forEach((checkbox) => {
+    purchaseReturnsState.dom.itemsBody.querySelectorAll('.return-checkbox').forEach((checkbox) => {
         const index = checkbox.dataset.index;
-        const rowTotalEl = document.querySelector(`.row-total[data-index="${index}"]`);
+        const rowTotalEl = purchaseReturnsState.dom.itemsBody.querySelector(`.row-total[data-index="${index}"]`);
 
         if (!rowTotalEl) return;
 
@@ -457,8 +314,8 @@ function calculateTotal() {
             return;
         }
 
-        const qty = Number.parseFloat(document.querySelector(`.return-qty-input[data-index="${index}"]`)?.value || '0') || 0;
-        const price = Number.parseFloat(document.querySelector(`.return-price-input[data-index="${index}"]`)?.value || '0') || 0;
+        const qty = Number.parseFloat(purchaseReturnsState.dom.itemsBody.querySelector(`.return-qty-input[data-index="${index}"]`)?.value || '0') || 0;
+        const price = Number.parseFloat(purchaseReturnsState.dom.itemsBody.querySelector(`.return-price-input[data-index="${index}"]`)?.value || '0') || 0;
         const rowTotal = qty * price;
 
         rowTotalEl.textContent = rowTotal.toFixed(2);
@@ -466,30 +323,52 @@ function calculateTotal() {
         if (qty > 0) hasItems = true;
     });
 
-    document.getElementById('returnTotal').textContent = total.toFixed(2);
-    document.getElementById('saveBtn').disabled = !hasItems;
+    purchaseReturnsState.dom.returnTotal.textContent = total.toFixed(2);
+    purchaseReturnsState.dom.saveBtn.disabled = !hasItems;
 }
 
 function hideItemsSection() {
-    document.getElementById('itemsSection').style.display = 'none';
-    document.getElementById('itemsBody').innerHTML = '';
-    document.getElementById('returnTotal').textContent = '0.00';
-    document.getElementById('saveBtn').disabled = true;
-    currentInvoiceItems = [];
+    purchaseReturnsState.dom.itemsSection.style.display = 'none';
+    purchaseReturnsState.dom.itemsBody.innerHTML = '';
+    purchaseReturnsState.dom.returnTotal.textContent = '0.00';
+    purchaseReturnsState.dom.saveBtn.disabled = true;
+    purchaseReturnsState.currentInvoiceItems = [];
+}
+
+function collectSelectedItems() {
+    const items = [];
+
+    purchaseReturnsState.dom.itemsBody.querySelectorAll('.return-checkbox').forEach((checkbox) => {
+        if (!checkbox.checked) return;
+
+        const index = checkbox.dataset.index;
+        const qty = Number.parseFloat(purchaseReturnsState.dom.itemsBody.querySelector(`.return-qty-input[data-index="${index}"]`)?.value || '0') || 0;
+        const price = Number.parseFloat(purchaseReturnsState.dom.itemsBody.querySelector(`.return-price-input[data-index="${index}"]`)?.value || '0') || 0;
+
+        if (qty <= 0) return;
+
+        items.push({
+            item_id: purchaseReturnsState.currentInvoiceItems[index].item_id,
+            quantity: qty,
+            price,
+            total_price: qty * price
+        });
+    });
+
+    return items;
 }
 
 async function saveReturn() {
-    if (isSubmitting) return;
+    if (purchaseReturnsState.isSubmitting) return;
 
-    isSubmitting = true;
-    const saveBtn = document.getElementById('saveBtn');
-    saveBtn.disabled = true;
+    purchaseReturnsState.isSubmitting = true;
+    purchaseReturnsState.dom.saveBtn.disabled = true;
 
     try {
-        const supplierId = supplierSelect.value;
-        const invoiceId = invoiceSelect.value;
-        const returnNumber = returnNumberInput.value;
-        const returnDate = returnDateInput.value;
+        const supplierId = purchaseReturnsState.dom.supplierSelect.value;
+        const invoiceId = purchaseReturnsState.dom.invoiceSelect.value;
+        const returnNumber = purchaseReturnsState.dom.returnNumberInput.value;
+        const returnDate = purchaseReturnsState.dom.returnDateInput.value;
         const notes = document.getElementById('returnNotes').value;
 
         if (!supplierId || !invoiceId) {
@@ -497,24 +376,7 @@ async function saveReturn() {
             return;
         }
 
-        const items = [];
-        document.querySelectorAll('.return-checkbox').forEach((checkbox) => {
-            if (!checkbox.checked) return;
-
-            const index = checkbox.dataset.index;
-            const qty = Number.parseFloat(document.querySelector(`.return-qty-input[data-index="${index}"]`)?.value || '0') || 0;
-            const price = Number.parseFloat(document.querySelector(`.return-price-input[data-index="${index}"]`)?.value || '0') || 0;
-
-            if (qty <= 0) return;
-
-            items.push({
-                item_id: currentInvoiceItems[index].item_id,
-                quantity: qty,
-                price,
-                total_price: qty * price
-            });
-        });
-
+        const items = collectSelectedItems();
         if (items.length === 0) {
             Toast.show(t('purchaseReturns.toast.selectAtLeastOneItem', 'الرجاء تحديد صنف واحد على الأقل للإرجاع'), 'warning');
             return;
@@ -530,18 +392,18 @@ async function saveReturn() {
         };
 
         let result;
-        if (editingReturnId) {
-            result = await window.electronAPI.updatePurchaseReturn({
-                id: editingReturnId,
+        if (purchaseReturnsState.editingReturnId) {
+            result = await purchaseReturnsApi.updateReturn({
+                id: purchaseReturnsState.editingReturnId,
                 ...payload
             });
         } else {
-            result = await window.electronAPI.savePurchaseReturn(payload);
+            result = await purchaseReturnsApi.saveReturn(payload);
         }
 
         if (result && result.success) {
             Toast.show(
-                editingReturnId
+                purchaseReturnsState.editingReturnId
                     ? t('purchaseReturns.toast.updateSuccess', 'تم تحديث المرتجع بنجاح')
                     : t('purchaseReturns.toast.saveSuccess', 'تم حفظ المرتجع بنجاح'),
                 'success'
@@ -549,14 +411,13 @@ async function saveReturn() {
             await resetForm();
             await loadReturnsHistory();
         } else {
-            const errorText = editingReturnId
+            const errorText = purchaseReturnsState.editingReturnId
                 ? t('purchaseReturns.toast.updateError', 'حدث خطأ أثناء تحديث المرتجع')
                 : t('purchaseReturns.toast.saveError', 'حدث خطأ أثناء حفظ المرتجع');
             Toast.show((result && result.error) || errorText, 'error');
         }
     } catch (error) {
-        console.error('Save purchase return error:', error);
-        if (editingReturnId && String(error?.message || '').includes("No handler registered for 'update-purchase-return'")) {
+        if (purchaseReturnsState.editingReturnId && String(error?.message || '').includes("No handler registered for 'update-purchase-return'")) {
             Toast.show(
                 t(
                     'purchaseReturns.toast.restartRequired',
@@ -568,30 +429,31 @@ async function saveReturn() {
         }
         Toast.show(t('purchaseReturns.toast.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
     } finally {
-        isSubmitting = false;
+        purchaseReturnsState.isSubmitting = false;
         calculateTotal();
     }
 }
 
 async function resetForm() {
-    editingReturnId = null;
-    editingOriginalInvoiceId = null;
-    editingReturnItemsMap = new Map();
+    purchaseReturnsState.editingReturnId = null;
+    purchaseReturnsState.editingOriginalInvoiceId = null;
+    purchaseReturnsState.editingReturnItemsMap = new Map();
     clearEditQueryFromUrl();
-    setFormMode(false);
+    purchaseReturnsRender.setFormMode(false, t);
 
-    supplierSelect.value = '';
-    if (supplierAutocomplete) supplierAutocomplete.refresh();
+    purchaseReturnsState.dom.supplierSelect.value = '';
+    if (purchaseReturnsState.supplierAutocomplete) purchaseReturnsState.supplierAutocomplete.refresh();
 
-    invoiceSelect.innerHTML = `<option value="">${t('common.actions.selectInvoice', 'اختر الفاتورة')}</option>`;
-    invoiceSelect.disabled = true;
-    if (invoiceAutocomplete) invoiceAutocomplete.refresh();
+    purchaseReturnsState.dom.invoiceSelect.innerHTML = `<option value="">${t('common.actions.selectInvoice', 'اختر الفاتورة')}</option>`;
+    purchaseReturnsState.dom.invoiceSelect.disabled = true;
+    if (purchaseReturnsState.invoiceAutocomplete) purchaseReturnsState.invoiceAutocomplete.refresh();
+
     updateOriginalInvoicePreview();
 
     document.getElementById('returnNotes').value = '';
     hideItemsSection();
     await loadNextReturnNumber();
-    returnDateInput.valueAsDate = new Date();
+    purchaseReturnsState.dom.returnDateInput.valueAsDate = new Date();
 }
 
 async function loadReturnForEdit(id) {
@@ -603,7 +465,7 @@ async function loadReturnForEdit(id) {
     }
 
     try {
-        const returns = toArray(await window.electronAPI.getPurchaseReturns());
+        const returns = toArray(await purchaseReturnsApi.getReturns());
         const selectedReturn = returns.find((row) => Number(row.id) === returnId);
         if (!selectedReturn) {
             Toast.show(t('purchaseReturns.toast.returnNotFound', 'المرتجع غير موجود'), 'warning');
@@ -611,30 +473,31 @@ async function loadReturnForEdit(id) {
             return;
         }
 
-        const details = toArray(await window.electronAPI.getPurchaseReturnDetails(returnId));
-        editingReturnId = returnId;
-        editingOriginalInvoiceId = Number(selectedReturn.original_invoice_id);
-        editingReturnItemsMap = new Map();
+        const details = toArray(await purchaseReturnsApi.getReturnDetails(returnId));
+        purchaseReturnsState.editingReturnId = returnId;
+        purchaseReturnsState.editingOriginalInvoiceId = Number(selectedReturn.original_invoice_id);
+        purchaseReturnsState.editingReturnItemsMap = new Map();
+
         details.forEach((detail) => {
             const itemId = Number(detail.item_id);
             if (!Number.isFinite(itemId)) return;
-            const prev = editingReturnItemsMap.get(itemId);
-            editingReturnItemsMap.set(itemId, {
+            const prev = purchaseReturnsState.editingReturnItemsMap.get(itemId);
+            purchaseReturnsState.editingReturnItemsMap.set(itemId, {
                 quantity: (prev ? toSafeNumber(prev.quantity) : 0) + toSafeNumber(detail.quantity),
                 price: toSafeNumber(detail.price)
             });
         });
 
-        setFormMode(true);
+        purchaseReturnsRender.setFormMode(true, t);
 
-        supplierSelect.value = String(selectedReturn.supplier_id ?? '');
-        if (supplierAutocomplete) supplierAutocomplete.refresh();
+        purchaseReturnsState.dom.supplierSelect.value = String(selectedReturn.supplier_id ?? '');
+        if (purchaseReturnsState.supplierAutocomplete) purchaseReturnsState.supplierAutocomplete.refresh();
 
-        invoiceSelect.disabled = false;
+        purchaseReturnsState.dom.invoiceSelect.disabled = false;
         await loadSupplierInvoices(selectedReturn.supplier_id);
 
         const invoiceValue = String(selectedReturn.original_invoice_id ?? '');
-        const hasInvoiceOption = Array.from(invoiceSelect.options).some((option) => option.value === invoiceValue);
+        const hasInvoiceOption = Array.from(purchaseReturnsState.dom.invoiceSelect.options).some((option) => option.value === invoiceValue);
         if (!hasInvoiceOption && invoiceValue) {
             const fallbackOption = document.createElement('option');
             fallbackOption.value = invoiceValue;
@@ -643,145 +506,104 @@ async function loadReturnForEdit(id) {
                 '-',
                 selectedReturn.total_amount
             );
-            invoiceSelect.appendChild(fallbackOption);
+            purchaseReturnsState.dom.invoiceSelect.appendChild(fallbackOption);
         }
-        invoiceSelect.value = invoiceValue;
-        if (invoiceAutocomplete) invoiceAutocomplete.refresh();
+
+        purchaseReturnsState.dom.invoiceSelect.value = invoiceValue;
+        if (purchaseReturnsState.invoiceAutocomplete) purchaseReturnsState.invoiceAutocomplete.refresh();
+
         updateOriginalInvoicePreview();
 
-        returnNumberInput.value = selectedReturn.return_number || '';
-        returnDateInput.value = selectedReturn.return_date
+        purchaseReturnsState.dom.returnNumberInput.value = selectedReturn.return_number || '';
+        purchaseReturnsState.dom.returnDateInput.value = selectedReturn.return_date
             ? String(selectedReturn.return_date).split('T')[0]
             : new Date().toISOString().slice(0, 10);
+
         document.getElementById('returnNotes').value = selectedReturn.notes || '';
 
         await loadInvoiceItems(selectedReturn.original_invoice_id);
-    } catch (error) {
-        console.error('Load purchase return for edit error:', error);
+    } catch (_) {
         Toast.show(t('purchaseReturns.toast.loadReturnError', 'تعذر تحميل بيانات المرتجع للتعديل'), 'error');
     }
 }
 
 async function loadReturnsHistory() {
-    allPurchaseReturns = toArray(await window.electronAPI.getPurchaseReturns());
-    purchaseReturnsPage = 1;
+    purchaseReturnsState.allPurchaseReturns = toArray(await purchaseReturnsApi.getReturns());
+    purchaseReturnsState.purchaseReturnsPage = 1;
     renderReturnsHistory();
 }
 
 function renderReturnsHistory() {
-    const container = document.getElementById('historyContent');
-
-    if (!allPurchaseReturns.length) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-inbox"></i>
-                <p>${t('common.state.noReturns', 'لا توجد مرتجعات مسجلة')}</p>
-            </div>
-        `;
+    if (!purchaseReturnsState.allPurchaseReturns.length) {
+        purchaseReturnsRender.renderEmptyHistory(purchaseReturnsState.dom.historyContent, t);
         return;
     }
 
-    const totalPages = Math.ceil(allPurchaseReturns.length / purchaseReturnsPerPage);
-    if (purchaseReturnsPage > totalPages) purchaseReturnsPage = totalPages;
-    if (purchaseReturnsPage < 1) purchaseReturnsPage = 1;
-    const startIdx = (purchaseReturnsPage - 1) * purchaseReturnsPerPage;
-    const pageReturns = allPurchaseReturns.slice(startIdx, startIdx + purchaseReturnsPerPage);
+    const totalPages = Math.ceil(purchaseReturnsState.allPurchaseReturns.length / purchaseReturnsState.purchaseReturnsPerPage);
+    if (purchaseReturnsState.purchaseReturnsPage > totalPages) purchaseReturnsState.purchaseReturnsPage = totalPages;
+    if (purchaseReturnsState.purchaseReturnsPage < 1) purchaseReturnsState.purchaseReturnsPage = 1;
 
-    let paginationHtml = '';
-    if (totalPages > 1) {
-        paginationHtml = `
-            <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0;">
-                <button class="btn btn-sm" onclick="changePurchaseReturnsPage(${purchaseReturnsPage - 1})" ${purchaseReturnsPage === 1 ? 'disabled' : ''}>السابق</button>
-                <span style="font-weight:600;">صفحة ${purchaseReturnsPage} من ${totalPages}</span>
-                <button class="btn btn-sm" onclick="changePurchaseReturnsPage(${purchaseReturnsPage + 1})" ${purchaseReturnsPage === totalPages ? 'disabled' : ''}>التالي</button>
-            </div>
-        `;
-    }
+    const startIdx = (purchaseReturnsState.purchaseReturnsPage - 1) * purchaseReturnsState.purchaseReturnsPerPage;
+    const pageReturns = purchaseReturnsState.allPurchaseReturns.slice(startIdx, startIdx + purchaseReturnsState.purchaseReturnsPerPage);
 
-    container.innerHTML = `
-        <table class="history-table">
-            <thead>
-                <tr>
-                    <th>${t('purchaseReturns.returnNumber', 'رقم المرتجع')}</th>
-                    <th>${t('purchaseReturns.originalInvoice', 'فاتورة الشراء الأصلية')}</th>
-                    <th>${t('purchaseReturns.supplier', 'المورد')}</th>
-                    <th>${t('purchaseReturns.returnDate', 'التاريخ')}</th>
-                    <th>${t('purchaseReturns.total', 'الإجمالي')}</th>
-                    <th>${t('common.labels.actions', 'إجراءات')}</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${pageReturns.map((row) => `
-                    <tr>
-                        <td><span class="badge badge-return"><i class="fas fa-undo-alt"></i> ${row.return_number || '-'}</span></td>
-                        <td>${fmt(t('purchaseReturns.invoiceLabel', 'Invoice #{number}'), { number: row.original_invoice_number || '-' })}</td>
-                        <td>${row.supplier_name || '-'}</td>
-                        <td>${row.return_date || '-'}</td>
-                        <td style="font-weight: 700; color: #f59e0b;">${(Number(row.total_amount) || 0).toFixed(2)}</td>
-                        <td>
-                            <button class="btn btn-sm btn-delete" onclick="deleteReturn(${row.id})">
-                                <i class="fas fa-trash"></i> ${t('common.actions.delete', 'حذف')}
-                            </button>
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        ${paginationHtml}
-    `;
+    purchaseReturnsRender.renderHistoryTable({
+        container: purchaseReturnsState.dom.historyContent,
+        rows: pageReturns,
+        page: purchaseReturnsState.purchaseReturnsPage,
+        totalPages,
+        t,
+        fmt
+    });
 }
 
 function changePurchaseReturnsPage(newPage) {
-    const totalPages = Math.ceil(allPurchaseReturns.length / purchaseReturnsPerPage);
+    const totalPages = Math.ceil(purchaseReturnsState.allPurchaseReturns.length / purchaseReturnsState.purchaseReturnsPerPage);
     if (newPage < 1 || newPage > totalPages) return;
-    purchaseReturnsPage = newPage;
+
+    purchaseReturnsState.purchaseReturnsPage = newPage;
     renderReturnsHistory();
 }
 
 async function deleteReturn(id) {
+    if (!Number.isFinite(id)) return;
+
     if (!confirm(t('purchaseReturns.confirmDelete', 'هل أنت متأكد من حذف هذا المرتجع؟'))) {
         return;
     }
 
     try {
-        const result = await window.electronAPI.deletePurchaseReturn(id);
+        const result = await purchaseReturnsApi.deleteReturn(id);
 
         if (result && result.success) {
             Toast.show(t('purchaseReturns.toast.deleteSuccess', 'تم حذف المرتجع بنجاح'), 'success');
             await loadReturnsHistory();
 
-            if (invoiceSelect.value) {
-                await loadInvoiceItems(invoiceSelect.value);
+            if (purchaseReturnsState.dom.invoiceSelect.value) {
+                await loadInvoiceItems(purchaseReturnsState.dom.invoiceSelect.value);
             }
             return;
         }
 
         Toast.show((result && result.error) || t('purchaseReturns.toast.deleteError', 'حدث خطأ أثناء حذف المرتجع'), 'error');
-    } catch (error) {
-        console.error('Delete purchase return error:', error);
+    } catch (_) {
         Toast.show(t('purchaseReturns.toast.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
     }
 }
 
 function updateOriginalInvoicePreview() {
-    if (!originalInvoicePreviewEl || !originalInvoicePreviewTextEl || !invoiceSelect) return;
-
-    const selectedOption = invoiceSelect.options[invoiceSelect.selectedIndex];
-    const hasSelectedInvoice = Boolean(invoiceSelect.value && selectedOption);
-
-    if (hasSelectedInvoice) {
-        originalInvoicePreviewEl.classList.remove('is-empty');
-        originalInvoicePreviewTextEl.textContent = (selectedOption.textContent || '').trim();
+    if (!purchaseReturnsState.dom.originalInvoicePreview || !purchaseReturnsState.dom.originalInvoicePreviewText || !purchaseReturnsState.dom.invoiceSelect) {
         return;
     }
 
-    originalInvoicePreviewEl.classList.add('is-empty');
-    originalInvoicePreviewTextEl.textContent = t('purchaseReturns.noInvoiceSelected', 'لم يتم اختيار فاتورة شراء أصلية بعد');
-}
+    const selectedOption = purchaseReturnsState.dom.invoiceSelect.options[purchaseReturnsState.dom.invoiceSelect.selectedIndex];
+    const hasSelectedInvoice = Boolean(purchaseReturnsState.dom.invoiceSelect.value && selectedOption);
 
-window.onCheckboxChange = onCheckboxChange;
-window.onQtyChange = onQtyChange;
-window.calculateTotal = calculateTotal;
-window.saveReturn = saveReturn;
-window.resetForm = resetForm;
-window.deleteReturn = deleteReturn;
+    if (hasSelectedInvoice) {
+        purchaseReturnsState.dom.originalInvoicePreview.classList.remove('is-empty');
+        purchaseReturnsState.dom.originalInvoicePreviewText.textContent = (selectedOption.textContent || '').trim();
+        return;
+    }
+
+    purchaseReturnsState.dom.originalInvoicePreview.classList.add('is-empty');
+    purchaseReturnsState.dom.originalInvoicePreviewText.textContent = t('purchaseReturns.noInvoiceSelected', 'لم يتم اختيار فاتورة شراء أصلية بعد');
+}
