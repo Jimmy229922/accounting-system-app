@@ -15,7 +15,7 @@ let voucherModalSubtitleEl;
 let paginationBtnsEl;
 let customerAutocomplete = null;
 let ar = {};
-const { t } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f };
+const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 const reportsRender = window.reportsPageRender;
 let currentReports = [];
 let allCustomers = [];
@@ -25,10 +25,6 @@ const CUR = 'ج.م';
 
 function formatCurrency(v) {
     return parseFloat(v || 0).toFixed(2) + ' ' + CUR;
-}
-
-function fmt(template, values = {}) {
-    return pageI18n ? pageI18n.fmt(template, values) : String(template || '');
 }
 
 function escapeHtml(value) {

@@ -2,15 +2,7 @@ const salesState = window.salesPageState.createInitialState();
 const salesApi = window.salesPageApi;
 const salesRender = window.salesPageRender;
 const salesEvents = window.salesPageEvents;
-const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => salesState.ar) : null;
-
-function t(key, fallback = '') {
-    return pageI18n ? pageI18n.t(key, fallback) : fallback;
-}
-
-function fmt(template, values = {}) {
-    return pageI18n ? pageI18n.fmt(template, values) : String(template || '');
-}
+const { t, fmt } = window.i18n?.createPageHelpers?.(() => salesState.ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 
 function getNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {

@@ -3,16 +3,8 @@ let lastUpdatedEl;
 let lastStats = null;
 let chartPeriod = '7';
 let ar = {};
-const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
+const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 const dashboardRender = window.dashboardPageRender;
-
-function t(key, fallback = '') {
-    return pageI18n ? pageI18n.t(key, fallback) : fallback;
-}
-
-function fmt(template, values = {}) {
-    return pageI18n ? pageI18n.fmt(template, values) : String(template || '');
-}
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
