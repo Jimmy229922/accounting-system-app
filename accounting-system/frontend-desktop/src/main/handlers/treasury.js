@@ -86,7 +86,6 @@ function register() {
 
         // Purchase Updates
         const updatePurchaseInvoice = db.prepare('UPDATE purchase_invoices SET paid_amount = paid_amount - @amount, remaining_amount = remaining_amount + @amount WHERE id = @id');
-        const updateSupplier = db.prepare('UPDATE suppliers SET balance = balance + @amount WHERE id = @id');
         const getPurchaseInvoice = db.prepare('SELECT supplier_id FROM purchase_invoices WHERE id = ?');
 
         const tx = db.transaction(() => {
@@ -115,11 +114,7 @@ function register() {
                     
                     const invoice = getPurchaseInvoice.get(trans.related_invoice_id);
                     if (invoice && invoice.supplier_id) {
-                        // Note: updateSupplier updates 'suppliers' table, but we might be using 'customers' table.
-                        // If purchase_invoices links to customers, we should use updateCustomer.
-                        // But existing code uses updateSupplier. I'll leave it for invoice logic to avoid breaking existing flow,
-                        // assuming existing flow is consistent with itself.
-                        updateSupplier.run({ amount: trans.amount, id: invoice.supplier_id });
+                        updateCustomer.run({ amount: trans.amount, id: invoice.supplier_id });
                     }
                 }
             }

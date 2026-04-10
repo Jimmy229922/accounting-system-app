@@ -94,8 +94,8 @@ function register() {
         `);
 
         const insertTreasuryTransaction = db.prepare(`
-            INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, supplier_id)
-            VALUES ('expense', @amount, @date, @description, @invoice_id, 'purchase', @supplier_id)
+            INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, customer_id)
+            VALUES ('expense', @amount, @date, @description, @invoice_id, 'purchase', @customer_id)
         `);
 
         const updateSupplierBalance = db.prepare(`
@@ -143,7 +143,7 @@ function register() {
                     date: data.invoice_date,
                     description: `فاتورة شراء رقم ${data.invoice_number || invoiceId} (مدفوع ${financials.paid_amount.toFixed(2)})`,
                     invoice_id: invoiceId,
-                    supplier_id: data.supplier_id
+                    customer_id: data.supplier_id
                 });
             }
 
@@ -249,14 +249,14 @@ function register() {
 
             if (financials.paid_amount > 0) {
                 db.prepare(`
-                    INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, supplier_id)
-                    VALUES ('expense', @amount, @date, @description, @invoice_id, 'purchase', @supplier_id)
+                    INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, customer_id)
+                    VALUES ('expense', @amount, @date, @description, @invoice_id, 'purchase', @customer_id)
                 `).run({
                     amount: financials.paid_amount,
                     date: invoice_date,
                     description: `تعديل فاتورة شراء رقم ${invoice_number || id} (مدفوع ${financials.paid_amount.toFixed(2)})`,
                     invoice_id: id,
-                    supplier_id
+                    customer_id: supplier_id
                 });
             }
         });
