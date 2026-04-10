@@ -1,4 +1,6 @@
 class Autocomplete {
+    static optionsCache = new Map();
+
     constructor(selectElement) {
         this.selectElement = selectElement;
         this.options = [];
@@ -89,13 +91,24 @@ class Autocomplete {
     }
 
     syncOptions() {
-        this.options = Array.from(this.selectElement.options)
-            .filter(opt => opt.value !== "") // Filter out placeholders
-            .map(opt => ({
-                value: opt.value,
-                text: opt.text,
-                group: opt.parentElement.tagName === 'OPTGROUP' ? opt.parentElement.label : null
-            }));
+        const cacheKey = this.selectElement.dataset.autocompleteCacheKey || '';
+
+        if (cacheKey && Autocomplete.optionsCache.has(cacheKey)) {
+            this.options = Autocomplete.optionsCache.get(cacheKey);
+        } else {
+            this.options = Array.from(this.selectElement.options)
+                .filter(opt => opt.value !== "") // Filter out placeholders
+                .map(opt => ({
+                    value: opt.value,
+                    text: opt.text,
+                    searchText: String(opt.text || '').toLowerCase(),
+                    group: opt.parentElement.tagName === 'OPTGROUP' ? opt.parentElement.label : null
+                }));
+
+            if (cacheKey) {
+                Autocomplete.optionsCache.set(cacheKey, this.options);
+            }
+        }
         
         // If select has a value, set input text, otherwise clear it
         const selectedOption = this.options.find(o => o.value === this.selectElement.value);
@@ -115,11 +128,11 @@ class Autocomplete {
     renderList(filter = '') {
         // Clear existing content
         this.list.innerHTML = '';
-        
-        let matches = this.options.filter(opt => opt.text.toLowerCase().includes(filter));
-        
-        // Always show all if filter is empty (on focus)
-        if (filter === '') matches = this.options;
+
+        let matches = this.options;
+        if (filter !== '') {
+            matches = this.options.filter(opt => opt.searchText.includes(filter));
+        }
 
         // Limit results to 100 to prevent browser freezing
         matches = matches.slice(0, 100);

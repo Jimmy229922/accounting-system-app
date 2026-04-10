@@ -158,7 +158,7 @@
 
         row.innerHTML = `
         <td>
-            <select class="form-control item-select">
+                <select class="form-control item-select" data-autocomplete-cache-key="purchases-items">
                 ${buildItemsOptions({ allItems, existingItem, t, fmt })}
             </select>
         </td>

@@ -159,7 +159,7 @@
 
         row.innerHTML = `
         <td>
-            <select class="form-control item-select">
+            <select class="form-control item-select" data-autocomplete-cache-key="sales-items">
                 ${itemsOptions}
             </select>
         </td>
