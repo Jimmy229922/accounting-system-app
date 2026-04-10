@@ -15,6 +15,7 @@ function fmt(template, values = {}) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         ar = await window.i18n.loadArabicDictionary();
     }
@@ -22,6 +23,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     dashboardRender.renderPage({ t, getNavHTML });
     bindEvents();
     loadDashboardStats();
+    } catch (error) {
+        console.error('Initialization Error:', error);
+        if (window.toast && typeof window.toast.error === 'function') {
+            window.toast.error(t('alerts.initError', 'حدث خطأ أثناء تهيئة الصفحة، يرجى إعادة التحميل'));
+        }
+    }
 });
 
 function getNavHTML() {

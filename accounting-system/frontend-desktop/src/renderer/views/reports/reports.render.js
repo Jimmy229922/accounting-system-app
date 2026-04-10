@@ -1,8 +1,8 @@
-(function () {
+﻿(function () {
     function renderPage({ t, CUR }) {
         const app = document.getElementById('app');
         app.innerHTML = `
-        ${getNavHTML(t)}
+        ${buildTopNavHTML(t)}
 
         <main class="content reports-content">
             <div class="reports-page">
@@ -217,7 +217,7 @@
     `;
     }
 
-    function getNavHTML(t) {
+    function buildTopNavHTML(t) {
         if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
             return window.navManager.getTopNavHTML(t);
         }

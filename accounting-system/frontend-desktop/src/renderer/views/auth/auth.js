@@ -1,13 +1,10 @@
 ﻿const authState = window.authPageState.createInitialState();
 const authApi = window.authPageApi;
 const authUi = window.authPageUi;
-const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => authState.ar) : null;
-
-function t(key, fallback = '') {
-    return pageI18n ? pageI18n.t(key, fallback) : fallback;
-}
+const { t } = window.i18n?.createPageHelpers?.(() => authState.ar) || { t: (k, f = '') => f };
 
 document.addEventListener('DOMContentLoaded', async () => {
+    try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         authState.ar = await window.i18n.loadArabicDictionary();
     }
@@ -17,6 +14,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     authState.dom.form.addEventListener('submit', handleSubmit);
 
     await initAuthMode();
+    } catch (error) {
+        console.error('Initialization Error:', error);
+        if (window.toast && typeof window.toast.error === 'function') {
+            window.toast.error(t('alerts.initError', 'حدث خطأ أثناء تهيئة الصفحة، يرجى إعادة التحميل'));
+        }
+    }
 });
 
 async function initAuthMode() {

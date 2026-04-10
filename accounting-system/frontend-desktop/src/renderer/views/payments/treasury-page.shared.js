@@ -6,9 +6,7 @@
         let recentTransactions = [];
         let entityAutocomplete = null;
 
-        const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
-        const t = (key, fallback = '') => (pageI18n ? pageI18n.t(key, fallback) : fallback);
-        const fmt = (template, values = {}) => (pageI18n ? pageI18n.fmt(template, values) : String(template || ''));
+        const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
         const tx = (suffix, fallback = '') => t(`${config.i18nPrefix}.${suffix}`, fallback);
         const text = (name) => {
             const entry = config.text?.[name];

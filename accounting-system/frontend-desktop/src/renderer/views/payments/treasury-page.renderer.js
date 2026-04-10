@@ -1,6 +1,6 @@
-(function () {
+﻿(function () {
     function createTreasuryPageRenderer({ config, t, tx, text }) {
-        function getNavHTML() {
+        function buildTopNavHTML() {
             if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
                 return window.navManager.getTopNavHTML(t);
             }
@@ -24,7 +24,7 @@
         function renderPage() {
             const app = document.getElementById('app');
             app.innerHTML = `
-                ${getNavHTML()}
+                ${buildTopNavHTML()}
 
                 <div class="content">
                     <div class="page-header receipt-header">

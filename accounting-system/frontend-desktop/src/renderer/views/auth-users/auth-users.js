@@ -2,20 +2,17 @@
 let authUsersStatusEl, authUsersTableWrap, authUsersNotice;
 let authUsersTotalStat, authUsersActiveStat, authUsersInactiveStat, authUsersTableMeta;
 let ar = {};
-const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
+const { t } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f };
 const authUsersRender = window.authUsersPageRender;
 const authUsersUtils = window.authUsersPageUtils;
 
 const AUTH_SESSION_KEY = 'auth_session_token';
 
-function t(key, fallback = '') {
-    return pageI18n ? pageI18n.t(key, fallback) : fallback;
-}
-
 const escapeHtml = authUsersUtils.escapeHtml;
 const getAuthSessionToken = () => authUsersUtils.getAuthSessionToken(AUTH_SESSION_KEY);
 
 document.addEventListener('DOMContentLoaded', async () => {
+    try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         ar = await window.i18n.loadArabicDictionary();
     }
@@ -23,6 +20,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     authUsersRender.renderPage({ t });
     initializeElements();
     await loadAuthUsersSection();
+    } catch (error) {
+        console.error('Initialization Error:', error);
+        if (window.toast && typeof window.toast.error === 'function') {
+            window.toast.error(t('alerts.initError', 'حدث خطأ أثناء تهيئة الصفحة، يرجى إعادة التحميل'));
+        }
+    }
 });
 
 function initializeElements() {

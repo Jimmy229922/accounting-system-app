@@ -2,21 +2,13 @@
 const salesReturnsApi = window.salesReturnsPageApi;
 const salesReturnsRender = window.salesReturnsPageRender;
 const salesReturnsEvents = window.salesReturnsPageEvents;
-const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => salesReturnsState.ar) : null;
-
-function t(key, fallback = '') {
-    return pageI18n ? pageI18n.t(key, fallback) : fallback;
-}
-
-function fmt(template, values = {}) {
-    return pageI18n ? pageI18n.fmt(template, values) : String(template || '');
-}
+const { t, fmt } = window.i18n?.createPageHelpers?.(() => salesReturnsState.ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 
 function toArray(value) {
     return Array.isArray(value) ? value : [];
 }
 
-function getNavHTML() {
+function buildTopNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
         return window.navManager.getTopNavHTML(t);
     }
@@ -24,11 +16,12 @@ function getNavHTML() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         salesReturnsState.ar = await window.i18n.loadArabicDictionary();
     }
 
-    salesReturnsRender.renderPage({ t, getNavHTML });
+    salesReturnsRender.renderPage({ t, getNavHTML: buildTopNavHTML });
     initializeElements();
 
     await Promise.all([loadCustomers(), loadReturnsHistory()]);
@@ -36,6 +29,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const editId = getEditIdFromUrl();
     if (editId) {
         await loadReturnForEdit(editId);
+    }
+    } catch (error) {
+        console.error('Initialization Error:', error);
+        if (window.toast && typeof window.toast.error === 'function') {
+            window.toast.error(t('alerts.initError', 'حدث خطأ أثناء تهيئة الصفحة، يرجى إعادة التحميل'));
+        }
     }
 });
 

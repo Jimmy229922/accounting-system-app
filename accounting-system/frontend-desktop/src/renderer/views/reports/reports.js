@@ -15,7 +15,7 @@ let voucherModalSubtitleEl;
 let paginationBtnsEl;
 let customerAutocomplete = null;
 let ar = {};
-const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
+const { t } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f };
 const reportsRender = window.reportsPageRender;
 let currentReports = [];
 let allCustomers = [];
@@ -25,10 +25,6 @@ const CUR = 'ج.م';
 
 function formatCurrency(v) {
     return parseFloat(v || 0).toFixed(2) + ' ' + CUR;
-}
-
-function t(key, fallback = '') {
-    return pageI18n ? pageI18n.t(key, fallback) : fallback;
 }
 
 function fmt(template, values = {}) {
@@ -98,6 +94,7 @@ function updateLastUpdatedLabel() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         ar = await window.i18n.loadArabicDictionary();
     }
@@ -107,6 +104,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     setDefaultDateRange();
     await loadCustomers();
     await loadReports();
+    } catch (error) {
+        console.error('Initialization Error:', error);
+        if (window.toast && typeof window.toast.error === 'function') {
+            window.toast.error(t('alerts.initError', 'حدث خطأ أثناء تهيئة الصفحة، يرجى إعادة التحميل'));
+        }
+    }
 });
 
 function initializeElements() {

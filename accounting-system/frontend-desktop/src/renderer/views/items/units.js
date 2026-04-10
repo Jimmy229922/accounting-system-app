@@ -1,9 +1,7 @@
-let ar = {};
-const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
-const t = (key, fallback = '') => (pageI18n ? pageI18n.t(key, fallback) : fallback);
-const fmt = (template, values = {}) => (pageI18n ? pageI18n.fmt(template, values) : String(template || ''));
+﻿let ar = {};
+const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 
-function getNavHTML() {
+function buildTopNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
         return window.navManager.getTopNavHTML(t);
     }
@@ -12,7 +10,7 @@ function getNavHTML() {
 
 function applyI18nToDOM() {
     const nav = document.getElementById('main-nav');
-    if (nav) nav.outerHTML = getNavHTML();
+    if (nav) nav.outerHTML = buildTopNavHTML();
 
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
@@ -37,11 +35,18 @@ let currentFilteredUnits = [];
 
 // Load units when page starts
 document.addEventListener('DOMContentLoaded', async () => {
+    try {
     ar = await window.i18n?.loadArabicDictionary?.() || {};
     applyI18nToDOM();
     initializeElements();
     loadUnits();
     unitNameInput.focus();
+    } catch (error) {
+        console.error('Initialization Error:', error);
+        if (window.toast && typeof window.toast.error === 'function') {
+            window.toast.error(t('alerts.initError', 'حدث خطأ أثناء تهيئة الصفحة، يرجى إعادة التحميل'));
+        }
+    }
 });
 
 function initializeElements() {

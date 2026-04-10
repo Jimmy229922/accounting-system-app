@@ -1,12 +1,13 @@
 ﻿
 document.addEventListener('DOMContentLoaded', async () => {
+    try {
     // State
     let warehouses = [];
     let items = [];
     let history = []; // History of items
     let selectedWarehouseId = '';
     let ar = {};
-    const pageI18n = window.i18n?.createPageHelpers ? window.i18n.createPageHelpers(() => ar) : null;
+    const { t } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f };
     const defaultWarehouseName = 'المخزن الافتراضي';
     const legacyWarehouseName = 'المخزن الرئيسي';
     const openingBalanceRender = window.openingBalancePageRender;
@@ -20,7 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Render nav first (before loadData which may fail)
     const nav = document.getElementById('main-nav');
-    if (nav) nav.innerHTML = getNavHTML();
+    if (nav) nav.innerHTML = buildTopNavHTML();
 
     // Apply i18n to DOM
     openingBalanceUtils.applyI18nToDOM(t);
@@ -28,11 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupInteractions();
     await loadData();
 
-    function t(key, fallback = '') {
-        return pageI18n ? pageI18n.t(key, fallback) : fallback;
-    }
 
-    function getNavHTML() {
+
+    function buildTopNavHTML() {
         if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
             return window.navManager.getTopNavHTML(t, { wrap: false });
         }
@@ -490,5 +489,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             Toast.show(t('openingBalance.toast.deleteError', 'حدث خطأ أثناء الحذف'), 'error');
         }
     });
+    } catch (error) {
+        console.error('Initialization Error:', error);
+        if (window.toast && typeof window.toast.error === 'function') {
+            window.toast.error(t('alerts.initError', 'حدث خطأ أثناء تهيئة الصفحة، يرجى إعادة التحميل'));
+        }
+    }
 });
 
