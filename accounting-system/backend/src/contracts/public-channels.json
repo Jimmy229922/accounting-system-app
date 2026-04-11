@@ -39,6 +39,8 @@
   "get-item-stock-details",
   "get-item-transactions",
   "get-items",
+  "get-machine-id",
+  "get-my-permissions",
   "get-next-invoice-number",
   "get-opening-balance-group",
   "get-opening-balance-groups",
@@ -58,6 +60,7 @@
   "get-treasury-balance",
   "get-treasury-transactions",
   "get-units",
+  "get-user-permissions",
   "get-warehouses",
   "login-auth-account",
   "reset-auth-user-password",
@@ -85,5 +88,6 @@
   "update-sales-return",
   "update-treasury-transaction",
   "update-unit",
+  "update-user-permissions",
   "update-warehouse"
 ]

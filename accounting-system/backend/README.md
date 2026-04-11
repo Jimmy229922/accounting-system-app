@@ -11,6 +11,17 @@
 4. Run compatibility check:
    - `npm run backend:check`
 
+## Release Preflight (Mandatory)
+
+Before any build/release or merge, always run from repository root:
+
+1. Sync public RPC contract from frontend preload:
+   - `npm run sync:contract`
+2. Run strict backend compatibility + smoke checks:
+   - `npm run backend:check`
+
+If `public-channels.json` changes after sync, commit it with the related frontend/backend change.
+
 Default server URL: `http://localhost:4000`
 
 ## Current Endpoints
@@ -18,16 +29,21 @@ Default server URL: `http://localhost:4000`
 - `GET /` simple service info
 - `GET /api/health` health + compatibility report
 - `GET /api/channels` public channels exposed by desktop preload contract
+- `GET /api/channels-local` local Electron-only channels (non-RPC)
 - `GET /api/compatibility` exact compatibility summary
 - `POST /api/rpc/:channel` invoke any public desktop channel remotely
 
 ## Separation Notes
 
-- Backend does not load files from `frontend-desktop` at runtime.
+- Backend compatibility runtime loads handlers through `backend/src/desktop-compat/handlers/_loadFrontendHandler.js`.
+- Runtime execution uses generated local copies under `backend/src/desktop-compat/generated/handlers`.
+- Refresh generated handlers and channel contracts with:
+   - `npm run sync:contract`
 - Backend owns its compatibility layer under:
   - `backend/src/desktop-compat`
-- Backend owns the public channel contract under:
+- Backend owns channel contracts under:
   - `backend/src/contracts/public-channels.json`
+   - `backend/src/contracts/local-electron-only-channels.json`
 
 ## Config
 

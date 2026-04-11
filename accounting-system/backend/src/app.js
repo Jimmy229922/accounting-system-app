@@ -2,6 +2,7 @@ const { URL } = require('url');
 const config = require('./config/env');
 const {
     listPublicChannels,
+    listLocalElectronOnlyChannels,
     getCompatibilityReport,
     invokeChannel
 } = require('./compat/runtime');
@@ -98,6 +99,12 @@ async function app(req, res) {
     if (req.method === 'GET' && url.pathname === `${apiRoot}/channels`) {
         return sendJson(res, 200, {
             channels: listPublicChannels()
+        });
+    }
+
+    if (req.method === 'GET' && url.pathname === `${apiRoot}/channels-local`) {
+        return sendJson(res, 200, {
+            channels: listLocalElectronOnlyChannels()
         });
     }
 

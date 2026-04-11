@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const Module = require('module');
-const { extractInvokeChannels } = require('./extractChannels');
+const { extractInvokeChannels, extractLocalElectronOnlyChannels } = require('./extractChannels');
 
 const BACKEND_COMPAT_DIR = path.resolve(__dirname, '../desktop-compat');
 
@@ -98,6 +98,7 @@ function initializeRuntime() {
     const handlerMap = new Map();
     const mockElectron = buildMockElectron(handlerMap);
     const preloadChannels = extractInvokeChannels();
+    const localElectronOnlyChannels = extractLocalElectronOnlyChannels();
 
     withElectronMock(mockElectron, () => {
         const dbModulePath = path.join(BACKEND_COMPAT_DIR, 'db.js');
@@ -115,7 +116,8 @@ function initializeRuntime() {
 
     runtimeState = {
         handlerMap,
-        preloadChannels
+        preloadChannels,
+        localElectronOnlyChannels
     };
 
     return runtimeState;
@@ -123,6 +125,10 @@ function initializeRuntime() {
 
 function listPublicChannels() {
     return initializeRuntime().preloadChannels;
+}
+
+function listLocalElectronOnlyChannels() {
+    return initializeRuntime().localElectronOnlyChannels;
 }
 
 function listRegisteredChannels() {
@@ -148,23 +154,29 @@ async function invokeChannel(channel, args = []) {
 
 function getCompatibilityReport() {
     const preloadChannels = listPublicChannels();
+    const localElectronOnlyChannels = listLocalElectronOnlyChannels();
     const registeredChannels = listRegisteredChannels();
     const registeredSet = new Set(registeredChannels);
+    const localElectronOnlySet = new Set(localElectronOnlyChannels);
 
     const missingChannels = preloadChannels.filter((channel) => !registeredSet.has(channel));
     const extraChannels = registeredChannels.filter((channel) => !preloadChannels.includes(channel));
+    const publicVsLocalOverlap = preloadChannels.filter((channel) => localElectronOnlySet.has(channel));
 
     return {
         preloadCount: preloadChannels.length,
+        localElectronOnlyCount: localElectronOnlyChannels.length,
         registeredCount: registeredChannels.length,
         missingChannels,
         extraChannels,
-        isFullyCompatible: missingChannels.length === 0
+        publicVsLocalOverlap,
+        isFullyCompatible: missingChannels.length === 0 && extraChannels.length === 0 && publicVsLocalOverlap.length === 0
     };
 }
 
 module.exports = {
     listPublicChannels,
+    listLocalElectronOnlyChannels,
     listRegisteredChannels,
     invokeChannel,
     getCompatibilityReport
