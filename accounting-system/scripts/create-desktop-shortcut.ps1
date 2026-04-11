@@ -16,11 +16,10 @@ if (-not (Test-Path $wscriptPath)) {
 }
 
 $iconInstalled = Join-Path $env:LOCALAPPDATA "Programs\accounting-system\Accounting System.exe"
-$iconProject = Join-Path $root "frontend-desktop\src\renderer\assets\app\icon.ico"
 $iconPrimary = Join-Path $root "frontend-desktop\dist\win-unpacked\Accounting System.exe"
 $iconSecondary = Join-Path $root "frontend-desktop\node_modules\electron\dist\electron.exe"
 $iconFallback = Join-Path $root "node_modules\electron\dist\electron.exe"
-$iconPath = if (Test-Path $iconInstalled) { $iconInstalled } elseif (Test-Path $iconProject) { $iconProject } elseif (Test-Path $iconPrimary) { $iconPrimary } elseif (Test-Path $iconSecondary) { $iconSecondary } elseif (Test-Path $iconFallback) { $iconFallback } else { "" }
+$iconPath = if (Test-Path $iconInstalled) { $iconInstalled } elseif (Test-Path $iconPrimary) { $iconPrimary } elseif (Test-Path $iconSecondary) { $iconSecondary } elseif (Test-Path $iconFallback) { $iconFallback } else { "" }
 
 $wshShell = New-Object -ComObject WScript.Shell
 $shortcut = $wshShell.CreateShortcut($shortcutPath)

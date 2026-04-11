@@ -2,7 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain, screen } = require('electron');
 const path = require('path');
 const { db } = require('./db');
 const { INVITE_CODE, getMachineId, generateActivationCode } = require('./inviteConfig');
-const appIconPath = path.join(__dirname, '../renderer/assets/app/icon.ico');
+const appIconPath = process.execPath;
 
 let mainWindow = null;
 let inviteWindow = null;

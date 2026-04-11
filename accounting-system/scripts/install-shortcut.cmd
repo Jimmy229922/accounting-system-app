@@ -23,8 +23,6 @@ if not exist "%VBS_LAUNCHER%" (
 set "ICON_PATH="
 if exist "%LOCALAPPDATA%\Programs\accounting-system\Accounting System.exe" (
   set "ICON_PATH=%LOCALAPPDATA%\Programs\accounting-system\Accounting System.exe"
-) else if exist "%ROOT_DIR%\frontend-desktop\src\renderer\assets\app\icon.ico" (
-  set "ICON_PATH=%ROOT_DIR%\frontend-desktop\src\renderer\assets\app\icon.ico"
 ) else if exist "%ROOT_DIR%\frontend-desktop\dist\win-unpacked\Accounting System.exe" (
   set "ICON_PATH=%ROOT_DIR%\frontend-desktop\dist\win-unpacked\Accounting System.exe"
 ) else if exist "%ROOT_DIR%\frontend-desktop\node_modules\electron\dist\electron.exe" (
