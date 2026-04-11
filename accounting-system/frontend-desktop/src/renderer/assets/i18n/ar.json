@@ -80,7 +80,6 @@
       "unexpectedError": "حدث خطأ غير متوقع"
     }
   },
-
   "dashboard": {
     "title": "لوحة التحكم",
     "subtitle": "نظرة عامة على أداء نشاطك التجاري",
@@ -156,7 +155,6 @@
       "stockZero": "قيمة المخزون 0. أضف الأصناف أو حدث الكميات لتظهر القيمة الحقيقية."
     }
   },
-
   "items": {
     "title": "إدارة الأصناف",
     "addItem": "إضافة صنف جديد",
@@ -228,7 +226,6 @@
       "dataRequired": "الرجاء إكمال البيانات المطلوبة"
     }
   },
-
   "units": {
     "title": "إدارة الوحدات",
     "addUnit": "إضافة وحدة جديدة",
@@ -269,7 +266,6 @@
       "deleteError": "حدث خطأ أثناء الحذف"
     }
   },
-
   "customers": {
     "title": "إدارة العملاء والموردين",
     "addNew": "إضافة جديد",
@@ -343,7 +339,6 @@
       "loadError": "خطأ في تحميل البيانات"
     }
   },
-
   "finance": {
     "title": "الإدارة المالية",
     "pageTitle": "المالية والخزينة",
@@ -414,7 +409,6 @@
       "updateError": "حدث خطأ: {error}"
     }
   },
-
   "inventory": {
     "title": "إدارة المخزن",
     "reportTitle": "تقرير المخزن",
@@ -471,7 +465,6 @@
     "currentStock": "المخزون الحالي",
     "loadError": "حدث خطأ أثناء تحميل البيانات"
   },
-
   "sales": {
     "title": "فاتورة المبيعات",
     "pageTitle": "فواتير المبيعات",
@@ -553,7 +546,6 @@
       "unexpectedError": "حدث خطأ غير متوقع: {error}"
     }
   },
-
   "purchases": {
     "title": "فاتورة المشتريات",
     "pageTitle": "فواتير المشتريات",
@@ -622,7 +614,6 @@
       "unexpectedError": "حدث خطأ غير متوقع: {error}"
     }
   },
-
   "receipt": {
     "title": "تحصيل من عميل",
     "pageTitle": "تحصيل نقدية من عميل",
@@ -681,7 +672,6 @@
       "loadError": "حدث خطأ في تحميل البيانات"
     }
   },
-
   "payment": {
     "title": "سداد لمورد",
     "pageTitle": "سداد نقدية لمورد",
@@ -740,7 +730,6 @@
       "loadError": "حدث خطأ في تحميل البيانات"
     }
   },
-
   "reports": {
     "title": "التقارير العامة",
     "subtitle": "عرض وإدارة جميع فواتير المبيعات والمشتريات",
@@ -789,7 +778,6 @@
     "deleteError": "حدث خطأ أثناء الحذف: {error}",
     "loadError": "حدث خطأ أثناء تحميل البيانات"
   },
-
   "debtorCreditor": {
     "title": "كشف المدين والدائن",
     "totalDebtor": "إجمالي المدين (لنا)",
@@ -832,7 +820,6 @@
     "heroSubtitle": "عرض شامل لأرصدة العملاء والموردين والمركز المالي",
     "totalAccounts": "إجمالي الحسابات"
   },
-
   "customerReports": {
     "title": "تقارير العملاء",
     "subtitle": "عرض تفصيلي لحركة العمليات والأرصدة لكل عميل",
@@ -885,7 +872,6 @@
     "deleteError": "حدث خطأ: {error}",
     "unexpectedError": "حدث خطأ غير متوقع"
   },
-
   "openingBalance": {
     "title": "بيانات أول المدة",
     "defaultWarehouseName": "المخزن الافتراضي",
@@ -972,7 +958,6 @@
       "deleteError": "حدث خطأ أثناء الحذف"
     }
   },
-
   "auth": {
     "setupTitle": "تفعيل حساب النظام",
     "setupSubtitle": "هذه أول مرة تشغيل. أنشئ اسم مستخدم وكلمة مرور للحماية.",
@@ -996,7 +981,6 @@
       "loginDone": "تم تسجيل الدخول بنجاح."
     }
   },
-
   "authUsers": {
     "title": "إدارة المستخدمين",
     "subtitle": "إدارة حسابات الموظفين (إضافة، تفعيل/تعطيل، وتغيير كلمة المرور).",
@@ -1095,7 +1079,6 @@
       }
     }
   },
-
   "globalSearch": {
     "placeholder": "ابحث عن صنف، عميل، أو مورد...",
     "close": "إغلاق",
@@ -1138,7 +1121,6 @@
     "fetchMovementError": "حدث خطأ في جلب حركة الصنف",
     "backToSearch": "رجوع للبحث"
   },
-
   "salesReturns": {
     "title": "مردودات المبيعات",
     "newReturnTitle": "تسجيل مرتجع مبيعات جديد",
@@ -1171,29 +1153,31 @@
       "deleteError": "حدث خطأ أثناء الحذف",
       "unexpectedError": "حدث خطأ غير متوقع"
     },
-    "invoiceOption": "فاتورة رقم {number} - {date} - {total}"
+    "invoiceOption": "فاتورة رقم {number} - {date} - {total}",
+    "subtitle": "إدارة وتسجيل المرتجعات للفواتير بشكل سريع ومنظم.",
+    "formStatusChip": "مرتجع مبيعات",
+    "invoiceItems": "أصناف الفاتورة"
   },
-
   "purchaseReturns": {
     "title": "مردودات المشتريات",
     "newReturnTitle": "تسجيل مرتجع مشتريات جديد",
     "supplier": "المورد",
-    "originalInvoice": "فاتورة الشراء الأصلية",
+    "originalInvoice": "الفاتورة الأصلية",
     "returnNumber": "رقم المرتجع",
     "returnDate": "تاريخ المرتجع",
     "returnItem": "إرجاع",
     "item": "الصنف",
     "unit": "الوحدة",
     "boughtQty": "الكمية المشتراة",
-    "returnedQty": "تم إرجاعها",
-    "returnQty": "كمية الإرجاع",
+    "returnedQty": "مرتجع سابق",
+    "returnQty": "كمية المرتجع",
     "price": "السعر",
     "total": "الإجمالي",
-    "notes": "ملاحظات",
-    "notesPlaceholder": "ملاحظات اختيارية...",
+    "notes": "ملاحظات / سبب الإرجاع",
+    "notesPlaceholder": "اكتب أي ملاحظات إضافية...",
     "returnTotal": "إجمالي المرتجع:",
     "saveReturn": "حفظ المرتجع",
-    "historyTitle": "سجل المردودات",
+    "historyTitle": "سجل المرتجعات",
     "invoiceLabel": "فاتورة رقم {number}",
     "confirmDelete": "هل أنت متأكد من حذف هذا المرتجع؟ سيتم عكس جميع التأثيرات (المخزن والأرصدة).",
     "toast": {
@@ -1201,14 +1185,20 @@
       "selectSupplierInvoice": "الرجاء اختيار المورد والفاتورة",
       "selectAtLeastOneItem": "الرجاء تحديد صنف واحد على الأقل للإرجاع",
       "saveSuccess": "تم حفظ المرتجع بنجاح",
-      "saveError": "حدث خطأ أثناء الحفظ",
+      "saveError": "حدث خطأ أثناء حفظ المرتجع",
       "deleteSuccess": "تم حذف المرتجع بنجاح",
       "deleteError": "حدث خطأ أثناء الحذف",
-      "unexpectedError": "حدث خطأ غير متوقع"
+      "unexpectedError": "حدث خطأ غير متوقع",
+      "updateSuccess": "تم تحديث المرتجع بنجاح",
+      "updateError": "حدث خطأ أثناء تحديث المرتجع"
     },
-    "invoiceOption": "فاتورة رقم {number} - {date} - {total}"
+    "invoiceOption": "فاتورة رقم {number} - {date} - {total}",
+    "subtitle": "إدارة وتسجيل المرتجعات لفواتير الشراء بشكل سريع ومنظم.",
+    "formStatusChip": "مرتجع مشتريات",
+    "invoiceItems": "أصناف الفاتورة",
+    "editReturnTitle": "تعديل بيانات المرتجع",
+    "updateReturn": "تحديث المرتجع"
   },
-
   "settings": {
     "title": "إعدادات النظام",
     "subtitle": "إدارة بيانات المؤسسة والنسخ الاحتياطي ومظهر النظام",

@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     function createTreasuryPageRenderer({ config, t, tx, text }) {
         function buildTopNavHTML() {
             if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
@@ -198,7 +198,7 @@
                 }
                 <div class="balance-display">
                     <div class="balance-label">${text('currentBalanceLabel')}</div>
-                    <div class="balance-amount ${balanceClass}">${Math.abs(entity.balance).toFixed(2)} Ø¬.Ù…</div>
+                    <div class="balance-amount ${balanceClass}">${Math.abs(entity.balance).toFixed(2)} \u062C.\u0645</div>
                     <div class="balance-hint">${balanceHint}</div>
                 </div>
                 <div class="entity-actions">
@@ -271,7 +271,7 @@
                     <div class="voucher-result-item">
                         <div class="voucher-result-row">
                             <span class="voucher-result-label">${text('voucherNumberLabel')}:</span>
-                            <strong>${tr.voucher_number || 'â€”'}</strong>
+                            <strong>${tr.voucher_number || '\u2014'}</strong>
                         </div>
                         <div class="voucher-result-row">
                             <span class="voucher-result-label">${text('dateLabel')}:</span>
@@ -279,15 +279,15 @@
                         </div>
                         <div class="voucher-result-row">
                             <span class="voucher-result-label">${text('entityLabel')}:</span>
-                            <span>${tr.customer_name || 'â€”'}</span>
+                            <span>${tr.customer_name || '\u2014'}</span>
                         </div>
                         <div class="voucher-result-row">
                             <span class="voucher-result-label">${text('amountLabel')}:</span>
-                            <strong>${tr.amount.toFixed(2)} Ø¬.Ù…</strong>
+                            <strong>${tr.amount.toFixed(2)} \u062C.\u0645</strong>
                         </div>
                         <div class="voucher-result-row">
                             <span class="voucher-result-label">${text('descriptionLabel')}:</span>
-                            <span>${tr.description || 'â€”'}</span>
+                            <span>${tr.description || '\u2014'}</span>
                         </div>
                     </div>
                 `

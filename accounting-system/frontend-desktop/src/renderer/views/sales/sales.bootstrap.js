@@ -12,6 +12,9 @@ function getNavHTML() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Reset submitting state just in case
+    salesState.isSubmitting = false;
+
     try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         salesState.ar = await window.i18n.loadArabicDictionary();
@@ -105,7 +108,7 @@ async function loadInvoiceForEdit(id) {
     try {
         const invoice = await salesApi.getInvoiceWithDetails(id);
         if (!invoice) {
-            alert(t('sales.invoiceNotFound', 'الفاتورة غير موجودة'));
+            if (window.showToast) window.showToast(t('sales.invoiceNotFound', 'الفاتورة غير موجودة'), 'error');
             return;
         }
 
@@ -165,7 +168,7 @@ async function loadInvoiceForEdit(id) {
 
         salesRender.setEditModeUI(t);
     } catch (error) {
-        alert(t('sales.toast.unexpectedError', 'حدث خطأ غير متوقع') + ': ' + error.message);
+        if (window.showToast) window.showToast(t('sales.toast.unexpectedError', 'حدث خطأ غير متوقع') + ': ' + error.message, 'error');
     }
 }
 
@@ -175,9 +178,8 @@ async function submitInvoice() {
 
     const saveBtn = document.querySelector('#invoiceForm .btn-success');
     if (saveBtn) {
-        saveBtn.blur();
-        saveBtn.disabled = true;
-        saveBtn.setAttribute('disabled', 'true');
+        saveBtn.style.opacity = '0.6';
+        saveBtn.style.cursor = 'not-allowed';
     }
 
     try {
@@ -189,8 +191,8 @@ async function submitInvoice() {
     } finally {
         salesState.isSubmitting = false;
         if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.removeAttribute('disabled');
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
         }
     }
 }
@@ -349,7 +351,7 @@ function updateSelectedItemAvailability(row) {
 
 function addInvoiceRow(existingItem = null) {
     if (!existingItem && !salesState.dom.customerSelect?.value) {
-        alert(t('sales.selectCustomerFirst', 'الرجاء اختيار العميل أولا'));
+        if (window.showToast) window.showToast(t('sales.selectCustomerFirst', 'الرجاء اختيار العميل أولا'), 'warning');
         return;
     }
 
@@ -448,8 +450,8 @@ function onItemSelect(select) {
     updateProfitIndicator(row);
     maybeAutoAddRow(row);
 
-    const qtyInput = row.querySelector('.quantity-input');
-    if (qtyInput) qtyInput.focus();
+    // const qtyInput = row.querySelector('.quantity-input');
+    // if (qtyInput) qtyInput.focus();
 }
 
 function normalizeNumberString(value) {
@@ -621,7 +623,7 @@ function getDraftOverQuantityViolations() {
 
 async function updateInvoice() {
     if (!salesState.editingInvoiceId) {
-        alert(t('sales.updateNoId', 'لا يمكن تحديث الفاتورة: رقم تعريف الفاتورة غير موجود'));
+        if (window.showToast) window.showToast(t('sales.updateNoId', 'لا يمكن تحديث الفاتورة: رقم تعريف الفاتورة غير موجود'), 'error');
         return;
     }
 
@@ -632,20 +634,20 @@ async function updateInvoice() {
     const payment_type = document.getElementById('paymentType').value;
 
     if (!customer_id) {
-        alert(t('sales.toast.selectCustomer', 'الرجاء اختيار العميل'));
+        if (window.showToast) window.showToast(t('sales.toast.selectCustomer', 'الرجاء اختيار العميل'), 'error');
         return;
     }
 
     const { items, isValid } = collectInvoiceItemsFromForm();
     if (!isValid || items.length === 0) {
-        alert(t('sales.itemsDataInvalid', 'الرجاء إدخال جميع بيانات الأصناف بشكل صحيح'));
+        if (window.showToast) window.showToast(t('sales.itemsDataInvalid', 'الرجاء إدخال جميع بيانات الأصناف بشكل صحيح'), 'error');
         return;
     }
 
     const overQtyViolations = getDraftOverQuantityViolations();
     if (overQtyViolations.length > 0) {
         const topViolation = overQtyViolations[0];
-        alert(`لا يمكن حفظ الفاتورة: الصنف "${topViolation.itemName}" يوجد به ${formatQty(topViolation.overQty)} زيادة عن المتاح (${formatQty(topViolation.availableQty)}).`);
+        if (window.showToast) window.showToast(`لا يمكن حفظ الفاتورة: الصنف "${topViolation.itemName}" يوجد به ${formatQty(topViolation.overQty)} زيادة عن المتاح (${formatQty(topViolation.availableQty)}).`, 'error');
         return;
     }
 
@@ -671,10 +673,10 @@ async function updateInvoice() {
             showToast(t('sales.toast.updateSuccess', 'تم تحديث الفاتورة بنجاح'), 'success');
             await resetForm();
         } else {
-            alert(t('sales.toast.updateError', 'حدث خطأ أثناء التحديث') + ': ' + result.error);
+            if (window.showToast) window.showToast(t('sales.toast.updateError', 'حدث خطأ أثناء التحديث') + ': ' + result.error, 'error');
         }
     } catch (error) {
-        alert(t('sales.toast.unexpectedError', 'حدث خطأ غير متوقع') + ': ' + error.message);
+        if (window.showToast) window.showToast(t('sales.toast.unexpectedError', 'حدث خطأ غير متوقع') + ': ' + error.message, 'error');
     }
 }
 
@@ -686,20 +688,20 @@ async function saveInvoice() {
     const payment_type = document.getElementById('paymentType').value;
 
     if (!customer_id) {
-        alert(t('sales.toast.selectCustomer', 'الرجاء اختيار العميل'));
+        if (window.showToast) window.showToast(t('sales.toast.selectCustomer', 'الرجاء اختيار العميل'), 'error');
         return;
     }
 
     const { items, isValid } = collectInvoiceItemsFromForm();
     if (!isValid) {
-        alert(t('sales.itemsInvalid', 'الرجاء التأكد من إدخال الأصناف والكميات بشكل صحيح'));
+        if (window.showToast) window.showToast(t('sales.itemsInvalid', 'الرجاء التأكد من إدخال الأصناف والكميات بشكل صحيح'), 'error');
         return;
     }
 
     const overQtyViolations = getDraftOverQuantityViolations();
     if (overQtyViolations.length > 0) {
         const topViolation = overQtyViolations[0];
-        alert(`لا يمكن حفظ الفاتورة: الصنف "${topViolation.itemName}" يوجد به ${formatQty(topViolation.overQty)} زيادة عن المتاح (${formatQty(topViolation.availableQty)}).`);
+        if (window.showToast) window.showToast(`لا يمكن حفظ الفاتورة: الصنف "${topViolation.itemName}" يوجد به ${formatQty(topViolation.overQty)} زيادة عن المتاح (${formatQty(topViolation.availableQty)}).`, 'error');
         return;
     }
 
@@ -729,7 +731,10 @@ async function saveInvoice() {
 
 async function resetForm() {
     salesState.dom.customerSelect.value = '';
-    if (salesState.customerAutocomplete) salesState.customerAutocomplete.refresh();
+    if (salesState.customerAutocomplete) {
+        salesState.customerAutocomplete.refresh();
+        salesState.customerAutocomplete.closeList();
+    }
 
     const balanceDiv = document.getElementById('customerBalance');
     if (balanceDiv) balanceDiv.style.display = 'none';
@@ -758,6 +763,10 @@ async function resetForm() {
 
     salesState.editingInvoiceId = null;
     salesState.originalInvoiceItemTotalsByItemId = {};
+    
+    // Safety check: force reset any pending boolean states
+    salesState.isSubmitting = false;
+
     salesRender.setCreateModeUI(t);
 
     window.history.replaceState({}, document.title, window.location.pathname);

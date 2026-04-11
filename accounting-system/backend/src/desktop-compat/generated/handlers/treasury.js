@@ -2,6 +2,30 @@ const { ipcMain } = require('electron');
 const { db } = require('../db');
 const { requirePermission } = require('./auth');
 
+function getTreasuryVoucherPrefix(type) {
+    if (type === 'income') return 'RCV';
+    if (type === 'expense') return 'PAY';
+    return null;
+}
+
+function getNextTreasuryVoucherNumberForType(type) {
+    const prefix = getTreasuryVoucherPrefix(type);
+    if (!prefix) return null;
+
+    const maxResult = db.prepare(`
+        SELECT MAX(CAST(SUBSTR(voucher_number, 5) AS INTEGER)) as max_num
+        FROM treasury_transactions
+        WHERE type = @type
+          AND voucher_number GLOB @pattern
+    `).get({
+        type,
+        pattern: `${prefix}-[0-9]*`
+    });
+
+    const nextNumber = Number(maxResult?.max_num || 0) + 1;
+    return `${prefix}-${String(nextNumber).padStart(4, '0')}`;
+}
+
 function register() {
     // --- Treasury Handlers ---
 
@@ -25,11 +49,27 @@ function register() {
         }
     });
 
+    ipcMain.handle('get-next-treasury-voucher-number', (event, type) => {
+        try {
+            const voucher_number = getNextTreasuryVoucherNumberForType(type);
+            if (!voucher_number) {
+                return { success: false, error: 'Invalid treasury transaction type' };
+            }
+            return { success: true, voucher_number };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('add-treasury-transaction', (event, transaction) => {
         const denied = requirePermission('treasury', 'add');
         if (denied) return denied;
         try {
-            const { type, amount, date, description, customer_id, voucher_number } = transaction;
+            const { type, amount, date, description, customer_id } = transaction;
+            const voucher_number = getNextTreasuryVoucherNumberForType(type);
+            if (!voucher_number) {
+                return { success: false, error: 'Invalid treasury transaction type' };
+            }
             
             const stmt = db.prepare(`
                 INSERT INTO treasury_transactions (type, amount, transaction_date, description, customer_id, voucher_number)
@@ -51,7 +91,7 @@ function register() {
             });
 
             tx();
-            return { success: true };
+            return { success: true, voucher_number };
         } catch (error) {
             return { success: false, error: error.message };
         }

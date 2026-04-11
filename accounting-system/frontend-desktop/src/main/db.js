@@ -24,6 +24,89 @@ function runAddColumnMigration(sql, table, column) {
     return true;
 }
 
+const TREASURY_VOUCHER_SCHEME_KEY = 'treasury_voucher_scheme_v2';
+
+function formatTreasuryVoucherNumber(prefix, number) {
+    return `${prefix}-${String(number).padStart(4, '0')}`;
+}
+
+function applyTreasuryVoucherSchemeMigration() {
+    const schemeApplied = db
+        .prepare('SELECT value FROM settings WHERE key = ?')
+        .get(TREASURY_VOUCHER_SCHEME_KEY);
+
+    if (!schemeApplied) {
+        const rows = db.prepare(`
+            SELECT id, type
+            FROM treasury_transactions
+            WHERE type IN ('income', 'expense')
+            ORDER BY id ASC
+        `).all();
+
+        const updateVoucher = db.prepare('UPDATE treasury_transactions SET voucher_number = ? WHERE id = ?');
+        const saveFlag = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+
+        const migrationTx = db.transaction(() => {
+            let incomeCounter = 0;
+            let expenseCounter = 0;
+
+            for (const row of rows) {
+                if (row.type === 'income') {
+                    incomeCounter += 1;
+                    updateVoucher.run(formatTreasuryVoucherNumber('RCV', incomeCounter), row.id);
+                } else if (row.type === 'expense') {
+                    expenseCounter += 1;
+                    updateVoucher.run(formatTreasuryVoucherNumber('PAY', expenseCounter), row.id);
+                }
+            }
+
+            saveFlag.run(TREASURY_VOUCHER_SCHEME_KEY, new Date().toISOString());
+        });
+
+        migrationTx();
+    }
+
+    db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_treasury_voucher_number_unique
+        ON treasury_transactions(voucher_number)
+        WHERE type IN ('income', 'expense')
+          AND voucher_number IS NOT NULL
+          AND voucher_number != ''
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_treasury_autogen_voucher
+        AFTER INSERT ON treasury_transactions
+        FOR EACH ROW
+        WHEN NEW.type IN ('income', 'expense') AND (NEW.voucher_number IS NULL OR TRIM(NEW.voucher_number) = '')
+        BEGIN
+            UPDATE treasury_transactions
+            SET voucher_number = CASE
+                WHEN NEW.type = 'income' THEN (
+                    'RCV-' || printf('%04d', COALESCE((
+                        SELECT MAX(CAST(SUBSTR(voucher_number, 5) AS INTEGER))
+                        FROM treasury_transactions
+                        WHERE type = 'income'
+                          AND id <> NEW.id
+                          AND voucher_number GLOB 'RCV-[0-9]*'
+                    ), 0) + 1)
+                )
+                WHEN NEW.type = 'expense' THEN (
+                    'PAY-' || printf('%04d', COALESCE((
+                        SELECT MAX(CAST(SUBSTR(voucher_number, 5) AS INTEGER))
+                        FROM treasury_transactions
+                        WHERE type = 'expense'
+                          AND id <> NEW.id
+                          AND voucher_number GLOB 'PAY-[0-9]*'
+                    ), 0) + 1)
+                )
+                ELSE NEW.voucher_number
+            END
+            WHERE id = NEW.id;
+        END
+    `);
+}
+
 function initDB() {
     // Enable foreign keys
     db.pragma('foreign_keys = ON');
@@ -236,6 +319,7 @@ function initDB() {
             value TEXT
         )
     `);
+    applyTreasuryVoucherSchemeMigration();
 
     // 11. Warehouses Table (جدول المخازن)
     db.exec(`

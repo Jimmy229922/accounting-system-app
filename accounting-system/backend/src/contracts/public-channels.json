@@ -42,6 +42,7 @@
   "get-machine-id",
   "get-my-permissions",
   "get-next-invoice-number",
+  "get-next-treasury-voucher-number",
   "get-opening-balance-group",
   "get-opening-balance-groups",
   "get-opening-balances",

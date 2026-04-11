@@ -15,7 +15,8 @@ function buildTopNavHTML() {
     return '';
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', async () => {    // Reset submitting state just in case
+    purchaseReturnsState.isSubmitting = false;
     try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         purchaseReturnsState.ar = await window.i18n.loadArabicDictionary();
@@ -274,7 +275,7 @@ function onCheckboxChange(checkbox) {
         const item = purchaseReturnsState.currentInvoiceItems[index];
         const available = getAvailableToReturn(item);
         qtyInput.value = String(available);
-        qtyInput.focus();
+        // qtyInput.focus();
     } else {
         qtyInput.disabled = true;
         priceInput.disabled = true;
@@ -290,11 +291,25 @@ function onQtyInput(input) {
     const maxQty = getAvailableToReturn(item);
 
     let val = Number.parseFloat(input.value);
-    if (!Number.isFinite(val)) val = 0;
-    if (val > maxQty) val = maxQty;
-    if (val < 0) val = 0;
+    if (Number.isNaN(val)) {
+        calculateTotal();
+        return;
+    }
 
-    input.value = String(val);
+    let shouldUpdate = false;
+    if (val > maxQty) {
+        val = maxQty;
+        shouldUpdate = true;
+    }
+    if (val < 0) {
+        val = 0;
+        shouldUpdate = true;
+    }
+
+    if (shouldUpdate) {
+        input.value = String(val);
+    }
+
     calculateTotal();
 }
 
@@ -323,14 +338,27 @@ function calculateTotal() {
     });
 
     purchaseReturnsState.dom.returnTotal.textContent = total.toFixed(2);
-    purchaseReturnsState.dom.saveBtn.disabled = !hasItems;
+    
+    if (purchaseReturnsState.dom.saveBtn) {
+        if (!hasItems) {
+            purchaseReturnsState.dom.saveBtn.disabled = true;
+            purchaseReturnsState.dom.saveBtn.dataset.invalid = 'true';
+        } else {
+            purchaseReturnsState.dom.saveBtn.disabled = false;
+            purchaseReturnsState.dom.saveBtn.removeAttribute('data-invalid');
+        }
+    }
 }
 
 function hideItemsSection() {
     purchaseReturnsState.dom.itemsSection.style.display = 'none';
     purchaseReturnsState.dom.itemsBody.innerHTML = '';
     purchaseReturnsState.dom.returnTotal.textContent = '0.00';
-    purchaseReturnsState.dom.saveBtn.disabled = true;
+    
+    if (purchaseReturnsState.dom.saveBtn) {
+        purchaseReturnsState.dom.saveBtn.disabled = true;
+        purchaseReturnsState.dom.saveBtn.dataset.invalid = 'true';
+    }
     purchaseReturnsState.currentInvoiceItems = [];
 }
 
@@ -358,10 +386,12 @@ function collectSelectedItems() {
 }
 
 async function saveReturn() {
-    if (purchaseReturnsState.isSubmitting) return;
+    if (purchaseReturnsState.isSubmitting || purchaseReturnsState.dom.saveBtn?.dataset.invalid === 'true') return;
 
     purchaseReturnsState.isSubmitting = true;
-    purchaseReturnsState.dom.saveBtn.disabled = true;
+    if (purchaseReturnsState.dom.saveBtn) {
+        purchaseReturnsState.dom.saveBtn.disabled = true;
+    }
 
     try {
         const supplierId = purchaseReturnsState.dom.supplierSelect.value;

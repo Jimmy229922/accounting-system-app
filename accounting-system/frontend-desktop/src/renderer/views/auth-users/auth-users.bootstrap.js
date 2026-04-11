@@ -333,7 +333,7 @@ function handleResetAuthUserPassword(userId) {
     rpNewPassword.value = '';
     rpConfirmPassword.value = '';
     rpModal.classList.add('active');
-    rpNewPassword.focus();
+    // rpNewPassword.focus();
 }
 
 function closeResetPasswordModal() {

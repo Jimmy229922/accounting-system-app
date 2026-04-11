@@ -58,7 +58,7 @@ function getDialogSize(baseWidth, baseHeight) {
 function showInviteWindow() {
     return new Promise((resolve) => {
         if (inviteWindow) {
-            inviteWindow.focus();
+            // inviteWindow.focus() removed to prevent aggressive focus stealing Native Windows issues
             return;
         }
 
@@ -107,7 +107,7 @@ function showInviteWindow() {
 function showAuthWindow() {
     return new Promise((resolve) => {
         if (authWindow) {
-            authWindow.focus();
+            // authWindow.focus() removed to prevent focus stealing regression
             return;
         }
 
@@ -181,7 +181,7 @@ function createWindow() {
         if (!mainWindow) return;
         mainWindow.maximize();
         mainWindow.show();
-        mainWindow.focus();
+        // Removed mainWindow.focus() to prevent focus stealing on initial load if the user is typing somewhere else
     });
 
     // Open the DevTools (optional, helpful for development)

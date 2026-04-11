@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('modal-title').textContent = t('openingBalance.editWarehouse', 'تعديل بيانات المخزن');
                 document.getElementById('warehouse-id').value = id;
                 document.getElementById('new-warehouse-name').value = name;
-                document.getElementById('new-warehouse-name').focus();
+                // document.getElementById('new-warehouse-name').focus();
             });
         });
 
@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             modalTitle.textContent = t('openingBalance.addWarehouse', 'إضافة مخزن جديد');
             whIdInput.value = '';
             whNameInput.value = '';
-            whNameInput.focus();
+            // whNameInput.focus();
         });
 
         cancelWhBtn.addEventListener('click', () => {
@@ -281,14 +281,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('cost-input').value = cost;
             }
             document.getElementById('unit-input').value = unit || '';
-            document.getElementById('quantity-input').focus();
+            // document.getElementById('quantity-input').focus();
             calculateTotal();
         });
 
         document.getElementById('add-item-btn').addEventListener('click', handleAddItem);
 
         document.getElementById('quantity-input').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') document.getElementById('cost-input').focus();
+            // if (e.key === 'Enter') document.getElementById('cost-input').focus();
         });
         document.getElementById('cost-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') handleAddItem();
@@ -346,7 +346,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const input = itemSelect.parentElement.querySelector('.autocomplete-input');
                 if (input) {
                     input.value = '';
-                    input.focus(); 
+                    // input.focus(); 
                 }
 
                 // Reload data

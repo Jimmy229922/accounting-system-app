@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyI18nToDOM();
     initializeElements();
     loadUnits();
-    unitNameInput.focus();
+    // unitNameInput.focus();
     } catch (error) {
         console.error('Initialization Error:', error);
         if (window.toast && typeof window.toast.error === 'function') {
@@ -75,7 +75,7 @@ function initializeElements() {
         clearSearchBtn.addEventListener('click', () => {
             searchInput.value = '';
             handleSearch('');
-            searchInput.focus();
+            // searchInput.focus();
         });
     }
     
@@ -254,7 +254,7 @@ function resetForm() {
     formTitle.textContent = t('units.addUnit', 'إضافة وحدة جديدة');
     saveBtnText.textContent = t('units.saveUnit', 'حفظ الوحدة');
     cancelEditBtn.style.display = 'none';
-    unitNameInput.focus();
+    // unitNameInput.focus();
 }
 
 function editUnit(id) {
@@ -269,7 +269,7 @@ function editUnit(id) {
     cancelEditBtn.style.display = 'block';
     
     // Focus input and scroll to top on mobile
-    unitNameInput.focus();
+    // unitNameInput.focus();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -279,7 +279,7 @@ async function saveUnit() {
     
     if (!name) {
         Toast.show(t('units.toast.nameRequired', 'الرجاء إدخال اسم الوحدة'), 'error');
-        unitNameInput.focus();
+        // unitNameInput.focus();
         return;
     }
 

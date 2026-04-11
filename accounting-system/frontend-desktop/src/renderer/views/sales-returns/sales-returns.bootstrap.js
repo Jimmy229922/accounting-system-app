@@ -15,7 +15,8 @@ function buildTopNavHTML() {
     return '';
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', async () => {    // Reset submitting state just in case
+    salesReturnsState.isSubmitting = false;
     try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         salesReturnsState.ar = await window.i18n.loadArabicDictionary();
@@ -254,7 +255,7 @@ function onCheckboxChange(checkbox) {
         const item = salesReturnsState.currentInvoiceItems[index];
         const available = getAvailableToReturn(item);
         qtyInput.value = String(available);
-        qtyInput.focus();
+        // qtyInput.focus();
     } else {
         qtyInput.disabled = true;
         priceInput.disabled = true;
@@ -270,11 +271,25 @@ function onQtyInput(input) {
     const maxQty = getAvailableToReturn(item);
 
     let val = Number.parseFloat(input.value);
-    if (!Number.isFinite(val)) val = 0;
-    if (val > maxQty) val = maxQty;
-    if (val < 0) val = 0;
+    if (Number.isNaN(val)) {
+        calculateTotal();
+        return;
+    }
 
-    input.value = String(val);
+    let shouldUpdate = false;
+    if (val > maxQty) {
+        val = maxQty;
+        shouldUpdate = true;
+    }
+    if (val < 0) {
+        val = 0;
+        shouldUpdate = true;
+    }
+
+    if (shouldUpdate) {
+        input.value = String(val);
+    }
+    
     calculateTotal();
 }
 
@@ -303,14 +318,33 @@ function calculateTotal() {
     });
 
     salesReturnsState.dom.returnTotal.textContent = total.toFixed(2);
-    salesReturnsState.dom.saveBtn.disabled = !hasItems;
+    
+    if (salesReturnsState.dom.saveBtn) {
+        if (!hasItems) {
+            salesReturnsState.dom.saveBtn.style.opacity = '0.6';
+            salesReturnsState.dom.saveBtn.style.cursor = 'not-allowed';
+            salesReturnsState.dom.saveBtn.dataset.invalid = 'true';
+            salesReturnsState.dom.saveBtn.disabled = true;
+        } else {
+            salesReturnsState.dom.saveBtn.style.opacity = '1';
+            salesReturnsState.dom.saveBtn.style.cursor = 'pointer';
+            salesReturnsState.dom.saveBtn.removeAttribute('data-invalid');
+            salesReturnsState.dom.saveBtn.disabled = false;
+        }
+    }
 }
 
 function hideItemsSection() {
     salesReturnsState.dom.itemsSection.style.display = 'none';
     salesReturnsState.dom.itemsBody.innerHTML = '';
     salesReturnsState.dom.returnTotal.textContent = '0.00';
-    salesReturnsState.dom.saveBtn.disabled = true;
+    
+    if (salesReturnsState.dom.saveBtn) {
+        salesReturnsState.dom.saveBtn.style.opacity = '0.6';
+        salesReturnsState.dom.saveBtn.style.cursor = 'not-allowed';
+        salesReturnsState.dom.saveBtn.dataset.invalid = 'true';
+        salesReturnsState.dom.saveBtn.disabled = true;
+    }
     salesReturnsState.currentInvoiceItems = [];
 }
 
@@ -338,10 +372,14 @@ function collectSelectedItems() {
 }
 
 async function saveReturn() {
-    if (salesReturnsState.isSubmitting) return;
+    if (salesReturnsState.isSubmitting || salesReturnsState.dom.saveBtn?.dataset.invalid === 'true') return;
 
     salesReturnsState.isSubmitting = true;
-    salesReturnsState.dom.saveBtn.disabled = true;
+    if (salesReturnsState.dom.saveBtn) {
+        salesReturnsState.dom.saveBtn.style.opacity = '0.6';
+        salesReturnsState.dom.saveBtn.style.cursor = 'not-allowed';
+        salesReturnsState.dom.saveBtn.disabled = true;
+    }
 
     try {
         const customerId = salesReturnsState.dom.customerSelect.value;
@@ -383,16 +421,16 @@ async function saveReturn() {
         if (result && result.success) {
             Toast.show(
                 salesReturnsState.editingReturnId
-                    ? t('salesReturns.toast.updateSuccess', 'Return updated successfully')
-                    : t('salesReturns.toast.saveSuccess', 'Return saved successfully'),
+                    ? t('salesReturns.toast.updateSuccess', 'تم تحديث بيانات المرتجع بنجاح')
+                    : t('salesReturns.toast.saveSuccess', 'تم حفظ بيانات المرتجع بنجاح'),
                 'success'
             );
             await resetForm();
             await loadReturnsHistory();
         } else {
             const errorText = salesReturnsState.editingReturnId
-                ? t('salesReturns.toast.updateError', 'Failed to update return')
-                : t('salesReturns.toast.saveError', 'Failed to save return');
+                ? t('salesReturns.toast.updateError', 'فشل في عملية تحديث المرتجع')
+                : t('salesReturns.toast.saveError', 'فشل في عملية حفظ المرتجع');
             Toast.show((result && result.error) || errorText, 'error');
         }
     } catch (error) {
@@ -409,6 +447,9 @@ async function saveReturn() {
         Toast.show(t('salesReturns.toast.unexpectedError', 'Unexpected error'), 'error');
     } finally {
         salesReturnsState.isSubmitting = false;
+        if (salesReturnsState.dom.saveBtn) {
+            salesReturnsState.dom.saveBtn.style.opacity = '1';
+            salesReturnsState.dom.saveBtn.style.cursor = 'pointer';            salesReturnsState.dom.saveBtn.disabled = false;        }
         calculateTotal();
     }
 }
@@ -545,7 +586,7 @@ function changeSalesReturnsPage(newPage) {
 async function deleteReturn(id) {
     if (!Number.isFinite(id)) return;
 
-    if (!confirm(t('salesReturns.confirmDelete', 'Are you sure you want to delete this return?'))) {
+    if (!confirm(t('salesReturns.confirmDelete', 'هل أنت متأكد من رغبتك في حذف هذا المرتجع؟'))) {
         return;
     }
 
@@ -553,7 +594,7 @@ async function deleteReturn(id) {
         const result = await salesReturnsApi.deleteReturn(id);
 
         if (result && result.success) {
-            Toast.show(t('salesReturns.toast.deleteSuccess', 'Return deleted successfully'), 'success');
+            Toast.show(t('salesReturns.toast.deleteSuccess', 'تم حذف المرتجع بنجاح'), 'success');
             await loadReturnsHistory();
 
             if (salesReturnsState.dom.invoiceSelect.value) {
@@ -562,8 +603,8 @@ async function deleteReturn(id) {
             return;
         }
 
-        Toast.show((result && result.error) || t('salesReturns.toast.deleteError', 'Failed to delete return'), 'error');
+        Toast.show((result && result.error) || t('salesReturns.toast.deleteError', 'فشل في حذف المرتجع'), 'error');
     } catch (_) {
-        Toast.show(t('salesReturns.toast.unexpectedError', 'Unexpected error'), 'error');
+        Toast.show(t('salesReturns.toast.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
     }
 }

@@ -158,3 +158,18 @@ window.navManager = {
     resolveViewsPrefix,
     getTopNavHTML
 };
+
+document.addEventListener('click', (e) => {
+    // Detect navbar link clicks and force a blur to prevent focus-persistence bugs
+    const link = e.target.closest('a');
+    if (!link) return;
+    
+    const href = link.getAttribute('href');
+    if (href && href !== '#' && !href.startsWith('javascript:')) {
+        // We only delay the transition, no forced blur/prevent default
+        // to avoid hijacking standard link navigation behavior
+        setTimeout(() => {
+            window.location.href = link.href;
+        }, 50);
+    }
+});

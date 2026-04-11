@@ -132,7 +132,7 @@ function register() {
             SELECT 
                 CASE WHEN type = 'income' THEN 'payment_in' ELSE 'payment_out' END as type,
                 id,
-                'سند' as invoice_number,
+                COALESCE(voucher_number, '-') as invoice_number,
                 transaction_date as invoice_date,
                 amount as total_amount,
                 description as notes

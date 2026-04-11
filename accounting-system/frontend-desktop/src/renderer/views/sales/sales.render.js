@@ -192,8 +192,9 @@
         const saveBtn = document.querySelector('#invoiceForm .btn-success');
         if (saveBtn) {
             saveBtn.textContent = t('sales.updateAndSave', 'تحديث وحفظ الفاتورة');
-            saveBtn.disabled = false;
-            saveBtn.removeAttribute('disabled');
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
+            saveBtn.disabled = false; // Just in case it was set statically
         }
     }
 
@@ -205,8 +206,9 @@
         const saveBtn = document.querySelector('#invoiceForm .btn-success');
         if (saveBtn) {
             saveBtn.textContent = t('sales.saveAndPost', 'حفظ وترحيل الفاتورة');
-            saveBtn.disabled = false;
-            saveBtn.removeAttribute('disabled');
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
+            saveBtn.disabled = false; // Fix any static disabled state
         }
     }
 

@@ -12,7 +12,7 @@ function sanitizeSuggestedFileName(name) {
         .trim();
 }
 
-const DEFAULT_WAREHOUSE_NAME_FALLBACK = 'المخزن الافتراضي';
+const DEFAULT_WAREHOUSE_NAME_FALLBACK = '\u0627\u0644\u0645\u062e\u0632\u0646 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a';
 
 function getDefaultWarehouseName() {
     try {
@@ -32,13 +32,13 @@ function getDefaultWarehouseName() {
 const DEFAULT_WAREHOUSE_NAME = getDefaultWarehouseName();
 
 function decodeArabicMojibake(value) {
-    if (typeof value !== 'string' || !/[ØÙ]/.test(value)) {
+    if (typeof value !== 'string' || !/[\u00D8\u00D9]/.test(value)) {
         return value;
     }
 
     try {
         const decoded = Buffer.from(value, 'latin1').toString('utf8');
-        if (decoded && !decoded.includes('�') && /[\u0600-\u06FF]/.test(decoded)) {
+        if (decoded && !decoded.includes('\uFFFD') && /[\u0600-\u06FF]/.test(decoded)) {
             return decoded;
         }
     } catch (error) {

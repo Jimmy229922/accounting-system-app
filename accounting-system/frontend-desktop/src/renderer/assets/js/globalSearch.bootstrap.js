@@ -722,7 +722,7 @@ class GlobalSearch {
         this.overlay.classList.add('active');
         this.modal.classList.add('active');
         this.input.value = '';
-        this.input.focus();
+        // this.input.focus();
         this.focusedIndex = -1;
         this.results = [];
         this.showDefaultState();

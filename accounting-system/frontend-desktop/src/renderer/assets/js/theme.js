@@ -41,8 +41,39 @@ function bindThemeToggleButtons() {
     setTheme(localStorage.getItem('theme') || 'light');
 })();
 
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        // Force a strict reload when returning from bfcache to prevent frozen/disabled states
+        window.location.reload();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     bindThemeToggleButtons();
+    
+    // Fix Electron/Chromium focus bug where inputs become frozen after navigation
+    setTimeout(() => {
+        document.body.style.pointerEvents = 'auto'; // Force unlock pointer events
+        document.documentElement.style.pointerEvents = 'auto'; // Double certainty
+        
+        // Remove any invisible overlay that might have been leftover
+        const strayOverlays = document.querySelectorAll('.toast-container, .modal-backdrop, .overlay, .loading');
+        strayOverlays.forEach(ol => {
+            if (window.getComputedStyle(ol).display !== 'none' && !ol.hasChildNodes()) {
+                 ol.style.display = 'none';
+            }
+        });
+        
+        // Do NOT force window.focus() or body.focus() to avoid interrupting user interactions immediately after load
+    }, 50);
+
+    // Failsafe: force clear any stuck mousedown state on mouse movement
+    document.addEventListener('mousemove', (e) => {
+        // If no buttons are pressed but Chromium thinks we're dragging, we can detect mismatched state
+        if (e.buttons === 0) {
+            document.body.classList.remove('mouse-drag-stuck');
+        }
+    }, { once: true });
 });
 
 window.toggleTheme = toggleTheme;

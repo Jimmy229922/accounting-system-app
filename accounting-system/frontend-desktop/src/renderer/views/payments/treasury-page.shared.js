@@ -5,6 +5,7 @@
         let selectedEntity = null;
         let recentTransactions = [];
         let entityAutocomplete = null;
+        let suggestedVoucherNumber = '';
 
         const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
         const tx = (suffix, fallback = '') => t(`${config.i18nPrefix}.${suffix}`, fallback);
@@ -174,13 +175,17 @@
         }
         async function generateVoucherNumber() {
             try {
-                const transactions = await window.electronAPI.getTreasuryTransactions();
-                const count = transactions.filter((tr) => tr.type === config.transactionType).length;
-                document.getElementById(
-                    config.ids.voucherInput
-                ).value = `${config.numberPrefix}-${String(count + 1).padStart(4, '0')}`;
+                const result = await window.electronAPI.getNextTreasuryVoucherNumber(config.transactionType);
+                if (result?.success && result.voucher_number) {
+                    suggestedVoucherNumber = result.voucher_number;
+                    document.getElementById(config.ids.voucherInput).value = result.voucher_number;
+                    return;
+                }
+                throw new Error(result?.error || 'Failed to get next voucher number');
             } catch (error) {
-                document.getElementById(config.ids.voucherInput).value = `${config.numberPrefix}-${Date.now()}`;
+                const fallbackVoucher = `${config.numberPrefix}-${Date.now()}`;
+                suggestedVoucherNumber = fallbackVoucher;
+                document.getElementById(config.ids.voucherInput).value = fallbackVoucher;
             }
         }
 
@@ -265,7 +270,7 @@
 
         function setQuickAmount(amount) {
             document.getElementById('amount').value = amount;
-            document.getElementById('amount').focus();
+            // document.getElementById('amount').focus();
             updatePreview();
         }
 
@@ -286,16 +291,18 @@
             submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text('toastSaving')}`;
 
             try {
-                const voucherNumber = document.getElementById(config.ids.voucherInput).value;
+                const voucherNumberForDescription =
+                    suggestedVoucherNumber ||
+                    document.getElementById(config.ids.voucherInput).value ||
+                    `${config.numberPrefix}-${Date.now()}`;
                 const data = {
                     type: config.transactionType,
                     date: document.getElementById('date').value,
                     customer_id: document.getElementById(config.ids.entitySelect).value,
                     amount: parseFloat(document.getElementById('amount').value),
-                    voucher_number: voucherNumber,
                     description:
                         document.getElementById('description').value ||
-                        fmt(text('defaultDescriptionTemplate'), { number: voucherNumber })
+                        fmt(text('defaultDescriptionTemplate'), { number: voucherNumberForDescription })
                 };
 
                 if (!data.customer_id || !data.amount || data.amount <= 0) {
@@ -309,7 +316,7 @@
                     showToast(text('toastSaveSuccess'), 'success');
                     document.getElementById(config.ids.form).reset();
                     document.getElementById('date').valueAsDate = new Date();
-                    generateVoucherNumber();
+                    await generateVoucherNumber();
                     renderEntityPlaceholder();
                     if (entityAutocomplete) entityAutocomplete.refresh();
                     loadData();

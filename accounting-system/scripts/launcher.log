@@ -1,3 +1,4 @@
 [Sat 04/11/2026  0:29:13.17] Launcher started 
 [Sat 04/11/2026  0:29:14.45] Starting backend server 
 [backend] listening on http://localhost:4000
+Database initialized at: D:\JS\accounting-system\backend\data\accounting.db

@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
     function renderPage({ t, CUR }) {
         const app = document.getElementById('app');
         app.innerHTML = `
@@ -213,6 +213,7 @@
                     </div>
                 </div>
             </div>
+
         </main>
     `;
     }

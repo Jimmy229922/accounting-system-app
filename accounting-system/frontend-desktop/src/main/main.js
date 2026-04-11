@@ -244,7 +244,7 @@ app.on('second-instance', () => {
     const win = getMainWindow();
     if (win) {
         if (win.isMinimized()) win.restore();
-        win.focus();
+        // win.focus(); // Disabled per request to prevent focus stealing
     }
 });
 

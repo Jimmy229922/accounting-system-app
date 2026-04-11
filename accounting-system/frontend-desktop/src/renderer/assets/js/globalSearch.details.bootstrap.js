@@ -717,7 +717,7 @@
             this.showDefaultState();
         }
         
-        this.input.focus();
+        // this.input.focus();
     }
     });
 })();

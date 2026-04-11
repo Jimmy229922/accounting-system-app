@@ -20,7 +20,7 @@ function resetAddForm() {
         profitMarginDisplay.className = 'profit-margin-display';
     }
 
-    if (itemNameInput) itemNameInput.focus();
+    // if (itemNameInput) itemNameInput.focus();
 }
 
 async function saveNewItem() {
@@ -67,12 +67,12 @@ async function saveNewItem() {
     // Validation
     if (!name) {
         Toast.show(t('items.toast.nameRequired', 'الرجاء إدخال اسم الصنف'), 'error');
-        if (itemNameInput) itemNameInput.focus();
+        // if (itemNameInput) itemNameInput.focus();
         return;
     }
     if (!unitId) {
         Toast.show(t('items.toast.unitRequired', 'الرجاء اختيار الوحدة'), 'error');
-        if (itemUnitAutocomplete) itemUnitAutocomplete.input.focus();
+        // if (itemUnitAutocomplete) itemUnitAutocomplete.input.focus();
         return;
     }
 
@@ -179,7 +179,7 @@ async function saveEditedItem() {
                 const confirmAdd = confirm(fmt(t('items.toast.unitConfirmNew', `الوحدة "{name}" غير موجودة في قائمة الوحدات.\n\nهل تريد إضافتها الآن للوحدات وللصنف؟`), {name: inputText}));
                 if (!confirmAdd) {
                     Toast.show(t('items.toast.unitSelectionRequired', 'يجب اختيار وحدة موجودة'), 'warning');
-                    editItemUnitAutocomplete.input.focus();
+                    // editItemUnitAutocomplete.input.focus();
                     return;
                 }
                 

@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadUnits();
     loadItems();
     
-    if (itemBarcodeInput) itemBarcodeInput.focus();
+    // if (itemBarcodeInput) itemBarcodeInput.focus();
     } catch (error) {
         console.error('Initialization Error:', error);
         if (window.toast && typeof window.toast.error === 'function') {
@@ -247,7 +247,7 @@ function setupEnterNavigation() {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 if (index < inputs.length - 1) {
-                    inputs[index + 1].focus();
+                    // inputs[index + 1].focus();
                 } else {
                     saveNewItem();
                 }

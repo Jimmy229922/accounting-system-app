@@ -1,4 +1,4 @@
-﻿let typeFilter;
+let typeFilter;
 let customerFilter;
 let startDateInput;
 let endDateInput;
@@ -22,7 +22,6 @@ let allCustomers = [];
 let currentPage = 1;
 const PAGE_SIZE = 20;
 const CUR = 'ج.م';
-
 function formatCurrency(v) {
     return parseFloat(v || 0).toFixed(2) + ' ' + CUR;
 }
@@ -347,7 +346,10 @@ function renderReports(reports) {
         const row = document.createElement('tr');
         const typeMeta = getTypeMeta(report.type);
         const safeDate = formatDateForUi(report.invoice_date);
-        const safeInvoiceNo = escapeHtml(report.invoice_number || report.id || '-');
+        const invoiceNumberValue = (report.type === 'receipt' || report.type === 'payment')
+            ? (report.invoice_number || '-')
+            : (report.invoice_number || report.id || '-');
+        const safeInvoiceNo = escapeHtml(invoiceNumberValue);
         const safeCustomer = escapeHtml(report.customer_name || '-');
 
         row.className = typeMeta.rowClass;

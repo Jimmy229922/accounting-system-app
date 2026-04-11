@@ -11,7 +11,8 @@ function buildTopNavHTML() {
     return '';
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', async () => {    // Reset submitting state just in case
+    purchasesState.isSubmitting = false;
     try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         purchasesState.ar = await window.i18n.loadArabicDictionary();
@@ -109,7 +110,7 @@ async function loadInvoiceForEdit(id) {
     try {
         const invoice = await purchasesApi.getInvoiceWithDetails(id);
         if (!invoice) {
-            alert(t('purchases.invoiceNotFound', 'الفاتورة غير موجودة'));
+            if (window.showToast) window.showToast(t('purchases.invoiceNotFound', 'الفاتورة غير موجودة'), 'error');
             return;
         }
 
@@ -169,7 +170,7 @@ async function loadInvoiceForEdit(id) {
 
         purchasesRender.setEditModeUI(t);
     } catch (error) {
-        alert(t('purchases.toast.loadError', 'حدث خطأ أثناء تحميل الفاتورة: ') + error.message);
+        if (window.showToast) window.showToast(t('purchases.toast.loadError', 'حدث خطأ أثناء تحميل الفاتورة: ') + error.message, 'error');
     }
 }
 
@@ -179,9 +180,8 @@ async function submitInvoice() {
 
     const saveBtn = document.querySelector('#invoiceForm .btn-success');
     if (saveBtn) {
-        saveBtn.blur();
-        saveBtn.disabled = true;
-        saveBtn.setAttribute('disabled', 'true');
+        saveBtn.style.opacity = '0.6';
+        saveBtn.style.cursor = 'not-allowed';
     }
 
     try {
@@ -193,8 +193,8 @@ async function submitInvoice() {
     } finally {
         purchasesState.isSubmitting = false;
         if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.removeAttribute('disabled');
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
         }
     }
 }
@@ -346,7 +346,7 @@ function updateSelectedItemAvailability(row) {
 
 function addInvoiceRow(existingItem = null) {
     if (!existingItem && !purchasesState.dom.supplierSelect?.value) {
-        alert(t('purchases.selectSupplierFirst', 'الرجاء اختيار المورد أولاً'));
+        if (window.showToast) window.showToast(t('purchases.selectSupplierFirst', 'الرجاء اختيار المورد أولاً'), 'warning');
         return;
     }
 
@@ -406,8 +406,8 @@ function onItemSelect(select) {
     calculateRowTotal(select);
     maybeAutoAddRow(row);
 
-    const qtyInput = row.querySelector('.quantity-input');
-    if (qtyInput) qtyInput.focus();
+    // const qtyInput = row.querySelector('.quantity-input');
+    // if (qtyInput) qtyInput.focus();
 }
 
 function onRowInput(input) {
@@ -573,13 +573,13 @@ function buildInvoicePayload(financials) {
 
 async function saveInvoice() {
     if (!purchasesState.dom.supplierSelect.value) {
-        alert(t('purchases.toast.selectSupplier', 'الرجاء اختيار المورد'));
+        if (window.showToast) window.showToast(t('purchases.toast.selectSupplier', 'الرجاء اختيار المورد'), 'error');
         return;
     }
 
     const { items, isValid } = collectInvoiceItemsFromForm();
     if (!isValid) {
-        alert(t('purchases.noItemsData', 'الرجاء إدخال جميع بيانات الأصناف بشكل صحيح (يجب إضافة صنف واحد على الأقل)'));
+        if (window.showToast) window.showToast(t('purchases.noItemsData', 'الرجاء إدخال جميع بيانات الأصناف بشكل صحيح (يجب إضافة صنف واحد على الأقل)'), 'error');
         return;
     }
 
@@ -593,25 +593,25 @@ async function saveInvoice() {
     try {
         const result = await purchasesApi.savePurchaseInvoice(invoiceData);
         if (result.success) {
-            alert(t('purchases.toast.saveSuccess', 'تم حفظ الفاتورة بنجاح'));
+            if (window.showToast) window.showToast(t('purchases.toast.saveSuccess', 'تم حفظ الفاتورة بنجاح'), 'success');
             await resetForm();
         } else {
-            alert(t('purchases.toast.saveError', 'حدث خطأ أثناء الحفظ: ') + result.error);
+            if (window.showToast) window.showToast(t('purchases.toast.saveError', 'حدث خطأ أثناء الحفظ: ') + result.error, 'error');
         }
     } catch (error) {
-        alert(t('purchases.toast.unexpectedError', 'حدث خطأ غير متوقع: ') + error.message);
+        if (window.showToast) window.showToast(t('purchases.toast.unexpectedError', 'حدث خطأ غير متوقع: ') + error.message, 'error');
     }
 }
 
 async function updateInvoice() {
     if (!purchasesState.dom.supplierSelect.value) {
-        alert(t('purchases.toast.selectSupplier', 'الرجاء اختيار المورد'));
+        if (window.showToast) window.showToast(t('purchases.toast.selectSupplier', 'الرجاء اختيار المورد'), 'error');
         return;
     }
 
     const { items, isValid } = collectInvoiceItemsFromForm();
     if (!isValid) {
-        alert(t('purchases.noItemsData', 'الرجاء إدخال جميع بيانات الأصناف بشكل صحيح (يجب إضافة صنف واحد على الأقل)'));
+        if (window.showToast) window.showToast(t('purchases.noItemsData', 'الرجاء إدخال جميع بيانات الأصناف بشكل صحيح (يجب إضافة صنف واحد على الأقل)'), 'error');
         return;
     }
 
@@ -626,13 +626,13 @@ async function updateInvoice() {
     try {
         const result = await purchasesApi.updatePurchaseInvoice(invoiceData);
         if (result.success) {
-            alert(t('purchases.toast.updateSuccess', 'تم تحديث الفاتورة بنجاح'));
+            if (window.showToast) window.showToast(t('purchases.toast.updateSuccess', 'تم تحديث الفاتورة بنجاح'), 'success');
             await resetForm();
         } else {
-            alert(t('purchases.toast.updateError', 'حدث خطأ أثناء التحديث: ') + result.error);
+            if (window.showToast) window.showToast(t('purchases.toast.updateError', 'حدث خطأ أثناء التحديث: ') + result.error, 'error');
         }
     } catch (error) {
-        alert(t('purchases.toast.unexpectedError', 'حدث خطأ غير متوقع: ') + error.message);
+        if (window.showToast) window.showToast(t('purchases.toast.unexpectedError', 'حدث خطأ غير متوقع: ') + error.message, 'error');
     }
 }
 
