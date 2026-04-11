@@ -374,7 +374,7 @@ async function displayCustomerBalance() {
         balanceDiv.classList.add('balance-zero');
         balanceDiv.textContent = t('sales.balanceCurrentSettled', 'الرصيد الحالي: متزن');
     }
-    balanceDiv.style.display = 'block';
+    balanceDiv.style.display = 'inline-flex';
 }
 
 async function loadItems() {
@@ -539,10 +539,16 @@ function updateProfitIndicator(row) {
 
     const select = row.querySelector('.item-select');
     const selectedOption = select.options[select.selectedIndex];
-    const costPrice = parseFloat(selectedOption?.dataset?.cost) || 0;
-    const salePrice = parseLocaleFloat(row.querySelector('.price-input').value) || 0;
+    const unitCostPrice = parseFloat(selectedOption?.dataset?.cost) || 0;
+    const unitSalePrice = parseLocaleFloat(row.querySelector('.price-input').value) || 0;
+    
+    let qtyRaw = parseLocaleFloat(row.querySelector('.quantity-input').value);
+    const qty = (Number.isFinite(qtyRaw) && qtyRaw > 0) ? qtyRaw : 1;
 
-    if (!costPrice || !salePrice) {
+    const costPrice = unitCostPrice * qty;
+    const salePrice = unitSalePrice * qty;
+
+    if (!unitCostPrice || !unitSalePrice) {
         indicator.innerHTML = '';
         indicator.className = 'profit-indicator';
         return;
@@ -555,12 +561,15 @@ function updateProfitIndicator(row) {
     if (diff > 0) {
         indicator.className = 'profit-indicator profit-positive';
         indicator.innerHTML = '<i class="fas fa-arrow-up"></i> ' + costLabel + ' · ' + t('sales.profitLabel', 'ربح') + ': ' + diff.toFixed(2) + ' (' + percent + '%)';
+        indicator.title = '';
     } else if (diff < 0) {
         indicator.className = 'profit-indicator profit-negative';
         indicator.innerHTML = '<i class="fas fa-arrow-down"></i> ' + costLabel + ' · ' + t('sales.lossLabel', 'خسارة') + ': ' + Math.abs(diff).toFixed(2) + ' (' + Math.abs(percent) + '%)';
+        indicator.title = '';
     } else {
         indicator.className = 'profit-indicator profit-neutral';
         indicator.innerHTML = costLabel + ' · ' + t('sales.profitLabel', 'ربح') + ': 0.00 (0.0%)';
+        indicator.title = '';
     }
 }
 
