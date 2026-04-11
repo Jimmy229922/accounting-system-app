@@ -17,6 +17,7 @@ function buildTopNavHTML() {
 
 document.addEventListener('DOMContentLoaded', async () => {    // Reset submitting state just in case
     purchaseReturnsState.isSubmitting = false;
+    purchaseReturnsState.isEditLocked = false;
     try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
         purchaseReturnsState.ar = await window.i18n.loadArabicDictionary();
@@ -46,6 +47,74 @@ function getEditIdFromUrl() {
 
 function clearEditQueryFromUrl() {
     window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+function isEditLocked() {
+    return Boolean(purchaseReturnsState.editingReturnId && purchaseReturnsState.isEditLocked);
+}
+
+function setEditLocked(locked) {
+    const form = document.getElementById('invoiceForm');
+    if (!form) return;
+
+    purchaseReturnsState.isEditLocked = Boolean(locked);
+    const lockActive = Boolean(purchaseReturnsState.editingReturnId && purchaseReturnsState.isEditLocked);
+    const saveBtn = form.querySelector('[data-action="save-return"]');
+    let lockHint = form.querySelector('[data-edit-lock-hint="true"]');
+
+    if (lockActive && !lockHint) {
+        lockHint = document.createElement('div');
+        lockHint.dataset.editLockHint = 'true';
+        lockHint.textContent = 'الوضع الحالي: عرض فقط. اضغط "تعديل المرتجع" لفتح الحقول.';
+        lockHint.style.margin = '10px 0 14px 0';
+        lockHint.style.padding = '10px 12px';
+        lockHint.style.borderRadius = '10px';
+        lockHint.style.background = 'rgba(245, 158, 11, 0.18)';
+        lockHint.style.border = '1px solid rgba(245, 158, 11, 0.6)';
+        lockHint.style.color = 'var(--text-color)';
+        lockHint.style.fontWeight = '700';
+        const shell = form.querySelector('.invoice-shell');
+        if (shell) {
+            shell.insertBefore(lockHint, shell.firstChild);
+        }
+    }
+
+    if (!lockActive && lockHint) {
+        lockHint.remove();
+    }
+
+    const controls = form.querySelectorAll('input, select, textarea, button');
+    controls.forEach((control) => {
+        if (control.dataset.action === 'save-return') return;
+        control.disabled = lockActive;
+
+        if (lockActive) {
+            control.style.cursor = 'not-allowed';
+            control.style.backgroundColor = 'rgba(148, 163, 184, 0.2)';
+            control.style.borderStyle = 'dashed';
+            control.style.opacity = '0.72';
+            control.title = 'اضغط "تعديل المرتجع" أولاً';
+        } else {
+            control.style.cursor = '';
+            control.style.backgroundColor = '';
+            control.style.borderStyle = '';
+            control.style.opacity = '';
+            control.title = '';
+        }
+    });
+
+    if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.removeAttribute('data-invalid');
+
+        if (lockActive) {
+            saveBtn.innerHTML = `<i class="fas fa-pen"></i> تعديل المرتجع`;
+        } else if (purchaseReturnsState.editingReturnId) {
+            saveBtn.innerHTML = `<i class="fas fa-save"></i> ${t('purchaseReturns.updateReturn', 'تحديث المرتجع')}`;
+        } else {
+            saveBtn.innerHTML = `<i class="fas fa-save"></i> ${t('purchaseReturns.saveReturn', 'حفظ المرتجع')}`;
+        }
+    }
 }
 
 function initializeElements() {
@@ -118,6 +187,8 @@ async function loadSuppliers() {
 }
 
 async function handleSupplierChange() {
+    if (isEditLocked()) return;
+
     const supplierId = purchaseReturnsState.dom.supplierSelect.value;
     if (supplierId) {
         if (purchaseReturnsState.editingReturnId) {
@@ -159,6 +230,8 @@ async function loadSupplierInvoices(supplierId) {
 }
 
 async function handleInvoiceChange() {
+    if (isEditLocked()) return;
+
     const invoiceId = purchaseReturnsState.dom.invoiceSelect.value;
     updateOriginalInvoicePreview();
 
@@ -262,6 +335,8 @@ function applyEditSelections(invoiceId) {
 }
 
 function onCheckboxChange(checkbox) {
+    if (isEditLocked()) return;
+
     const index = checkbox.dataset.index;
     const qtyInput = purchaseReturnsState.dom.itemsBody.querySelector(`.return-qty-input[data-index="${index}"]`);
     const priceInput = purchaseReturnsState.dom.itemsBody.querySelector(`.return-price-input[data-index="${index}"]`);
@@ -286,6 +361,8 @@ function onCheckboxChange(checkbox) {
 }
 
 function onQtyInput(input) {
+    if (isEditLocked()) return;
+
     const index = input.dataset.index;
     const item = purchaseReturnsState.currentInvoiceItems[index];
     const maxQty = getAvailableToReturn(item);
@@ -386,6 +463,12 @@ function collectSelectedItems() {
 }
 
 async function saveReturn() {
+    if (isEditLocked()) {
+        setEditLocked(false);
+        Toast.show('تم تفعيل وضع التعديل. راجع البيانات ثم اضغط تحديث المرتجع.', 'success');
+        return;
+    }
+
     if (purchaseReturnsState.isSubmitting || purchaseReturnsState.dom.saveBtn?.dataset.invalid === 'true') return;
 
     purchaseReturnsState.isSubmitting = true;
@@ -465,10 +548,12 @@ async function saveReturn() {
 
 async function resetForm() {
     purchaseReturnsState.editingReturnId = null;
+    purchaseReturnsState.isEditLocked = false;
     purchaseReturnsState.editingOriginalInvoiceId = null;
     purchaseReturnsState.editingReturnItemsMap = new Map();
     clearEditQueryFromUrl();
     purchaseReturnsRender.setFormMode(false, t);
+    setEditLocked(false);
 
     purchaseReturnsState.dom.supplierSelect.value = '';
     if (purchaseReturnsState.supplierAutocomplete) purchaseReturnsState.supplierAutocomplete.refresh();
@@ -551,6 +636,7 @@ async function loadReturnForEdit(id) {
         document.getElementById('returnNotes').value = selectedReturn.notes || '';
 
         await loadInvoiceItems(selectedReturn.original_invoice_id);
+        setEditLocked(true);
     } catch (_) {
         Toast.show(t('purchaseReturns.toast.loadReturnError', 'تعذر تحميل بيانات المرتجع للتعديل'), 'error');
     }

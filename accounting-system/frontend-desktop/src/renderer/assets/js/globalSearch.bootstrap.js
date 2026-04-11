@@ -718,10 +718,13 @@ class GlobalSearch {
     
     open() {
         this.isOpen = true;
+        if (this.currentView !== 'search' && typeof this.backToSearch === 'function') {
+            this.backToSearch();
+        }
         this.currentView = 'search';
         this.overlay.classList.add('active');
         this.modal.classList.add('active');
-        this.input.value = '';
+        if (this.input) this.input.value = '';
         // this.input.focus();
         this.focusedIndex = -1;
         this.results = [];
@@ -730,6 +733,9 @@ class GlobalSearch {
     
     close() {
         this.isOpen = false;
+        if (this.currentView !== 'search' && typeof this.backToSearch === 'function') {
+            this.backToSearch();
+        }
         this.currentView = 'search';
         this.overlay.classList.remove('active');
         this.modal.classList.remove('active');

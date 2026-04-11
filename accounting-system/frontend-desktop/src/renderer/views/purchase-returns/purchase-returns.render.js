@@ -199,10 +199,18 @@
                 </tr>
             </thead>
             <tbody>
-                ${rows.map((row) => `
+                ${rows.map((row) => {
+                    const returnNumberCell = window.renderDocNumberCell
+                        ? window.renderDocNumberCell(row.return_number, { numberTag: 'span' })
+                        : (row.return_number || '-');
+                    const originalInvoiceCell = window.renderDocNumberCell
+                        ? window.renderDocNumberCell(row.original_invoice_number, { numberTag: 'span' })
+                        : (row.original_invoice_number || '-');
+
+                    return `
                     <tr>
-                        <td><span class="badge badge-return"><i class="fas fa-undo-alt"></i> ${row.return_number || '-'}</span></td>
-                        <td>${fmt(t('purchaseReturns.invoiceLabel', 'Invoice #{number}'), { number: row.original_invoice_number || '-' })}</td>
+                        <td><span class="badge badge-return"><i class="fas fa-undo-alt"></i> ${returnNumberCell}</span></td>
+                        <td>${originalInvoiceCell}</td>
                         <td>${row.supplier_name || '-'}</td>
                         <td>${row.return_date || '-'}</td>
                         <td style="font-weight: 700; color: #f59e0b;">${(Number(row.total_amount) || 0).toFixed(2)}</td>
@@ -212,7 +220,8 @@
                             </button>
                         </td>
                     </tr>
-                `).join('')}
+                `;
+                }).join('')}
             </tbody>
         </table>
         ${paginationHtml}

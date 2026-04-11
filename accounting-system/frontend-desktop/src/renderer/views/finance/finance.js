@@ -251,9 +251,11 @@ function renderTransactions(transactions) {
         if (tr.related_type === 'purchase') relatedText = fmt(t('finance.relatedPurchase', 'فاتورة شراء #{id}'), { id: tr.related_invoice_id });
 
         // Show voucher number if exists
-        const voucherCell = tr.voucher_number 
-            ? `<span style="font-weight: 600; color: var(--accent-color);">${tr.voucher_number}</span>`
-            : `<span style="color: var(--text-muted); font-size: 0.85rem;">${t('finance.noVoucher', '-')}</span>`;
+        const voucherCell = window.renderDocNumberCell
+            ? window.renderDocNumberCell(tr.voucher_number, { numberTag: 'span', numberClassName: 'finance-voucher-number' })
+            : (tr.voucher_number
+                ? `<span style="font-weight: 600; color: var(--accent-color);">${tr.voucher_number}</span>`
+                : `<span style="color: var(--text-muted); font-size: 0.85rem;">${t('finance.noVoucher', '-')}</span>`);
 
         // Disable edit for auto-generated transactions, but allow delete
         const isAuto = tr.related_invoice_id != null;

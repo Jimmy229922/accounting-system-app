@@ -264,15 +264,21 @@
             return;
         }
 
-        tbody.innerHTML = transactions.map((tx) => `
+        tbody.innerHTML = transactions.map((tx) => {
+            const invoiceNumberCell = window.renderDocNumberCell
+                ? window.renderDocNumberCell(tx.invoice_number, { numberTag: 'strong' })
+                : `<strong>${tx.invoice_number || '—'}</strong>`;
+
+            return `
         <tr>
-            <td><strong>${tx.invoice_number || '—'}</strong></td>
+            <td>${invoiceNumberCell}</td>
             <td>${tx.date || '—'}</td>
             <td><span class="type-badge type-${tx.type}">${tx.type === 'sale' ? t('dashboard.saleType', 'بيع') : t('dashboard.purchaseType', 'شراء')}</span></td>
             <td>${tx.party_name || '—'}</td>
             <td><strong>${(tx.amount || 0).toFixed(2)}</strong></td>
         </tr>
-    `).join('');
+    `;
+        }).join('');
     }
 
     function renderTopItems({ topItems, t }) {

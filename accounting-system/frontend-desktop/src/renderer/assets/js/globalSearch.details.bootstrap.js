@@ -500,6 +500,9 @@
                     <i class="fas fa-undo-alt" style="color: #8b5cf6; margin-left: 8px;"></i>
                     ${this.t('globalSearch.salesReturnDetails', 'تفاصيل مرتجع البيع')}
                 </span>
+                <button class="gsearch-back" title="تعديل المرتجع" onclick="globalSearch.goToInvoiceEdit('sales-return', ${id})">
+                    <i class="fas fa-pen"></i>
+                </button>
                 <button class="gsearch-close" title="${this.t('globalSearch.close', 'إغلاق')} (Esc)" onclick="globalSearch.close()">
                     <i class="fas fa-times"></i>
                 </button>
@@ -612,6 +615,9 @@
                     <i class="fas fa-undo" style="color: #ec4899; margin-left: 8px;"></i>
                     ${this.t('globalSearch.purchaseReturnDetails', 'تفاصيل مرتجع الشراء')}
                 </span>
+                <button class="gsearch-back" title="تعديل المرتجع" onclick="globalSearch.goToInvoiceEdit('purchase-return', ${id})">
+                    <i class="fas fa-pen"></i>
+                </button>
                 <button class="gsearch-close" title="${this.t('globalSearch.close', 'إغلاق')} (Esc)" onclick="globalSearch.close()">
                     <i class="fas fa-times"></i>
                 </button>
@@ -756,6 +762,10 @@
             target = `${basePath}/sales/index.html?editId=${id}`;
         } else if (type === 'purchase') {
             target = `${basePath}/purchases/index.html?editId=${id}`;
+        } else if (type === 'sales-return') {
+            target = `${basePath}/sales-returns/index.html?editId=${id}`;
+        } else if (type === 'purchase-return') {
+            target = `${basePath}/purchase-returns/index.html?editId=${id}`;
         }
 
         if (!target) {

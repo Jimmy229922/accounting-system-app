@@ -276,10 +276,13 @@ async function showItemCard(itemId, itemName) {
             let dateDisplay = mv.date || '';
             if (dateDisplay.includes('T')) dateDisplay = dateDisplay.split('T')[0];
             else if (dateDisplay.includes(' ')) dateDisplay = dateDisplay.split(' ')[0];
+            const invoiceNumberCell = window.renderDocNumberCell
+                ? window.renderDocNumberCell(mv.invoice_number, { numberTag: 'span' })
+                : (mv.invoice_number || '-');
             row.innerHTML = `
                 <td>${dateDisplay}</td>
                 <td><span class="inv-mv-badge ${isIn ? 'mv-in' : 'mv-out'}">${mv.type_label || mv.type}</span></td>
-                <td>${mv.invoice_number || '-'}</td>
+                <td>${invoiceNumberCell}</td>
                 <td>${mv.party_name || '-'}</td>
                 <td class="transaction-in">${isIn ? mv.quantity : '-'}</td>
                 <td class="transaction-out">${!isIn ? mv.quantity : '-'}</td>

@@ -267,11 +267,15 @@
                 </div>
                 ${results
                     .map(
-                        (tr) => `
+                        (tr) => {
+                            const voucherNumberCell = window.renderDocNumberCell
+                                ? window.renderDocNumberCell(tr.voucher_number, { numberTag: 'strong' })
+                                : `<strong>${tr.voucher_number || '\u2014'}</strong>`;
+                            return `
                     <div class="voucher-result-item">
                         <div class="voucher-result-row">
                             <span class="voucher-result-label">${text('voucherNumberLabel')}:</span>
-                            <strong>${tr.voucher_number || '\u2014'}</strong>
+                            ${voucherNumberCell}
                         </div>
                         <div class="voucher-result-row">
                             <span class="voucher-result-label">${text('dateLabel')}:</span>
@@ -290,7 +294,8 @@
                             <span>${tr.description || '\u2014'}</span>
                         </div>
                     </div>
-                `
+                `;
+                        }
                     )
                     .join('')}
             `;

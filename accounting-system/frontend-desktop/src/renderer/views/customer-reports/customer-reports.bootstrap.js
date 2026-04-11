@@ -18,6 +18,15 @@ function formatCurrency(v) {
     return parseFloat(v || 0).toFixed(2) + ' ' + CUR;
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function buildTopNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
         return window.navManager.getTopNavHTML(t);
@@ -263,12 +272,15 @@ async function loadCustomerReport(customerId) {
             const toggleBtn = hasDetails
                 ? `<button class="btn-toggle" data-action="toggle-items" data-row-id="${rowId}" data-type="${item.type}" data-id="${item.id}" title="${t('customerReports.showItems', 'عرض الأصناف')}"><i class="fas fa-chevron-down"></i></button>`
                 : '';
+            const docNumberCellHtml = window.renderDocNumberCell
+                ? window.renderDocNumberCell(item.doc_number, { numberTag: 'span' })
+                : `<span>${escapeHtml(item.doc_number || '—')}</span>`;
 
             mainRow.innerHTML = `
                 <td class="idx-cell">${idx + 1} ${toggleBtn}</td>
                 <td>${item.trans_date}</td>
                 <td>${typeBadge}</td>
-                <td>${item.doc_number || '—'}</td>
+                <td>${docNumberCellHtml}</td>
                 <td class="notes-cell">${item.notes || '—'}</td>
                 <td class="amt-cell"><span class="amount debit">${debitVal}</span></td>
                 <td class="amt-cell"><span class="amount credit">${creditVal}</span></td>

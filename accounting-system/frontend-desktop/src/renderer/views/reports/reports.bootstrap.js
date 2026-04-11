@@ -349,14 +349,16 @@ function renderReports(reports) {
         const invoiceNumberValue = (report.type === 'receipt' || report.type === 'payment')
             ? (report.invoice_number || '-')
             : (report.invoice_number || report.id || '-');
-        const safeInvoiceNo = escapeHtml(invoiceNumberValue);
+        const invoiceCellHtml = window.renderDocNumberCell
+            ? window.renderDocNumberCell(invoiceNumberValue, { numberTag: 'strong' })
+            : `<strong>${escapeHtml(invoiceNumberValue || '-')}</strong>`;
         const safeCustomer = escapeHtml(report.customer_name || '-');
 
         row.className = typeMeta.rowClass;
         row.innerHTML = `
             <td class="index-col">${start + idx + 1}</td>
             <td class="date-col">${safeDate}</td>
-            <td><strong>${safeInvoiceNo}</strong></td>
+            <td>${invoiceCellHtml}</td>
             <td>${typeMeta.badge}</td>
             <td class="name-col">${safeCustomer}</td>
             <td class="amount ${typeMeta.amountClass}">${formatCurrency(report.total_amount)}</td>

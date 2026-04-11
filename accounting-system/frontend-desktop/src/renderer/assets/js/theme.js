@@ -85,12 +85,12 @@ window.addEventListener('pageshow', (event) => {
 document.addEventListener('DOMContentLoaded', () => {
     bindThemeToggleButtons();
     preventProblematicDragAndDrop();
-    
+
     // Fix Electron/Chromium focus bug where inputs become frozen after navigation
     setTimeout(() => {
         document.body.style.pointerEvents = 'auto'; // Force unlock pointer events
         document.documentElement.style.pointerEvents = 'auto'; // Double certainty
-        
+
         // Remove any invisible overlay that might have been leftover
         const strayOverlays = document.querySelectorAll('.toast-container, .modal-backdrop, .overlay, .loading');
         strayOverlays.forEach(ol => {
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  ol.style.display = 'none';
             }
         });
-        
+
         // Do NOT force window.focus() or body.focus() to avoid interrupting user interactions immediately after load
     }, 50);
 

@@ -49,6 +49,9 @@ function renderVoucherModalContent(reportType, transaction, entity) {
     const entityAddress = escapeHtml(entity?.address || '-');
     const notesText = escapeHtml(transaction.description || t('reports.modal.noNotes', 'لا توجد ملاحظات'));
     const voucherNumber = escapeHtml(transaction.voucher_number || '-');
+    const voucherNumberCell = window.renderDocNumberCell
+        ? window.renderDocNumberCell(transaction.voucher_number, { numberTag: 'span' })
+        : voucherNumber;
     const dateText = formatDateTimeForUi(transaction.transaction_date);
     const amountText = formatCurrency(transaction.amount);
 
@@ -58,7 +61,8 @@ function renderVoucherModalContent(reportType, transaction, entity) {
                 <i class="fas ${typeIcon}"></i>
                 ${typeLabel}
             </span>
-            <strong>${t('reports.tableHeaders.invoiceNumber', 'رقم الفاتورة')}: ${voucherNumber}</strong>
+            <strong>${t('reports.tableHeaders.invoiceNumber', 'رقم الفاتورة')}:</strong>
+            ${voucherNumberCell}
         </div>
 
         <div class="voucher-modal-grid">
