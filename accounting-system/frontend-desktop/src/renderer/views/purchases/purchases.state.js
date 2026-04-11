@@ -3,6 +3,7 @@
         return {
             allItems: [],
             editingInvoiceId: null,
+            isEditLocked: false,
             originalInvoiceItemTotalsByItemId: {},
             supplierAutocomplete: null,
             isSubmitting: false,

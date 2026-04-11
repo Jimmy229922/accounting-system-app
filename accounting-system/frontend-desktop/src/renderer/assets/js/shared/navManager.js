@@ -160,16 +160,28 @@ window.navManager = {
 };
 
 document.addEventListener('click', (e) => {
-    // Detect navbar link clicks and force a blur to prevent focus-persistence bugs
-    const link = e.target.closest('a');
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+    // Handle only top navbar links
+    const link = e.target.closest('.top-nav a');
     if (!link) return;
     
     const href = link.getAttribute('href');
-    if (href && href !== '#' && !href.startsWith('javascript:')) {
-        // We only delay the transition, no forced blur/prevent default
-        // to avoid hijacking standard link navigation behavior
-        setTimeout(() => {
-            window.location.href = link.href;
-        }, 50);
+    if (!href || href === '#' || href.startsWith('javascript:')) return;
+
+    const currentUrl = new URL(window.location.href);
+    const targetUrl = new URL(link.href, window.location.href);
+    const isSamePage =
+        normalizePath(currentUrl.pathname) === normalizePath(targetUrl.pathname) &&
+        currentUrl.search === targetUrl.search &&
+        currentUrl.hash === targetUrl.hash;
+
+    if (isSamePage) {
+        e.preventDefault();
+        return;
     }
+
+    // Navigate immediately without delay
+    e.preventDefault();
+    window.location.href = targetUrl.href;
 });

@@ -36,6 +36,40 @@ function bindThemeToggleButtons() {
     syncThemeToggleButtons();
 }
 
+function isTextEditableTarget(target) {
+    if (!(target instanceof Element)) return false;
+    const editableEl = target.closest('input, textarea, [contenteditable]');
+    if (!editableEl) return false;
+
+    if (editableEl.tagName === 'INPUT') {
+        const inputType = (editableEl.getAttribute('type') || 'text').toLowerCase();
+        const nonTextTypes = new Set([
+            'button', 'checkbox', 'color', 'date', 'datetime-local', 'file', 'hidden',
+            'image', 'month', 'radio', 'range', 'reset', 'submit', 'time', 'week'
+        ]);
+        return !nonTextTypes.has(inputType);
+    }
+
+    return true;
+}
+
+function preventProblematicDragAndDrop() {
+    document.addEventListener('dragstart', (event) => {
+        if (isTextEditableTarget(event.target)) return;
+        event.preventDefault();
+    }, true);
+
+    document.addEventListener('drop', (event) => {
+        if (!isTextEditableTarget(event.target)) return;
+        const uriList = event.dataTransfer?.getData('text/uri-list') || '';
+        const text = event.dataTransfer?.getData('text/plain') || '';
+        const carriesUrl = uriList.trim() !== '' || /^(file|https?):\/\//i.test(text.trim());
+        if (carriesUrl) {
+            event.preventDefault();
+        }
+    }, true);
+}
+
 // Apply theme immediately to prevent flash
 (function applyThemeImmediately() {
     setTheme(localStorage.getItem('theme') || 'light');
@@ -50,6 +84,7 @@ window.addEventListener('pageshow', (event) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     bindThemeToggleButtons();
+    preventProblematicDragAndDrop();
     
     // Fix Electron/Chromium focus bug where inputs become frozen after navigation
     setTimeout(() => {

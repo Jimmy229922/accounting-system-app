@@ -2,6 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain, screen } = require('electron');
 const path = require('path');
 const { db } = require('./db');
 const { INVITE_CODE, getMachineId, generateActivationCode } = require('./inviteConfig');
+const appIconPath = path.join(__dirname, '../renderer/assets/app/icon.ico');
 
 let mainWindow = null;
 let inviteWindow = null;
@@ -68,6 +69,7 @@ function showInviteWindow() {
             height,
             resizable: false,
             autoHideMenuBar: true,
+            icon: appIconPath,
             webPreferences: {
                 preload: path.join(__dirname, 'preload.js'),
                 nodeIntegration: false,
@@ -117,6 +119,7 @@ function showAuthWindow() {
             height,
             resizable: false,
             autoHideMenuBar: true,
+            icon: appIconPath,
             webPreferences: {
                 preload: path.join(__dirname, 'preload.js'),
                 nodeIntegration: false,
@@ -160,6 +163,7 @@ function createWindow() {
         show: false,
         backgroundColor: '#0b1220', // Dark theme background to prevent white flash
         autoHideMenuBar: true, // Hide the default menu bar
+        icon: appIconPath,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,

@@ -79,7 +79,116 @@ function initializeElements() {
     }
 }
 
+function isEditLocked() {
+    return Boolean(salesState.editingInvoiceId && salesState.isEditLocked);
+}
+
+function setEditLocked(locked) {
+    const form = salesState.dom.invoiceForm;
+    if (!form) return;
+
+    salesState.isEditLocked = Boolean(locked);
+    const lockActive = Boolean(salesState.editingInvoiceId && salesState.isEditLocked);
+    const submitBtn = form.querySelector('[data-action="submit-invoice"]');
+    const shell = form.querySelector('.invoice-shell');
+    const statusChip = form.querySelector('.form-status-chip');
+    const titleRow = form.querySelector('.form-title-row');
+    let lockHint = form.querySelector('[data-edit-lock-hint="true"]');
+
+    if (lockActive && !lockHint) {
+        lockHint = document.createElement('div');
+        lockHint.dataset.editLockHint = 'true';
+        lockHint.textContent = 'الوضع الحالي: عرض فقط. اضغط "تعديل الفاتورة" لفتح الحقول.';
+        lockHint.style.margin = '10px 0 0 0';
+        lockHint.style.padding = '10px 12px';
+        lockHint.style.borderRadius = '10px';
+        lockHint.style.background = 'rgba(245, 158, 11, 0.18)';
+        lockHint.style.border = '1px solid rgba(245, 158, 11, 0.6)';
+        lockHint.style.color = 'var(--text-color)';
+        lockHint.style.fontWeight = '700';
+        if (titleRow && titleRow.parentNode) {
+            titleRow.parentNode.insertBefore(lockHint, titleRow.nextSibling);
+        }
+    }
+
+    if (!lockActive && lockHint) {
+        lockHint.remove();
+    }
+
+    const controls = form.querySelectorAll('input, select, textarea, button');
+    controls.forEach((control) => {
+        if (control.dataset.action === 'submit-invoice') return;
+        control.disabled = lockActive;
+
+        if (lockActive) {
+            control.style.cursor = 'not-allowed';
+            control.style.backgroundColor = 'rgba(148, 163, 184, 0.2)';
+            control.style.borderStyle = 'dashed';
+            control.style.opacity = '0.72';
+            control.title = 'اضغط "تعديل الفاتورة" أولاً';
+        } else {
+            control.style.cursor = '';
+            control.style.backgroundColor = '';
+            control.style.borderStyle = '';
+            control.style.opacity = '';
+            control.title = '';
+        }
+    });
+
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+
+        if (lockActive) {
+            submitBtn.textContent = 'تعديل الفاتورة';
+        } else if (salesState.editingInvoiceId) {
+            submitBtn.textContent = t('sales.updateAndSave', 'تحديث وحفظ الفاتورة');
+        } else {
+            submitBtn.textContent = t('sales.saveAndPost', 'حفظ وترحيل الفاتورة');
+        }
+    }
+
+    if (statusChip) {
+        if (lockActive) {
+            statusChip.textContent = 'وضع عرض فقط';
+        } else if (salesState.editingInvoiceId) {
+            statusChip.textContent = 'وضع التعديل مفعل';
+        } else {
+            statusChip.textContent = t('sales.formStatusChip', 'فاتورة مبيعات');
+        }
+    }
+
+    if (shell) {
+        if (lockActive) {
+            shell.style.outline = '2px dashed #f59e0b';
+            shell.style.outlineOffset = '4px';
+            shell.style.opacity = '0.94';
+            shell.style.filter = 'grayscale(0.2)';
+        } else if (salesState.editingInvoiceId) {
+            shell.style.outline = '2px solid #10b981';
+            shell.style.outlineOffset = '4px';
+            shell.style.opacity = '1';
+            shell.style.filter = '';
+        } else {
+            shell.style.outline = '';
+            shell.style.outlineOffset = '';
+            shell.style.opacity = '';
+            shell.style.filter = '';
+        }
+    }
+
+    if (salesState.dom.invoiceItemsBody) {
+        salesState.dom.invoiceItemsBody.querySelectorAll('.remove-row').forEach((removeEl) => {
+            removeEl.style.pointerEvents = lockActive ? 'none' : '';
+            removeEl.style.opacity = lockActive ? '0.45' : '';
+        });
+    }
+}
+
 async function handleCustomerChange() {
+    if (isEditLocked()) return;
+
     if (!salesState.dom.customerSelect) return;
 
     if (salesState.dom.customerSelect.value) {
@@ -95,6 +204,8 @@ async function handleCustomerChange() {
 }
 
 async function initializeNewInvoice() {
+    salesState.isEditLocked = false;
+    setEditLocked(false);
     salesState.originalInvoiceItemTotalsByItemId = {};
     const nextId = await salesApi.getNextInvoiceNumber();
     const invoiceNumberInput = document.getElementById('invoiceNumber');
@@ -167,12 +278,19 @@ async function loadInvoiceForEdit(id) {
         updateSelectedItemAvailability(salesState.dom.invoiceItemsBody.querySelector('tr'));
 
         salesRender.setEditModeUI(t);
+        setEditLocked(true);
     } catch (error) {
         if (window.showToast) window.showToast(t('sales.toast.unexpectedError', 'حدث خطأ غير متوقع') + ': ' + error.message, 'error');
     }
 }
 
 async function submitInvoice() {
+    if (isEditLocked()) {
+        setEditLocked(false);
+        if (window.showToast) window.showToast('تم تفعيل وضع التعديل. راجع البيانات ثم اضغط تحديث وحفظ الفاتورة.', 'success');
+        return;
+    }
+
     if (salesState.isSubmitting) return;
     salesState.isSubmitting = true;
 
@@ -350,6 +468,11 @@ function updateSelectedItemAvailability(row) {
 }
 
 function addInvoiceRow(existingItem = null) {
+    if (!existingItem && isEditLocked()) {
+        if (window.showToast) window.showToast('اضغط على زر "تعديل الفاتورة" أولاً', 'warning');
+        return;
+    }
+
     if (!existingItem && !salesState.dom.customerSelect?.value) {
         if (window.showToast) window.showToast(t('sales.selectCustomerFirst', 'الرجاء اختيار العميل أولا'), 'warning');
         return;
@@ -374,6 +497,11 @@ function addInvoiceRow(existingItem = null) {
 }
 
 function removeRow(removeBtnEl) {
+    if (isEditLocked()) {
+        if (window.showToast) window.showToast('اضغط على زر "تعديل الفاتورة" أولاً', 'warning');
+        return;
+    }
+
     const row = removeBtnEl.closest('tr');
     if (!row) return;
     row.remove();
@@ -388,6 +516,8 @@ function removeRow(removeBtnEl) {
 }
 
 function onRowInput(input) {
+    if (isEditLocked()) return;
+
     calculateRowTotal(input);
     if (input.classList.contains('quantity-input')) {
         const row = input.closest('tr');
@@ -435,6 +565,8 @@ function updateProfitIndicator(row) {
 }
 
 function onItemSelect(select) {
+    if (isEditLocked()) return;
+
     const row = select.closest('tr');
     const itemId = parseInt(select.value, 10);
     const match = Number.isFinite(itemId) ? salesState.allItems.find((i) => i.id === itemId) : null;
@@ -762,12 +894,14 @@ async function resetForm() {
     clearSelectedItemAvailability();
 
     salesState.editingInvoiceId = null;
+    salesState.isEditLocked = false;
     salesState.originalInvoiceItemTotalsByItemId = {};
     
     // Safety check: force reset any pending boolean states
     salesState.isSubmitting = false;
 
     salesRender.setCreateModeUI(t);
+    setEditLocked(false);
 
     window.history.replaceState({}, document.title, window.location.pathname);
     await loadItems();

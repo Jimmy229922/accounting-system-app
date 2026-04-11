@@ -252,21 +252,29 @@
                     <i class="fas fa-file-invoice" style="color: #10b981; margin-left: 8px;"></i>
                     ${this.t('globalSearch.salesInvoiceDetails', 'تفاصيل فاتورة البيع')}
                 </span>
+                <button class="gsearch-back" title="تعديل الفاتورة" onclick="globalSearch.goToInvoiceEdit('sales', ${id})">
+                    <i class="fas fa-pen"></i>
+                </button>
                 <button class="gsearch-close" title="${this.t('globalSearch.close', 'إغلاق')} (Esc)" onclick="globalSearch.close()">
                     <i class="fas fa-times"></i>
                 </button>
             `;
             
             // بناء جدول الأصناف
-            let itemsTable = details.map(item => `
+            let itemsTable = details.map(item => {
+                const price = Number(item.price ?? item.sale_price ?? item.cost_price ?? 0) || 0;
+                const discount = Number(item.discount_value ?? item.discount_amount);
+                const discountText = Number.isFinite(discount) ? discount.toLocaleString() : '-';
+                return `
                 <tr>
                     <td>${item.item_name || '-'}</td>
                     <td>${(item.quantity || 0).toLocaleString()}</td>
-                    <td>${(item.price || 0).toLocaleString()}</td>
-                    <td>${(item.discount_value || 0).toLocaleString()}</td>
+                    <td>${price.toLocaleString()}</td>
+                    <td>${discountText}</td>
                     <td style="font-weight: 600;">${(item.total_price || 0).toLocaleString()}</td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
             
             let html = `
                 <div class="gsearch-item-details">
@@ -368,21 +376,29 @@
                     <i class="fas fa-file-invoice-dollar" style="color: #f59e0b; margin-left: 8px;"></i>
                     ${this.t('globalSearch.purchaseInvoiceDetails', 'تفاصيل فاتورة الشراء')}
                 </span>
+                <button class="gsearch-back" title="تعديل الفاتورة" onclick="globalSearch.goToInvoiceEdit('purchase', ${id})">
+                    <i class="fas fa-pen"></i>
+                </button>
                 <button class="gsearch-close" title="${this.t('globalSearch.close', 'إغلاق')} (Esc)" onclick="globalSearch.close()">
                     <i class="fas fa-times"></i>
                 </button>
             `;
             
             // بناء جدول الأصناف
-            let itemsTable = details.map(item => `
+            let itemsTable = details.map(item => {
+                const price = Number(item.price ?? item.cost_price ?? item.sale_price ?? 0) || 0;
+                const discount = Number(item.discount_value ?? item.discount_amount);
+                const discountText = Number.isFinite(discount) ? discount.toLocaleString() : '-';
+                return `
                 <tr>
                     <td>${item.item_name || '-'}</td>
                     <td>${(item.quantity || 0).toLocaleString()}</td>
-                    <td>${(item.price || 0).toLocaleString()}</td>
-                    <td>${(item.discount_value || 0).toLocaleString()}</td>
+                    <td>${price.toLocaleString()}</td>
+                    <td>${discountText}</td>
                     <td style="font-weight: 600;">${(item.total_price || 0).toLocaleString()}</td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
             
             let html = `
                 <div class="gsearch-item-details">
@@ -718,6 +734,36 @@
         }
         
         // this.input.focus();
+    },
+
+    goToInvoiceEdit(type, id) {
+        const currentPath = window.location.pathname;
+        let basePath = '';
+
+        const viewsMatch = currentPath.match(/.*[\/\\]views[\/\\]/);
+        if (viewsMatch) {
+            const afterViews = currentPath.substring(viewsMatch[0].length);
+            const depth = (afterViews.match(/[\/\\]/g) || []).length;
+            basePath = '../'.repeat(depth) || './';
+        } else {
+            basePath = './';
+        }
+
+        basePath = basePath.replace(/\/$/, '');
+
+        let target = '';
+        if (type === 'sales') {
+            target = `${basePath}/sales/index.html?editId=${id}`;
+        } else if (type === 'purchase') {
+            target = `${basePath}/purchases/index.html?editId=${id}`;
+        }
+
+        if (!target) {
+            return;
+        }
+
+        this.close();
+        window.location.href = target;
     }
     });
 })();
