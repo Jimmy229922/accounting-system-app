@@ -385,6 +385,12 @@ function bindShellNavEvents() {
             return;
         }
 
+        const dropdownGroupLink = event.target.closest('a[href="#"]');
+        if (dropdownGroupLink && navHost.contains(dropdownGroupLink)) {
+            event.preventDefault();
+            return;
+        }
+
         const searchBtn = event.target.closest('.nav-search-btn');
         if (searchBtn) {
             event.preventDefault();
