@@ -1,4 +1,14 @@
 // Theme Management (without navbar injection)
+(function bridgeElectronApiFromShell() {
+    try {
+        if (!window.electronAPI && window.top && window.top !== window && window.top.electronAPI) {
+            window.electronAPI = window.top.electronAPI;
+        }
+    } catch (_err) {
+        // Ignore cross-context access errors and keep local runtime behavior.
+    }
+})();
+
 function getCurrentTheme() {
     return document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'light';
 }
@@ -7,6 +17,15 @@ function setTheme(theme) {
     const safeTheme = theme === 'dark' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', safeTheme);
     localStorage.setItem('theme', safeTheme);
+
+    try {
+        if (window.top && window.top !== window && typeof window.top.__syncThemeFromChild === 'function') {
+            window.top.__syncThemeFromChild(safeTheme);
+        }
+    } catch (_err) {
+        // Ignore parent sync bridge errors and keep local theme applied.
+    }
+
     syncThemeToggleButtons();
 }
 

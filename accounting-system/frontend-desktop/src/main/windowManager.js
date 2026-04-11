@@ -174,8 +174,8 @@ function createWindow() {
     // Remove the application menu completely
     mainWindow.setMenuBarVisibility(false);
 
-    // Load the dashboard as the starting page
-    const viewPath = path.join(__dirname, '../renderer/views/dashboard/index.html');
+    // Load the shell as the starting page
+    const viewPath = path.join(__dirname, '../renderer/views/shell/index.html');
     mainWindow.loadFile(viewPath).catch(e => {
         console.error('Failed to load view:', e);
         dialog.showErrorBox('Load Error', `Failed to load view:\n${viewPath}\n${e.message}`);

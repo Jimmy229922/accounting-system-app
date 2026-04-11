@@ -442,7 +442,10 @@ function handleTableAction(event) {
         else if (type === 'purchase_return') page = '../purchase-returns/index.html';
 
         if (page) {
-            window.location.href = `${page}?editId=${id}`;
+            const target = `${page}?editId=${id}`;
+            if (!window.__navigateWithinShell || !window.__navigateWithinShell(target)) {
+                window.location.href = target;
+            }
         }
         return;
     }

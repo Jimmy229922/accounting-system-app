@@ -406,9 +406,15 @@ async function deleteTransaction(id) {
 
 function editInvoice(id, type) {
     if (type === 'sales') {
-        window.location.href = `../sales/index.html?editId=${id}`;
+        const target = `../sales/index.html?editId=${id}`;
+        if (!window.__navigateWithinShell || !window.__navigateWithinShell(target)) {
+            window.location.href = target;
+        }
     } else if (type === 'purchase') {
-        window.location.href = `../purchases/index.html?editId=${id}`;
+        const target = `../purchases/index.html?editId=${id}`;
+        if (!window.__navigateWithinShell || !window.__navigateWithinShell(target)) {
+            window.location.href = target;
+        }
     }
 }
 

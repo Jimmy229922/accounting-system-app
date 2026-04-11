@@ -1,7 +1,16 @@
 (function () {
+    function isRunningInsideShellFrame() {
+        try {
+            return Boolean(window.top && window.top !== window && typeof window.top.__shellNavigate === 'function');
+        } catch (_err) {
+            return false;
+        }
+    }
+
     function renderPage({ t }) {
         const app = document.getElementById('app');
         app.innerHTML = `
+        ${isRunningInsideShellFrame() ? '' : `
         <nav class="top-nav">
             <div class="nav-brand">${t('common.nav.brand')}</div>
             <ul class="nav-links">
@@ -45,6 +54,7 @@
                 <li><a href="../settings/index.html">${t('common.nav.settings')}</a></li>
             </ul>
         </nav>
+        `}
 
         <main class="content">
             <div class="users-page">

@@ -26,6 +26,32 @@ function normalizePath(value) {
     return String(value || '').replace(/\\/g, '/').toLowerCase();
 }
 
+function isRunningInsideShellFrame() {
+    try {
+        return Boolean(window.top && window.top !== window && typeof window.top.__shellNavigate === 'function');
+    } catch (_err) {
+        return false;
+    }
+}
+
+function tryShellNavigation(targetHref) {
+    try {
+        if (window.top && window.top !== window && typeof window.top.__shellNavigate === 'function') {
+            return window.top.__shellNavigate(targetHref) === true;
+        }
+
+        if (typeof window.__shellNavigate === 'function') {
+            return window.__shellNavigate(targetHref) === true;
+        }
+    } catch (_err) {
+        // Ignore shell bridge errors and fallback to default navigation.
+    }
+
+    return false;
+}
+
+window.__navigateWithinShell = tryShellNavigation;
+
 function resolveViewsPrefix(pathname = window.location.pathname) {
     const normalized = normalizePath(pathname);
     if (normalized.includes('/views/reports/debtor-creditor/')) {
@@ -119,6 +145,10 @@ function buildTopNavDropdown(item, t) {
 }
 
 function getTopNavHTML(t, options = {}) {
+    if (isRunningInsideShellFrame()) {
+        return '';
+    }
+
     const translate = typeof t === 'function' ? t : ((_, fallback = '') => fallback);
     const basePrefix = options.basePrefix || resolveViewsPrefix(options.pathname);
     const wrap = options.wrap !== false;
@@ -155,6 +185,7 @@ async function renderNavigation(targetSelector, configPath) {
 window.navManager = {
     loadNavigation,
     renderNavigation,
+    getTopNavItems: buildTopNavItems,
     resolveViewsPrefix,
     getTopNavHTML
 };
@@ -183,5 +214,7 @@ document.addEventListener('click', (e) => {
 
     // Navigate immediately without delay
     e.preventDefault();
-    window.location.href = targetUrl.href;
+    if (!tryShellNavigation(targetUrl.href)) {
+        window.location.href = targetUrl.href;
+    }
 });

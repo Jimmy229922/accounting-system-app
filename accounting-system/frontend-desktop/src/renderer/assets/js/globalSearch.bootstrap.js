@@ -1167,10 +1167,20 @@ class GlobalSearch {
             
             switch (type) {
                 case 'customer':
-                    window.location.href = `${basePath}/customer-reports/index.html?customerId=${id}`;
+                    {
+                        const target = `${basePath}/customer-reports/index.html?customerId=${id}`;
+                        if (!window.__navigateWithinShell || !window.__navigateWithinShell(target)) {
+                            window.location.href = target;
+                        }
+                    }
                     break;
                 case 'supplier':
-                    window.location.href = `${basePath}/reports/debtor-creditor/index.html?supplierId=${id}`;
+                    {
+                        const target = `${basePath}/reports/debtor-creditor/index.html?supplierId=${id}`;
+                        if (!window.__navigateWithinShell || !window.__navigateWithinShell(target)) {
+                            window.location.href = target;
+                        }
+                    }
                     break;
             }
         }

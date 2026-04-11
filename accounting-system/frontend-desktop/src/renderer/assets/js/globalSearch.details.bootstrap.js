@@ -773,7 +773,9 @@
         }
 
         this.close();
-        window.location.href = target;
+        if (!window.__navigateWithinShell || !window.__navigateWithinShell(target)) {
+            window.location.href = target;
+        }
     }
     });
 })();

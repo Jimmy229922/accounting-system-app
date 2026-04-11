@@ -13,6 +13,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const openingBalanceRender = window.openingBalancePageRender;
     const openingBalanceUtils = window.openingBalancePageUtils;
     const normalizePossiblyMojibake = openingBalanceUtils.normalizePossiblyMojibake;
+    const isInsideShellFrame = (() => {
+        try {
+            if (window.frameElement && window.frameElement.id === 'shellFrame') return true;
+            return Boolean(window.top && window.top !== window && typeof window.top.__shellNavigate === 'function');
+        } catch (_err) {
+            return false;
+        }
+    })();
     
     // Initialize
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
@@ -21,7 +29,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Render nav first (before loadData which may fail)
     const nav = document.getElementById('main-nav');
-    if (nav) nav.innerHTML = buildTopNavHTML();
+    if (nav) {
+        if (isInsideShellFrame) {
+            nav.style.display = 'none';
+            nav.classList.remove('top-nav');
+        } else {
+            nav.innerHTML = buildTopNavHTML();
+        }
+    }
 
     // Apply i18n to DOM
     openingBalanceUtils.applyI18nToDOM(t);
@@ -32,6 +47,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     function buildTopNavHTML() {
+        if (isInsideShellFrame) {
+            return '';
+        }
+
         if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
             return window.navManager.getTopNavHTML(t, { wrap: false });
         }
