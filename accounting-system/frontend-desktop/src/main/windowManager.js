@@ -1,8 +1,10 @@
 const { app, BrowserWindow, dialog, ipcMain, screen } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const { db } = require('./db');
 const { INVITE_CODE, getMachineId, generateActivationCode } = require('./inviteConfig');
-const appIconPath = process.execPath;
+const customIconPath = path.join(__dirname, 'assets/icon.ico');
+const appIconPath = (!app.isPackaged && fs.existsSync(customIconPath)) ? customIconPath : process.execPath;
 
 let mainWindow = null;
 let inviteWindow = null;

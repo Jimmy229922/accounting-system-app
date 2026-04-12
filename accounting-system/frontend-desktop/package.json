@@ -13,7 +13,13 @@
     "appId": "com.accountingsystem.app",
     "productName": "Accounting System",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "src/main/assets/icon.ico"
+    },
+    "nsis": {
+      "installerIcon": "src/main/assets/icon.ico",
+      "uninstallerIcon": "src/main/assets/icon.ico",
+      "installerHeaderIcon": "src/main/assets/icon.ico"
     },
     "directories": {
       "output": "dist"

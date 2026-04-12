@@ -41,42 +41,18 @@
                         ${renderStatsCards()}
                     </div>
 
-                    <div class="receipt-layout">
-                        <div class="form-card receipt-form-card">
-                            <div class="card-header">
-                                <i class="fas fa-file-invoice-dollar"></i>
-                                <div>
-                                    <h2>${text('formTitle')}</h2>
-                                    <p class="card-subtitle">${text('formSubtitle')}</p>
-                                </div>
-                            </div>
-
-                            <form id="${config.ids.form}" class="receipt-form">
-                                <div class="receipt-form-layout">
-                                    <div class="voucher-panel voucher-meta-panel">
-                                        <div class="voucher-panel-head">
-                                            <i class="fas fa-receipt"></i>
-                                            <span>${text('voucherInfo')}</span>
-                                        </div>
-                                        <div class="compact-meta-grid">
-                                            <div class="form-group compact-field">
-                                                <label><i class="fas fa-calendar"></i> ${text('dateLabel')}</label>
-                                                <input type="date" id="date" class="form-control" required>
-                                            </div>
-                                            <div class="form-group compact-field">
-                                                <label><i class="fas fa-receipt"></i> ${text('numberLabel')}</label>
-                                                <div class="voucher-search-wrapper">
-                                                    <input type="text" id="${config.ids.voucherInput}" class="form-control" list="voucherSuggestions" placeholder="${text('autoPlaceholder')}" autocomplete="off">
-                                                    <datalist id="voucherSuggestions"></datalist>
-                                                    <button type="button" class="btn-voucher-search" id="voucherSearchBtn" title="${text('searchVoucher')}">
-                                                        <i class="fas fa-search"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div id="voucherSearchResult" class="voucher-search-result" style="display:none;"></div>
+                    <form id="${config.ids.form}" class="receipt-form">
+                        <div class="receipt-layout">
+                            <div class="form-card receipt-form-card">
+                                <div class="card-header">
+                                    <i class="fas fa-file-invoice-dollar"></i>
+                                    <div>
+                                        <h2>${text('formTitle')}</h2>
+                                        <p class="card-subtitle">${text('formSubtitle')}</p>
                                     </div>
+                                </div>
 
+                                <div class="receipt-form-layout">
                                     <div class="voucher-panel voucher-details-panel">
                                         <div class="voucher-panel-head">
                                             <i class="fas fa-user-check"></i>
@@ -132,27 +108,51 @@
                                     <i class="fas fa-save"></i>
                                     ${text('submitBtn')}
                                 </button>
-                            </form>
-                        </div>
+                            </div>
 
-                        <div class="receipt-side-stack">
-                            <div class="info-card receipt-info-card" id="${config.ids.entityCard}">
-                                <div class="placeholder-card">
-                                    <i class="fas ${config.entity.placeholderIcon}"></i>
-                                    <p>${text('selectEntityPrompt')}</p>
+                            <div class="receipt-side-stack">
+                                <div class="voucher-panel voucher-meta-panel">
+                                    <div class="voucher-panel-head">
+                                        <i class="fas fa-receipt"></i>
+                                        <span>${text('voucherInfo')}</span>
+                                    </div>
+                                    <div class="compact-meta-grid">
+                                        <div class="form-group compact-field">
+                                            <label><i class="fas fa-calendar"></i> ${text('dateLabel')}</label>
+                                            <input type="date" id="date" class="form-control" required>
+                                        </div>
+                                        <div class="form-group compact-field">
+                                            <label><i class="fas fa-receipt"></i> ${text('numberLabel')}</label>
+                                            <div class="voucher-search-wrapper">
+                                                <input type="text" id="${config.ids.voucherInput}" class="form-control" list="voucherSuggestions" placeholder="${text('autoPlaceholder')}" autocomplete="off">
+                                                <datalist id="voucherSuggestions"></datalist>
+                                                <button type="button" class="btn-voucher-search" id="voucherSearchBtn" title="${text('searchVoucher')}">
+                                                    <i class="fas fa-search"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="voucherSearchResult" class="voucher-search-result" style="display:none;"></div>
+                                </div>
+
+                                <div class="info-card receipt-info-card" id="${config.ids.entityCard}">
+                                    <div class="placeholder-card">
+                                        <i class="fas ${config.entity.placeholderIcon}"></i>
+                                        <p>${text('selectEntityPrompt')}</p>
+                                    </div>
+                                </div>
+
+                                <div class="info-card receipt-help-card">
+                                    <h3><i class="fas fa-lightbulb"></i> ${text('quickNotes')}</h3>
+                                    <ul>
+                                        <li>${config.quickNote1(tx)}</li>
+                                        <li>${text('quickNote2')}</li>
+                                        <li>${text('quickNote3')}</li>
+                                    </ul>
                                 </div>
                             </div>
-
-                            <div class="info-card receipt-help-card">
-                                <h3><i class="fas fa-lightbulb"></i> ${text('quickNotes')}</h3>
-                                <ul>
-                                    <li>${config.quickNote1(tx)}</li>
-                                    <li>${text('quickNote2')}</li>
-                                    <li>${text('quickNote3')}</li>
-                                </ul>
-                            </div>
                         </div>
-                    </div>
+                    </form>
 
                     <div class="recent-section">
                         <div class="section-header">
@@ -181,11 +181,11 @@
                       : text('balanceHintZero');
 
             card.innerHTML = `
+                <div class="entity-name">${entity.name}</div>
+                <div class="entity-type">${text('entityType')}</div>
                 <div class="entity-avatar ${config.entity.avatarClass}">
                     <i class="fas ${config.entity.icon}"></i>
                 </div>
-                <div class="entity-name">${entity.name}</div>
-                <div class="entity-type">${text('entityType')}</div>
                 ${
                     entity.phone || entity.address
                         ? `

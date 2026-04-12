@@ -678,8 +678,24 @@
     gap: 16px;
 }
 
+.receipt-side-stack .voucher-meta-panel .compact-meta-grid {
+    grid-template-columns: 1fr;
+}
+
 .receipt-info-card {
     min-height: 320px;
+}
+
+.receipt-info-card .entity-name {
+    margin-bottom: 2px;
+}
+
+.receipt-info-card .entity-type {
+    margin-bottom: 12px;
+}
+
+.receipt-info-card .entity-avatar {
+    margin: 0 auto 14px;
 }
 
 .receipt-help-card h3 {
@@ -718,12 +734,12 @@
 
 .customer-field-shell {
     border-radius: 10px;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .supplier-field-shell {
     border-radius: 10px;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .voucher-details-panel .receipt-amount-input,
@@ -746,12 +762,14 @@
     left: 18px;
     color: var(--accent-color);
     font-size: 0.95rem;
+    pointer-events: none;
 }
 
 .voucher-details-panel .supplier-field-shell i {
     left: 18px;
     color: var(--accent-color);
     font-size: 0.95rem;
+    pointer-events: none;
 }
 
 .voucher-details-panel .customer-field-shell .autocomplete-input,

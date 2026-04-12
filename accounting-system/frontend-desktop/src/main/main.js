@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
@@ -250,6 +250,9 @@ app.on('second-instance', () => {
 
 app.whenReady().then(() => {
     if (!gotTheLock) return;
+
+    // Remove the default app menu so Alt does not reveal a menu bar on Windows.
+    Menu.setApplicationMenu(null);
 
     // Run DB integrity check + startup backup
     const shouldContinue = runStartupChecks();

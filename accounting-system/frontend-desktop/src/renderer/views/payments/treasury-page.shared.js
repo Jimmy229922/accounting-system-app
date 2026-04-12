@@ -161,6 +161,7 @@
                 } else {
                     entityAutocomplete = new Autocomplete(select);
                 }
+                bindEntityAutocompleteClearHandler();
 
                 recentTransactions = transactions
                     .filter((tr) => tr.type === config.transactionType && tr.customer_id)
@@ -173,6 +174,38 @@
                 showToast(text('toastLoadError'), 'error');
             }
         }
+
+        function bindEntityAutocompleteClearHandler() {
+            const select = document.getElementById(config.ids.entitySelect);
+            const entityInput = entityAutocomplete?.input;
+            if (!select || !entityInput) return;
+
+            if (entityInput.dataset.clearSelectionBound === '1') return;
+            entityInput.dataset.clearSelectionBound = '1';
+
+            entityInput.addEventListener('input', () => {
+                if (entityInput.value.trim() !== '') return;
+                if (!select.value) return;
+
+                select.value = '';
+                handleEntityChange();
+            });
+
+            const shell = select.closest('.input-with-icon');
+            if (!shell) return;
+
+            shell.addEventListener('click', (event) => {
+                if (event.target.closest('.autocomplete-input')) return;
+                if (entityInput.disabled) return;
+
+                entityInput.focus();
+                if (entityAutocomplete) {
+                    const currentFilter = entityInput.value.trim().toLowerCase();
+                    entityAutocomplete.renderList(currentFilter);
+                }
+            });
+        }
+
         async function generateVoucherNumber() {
             try {
                 const result = await window.electronAPI.getNextTreasuryVoucherNumber(config.transactionType);
