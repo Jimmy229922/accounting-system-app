@@ -334,6 +334,38 @@ async function loadCustomers() {
     } else {
         salesState.customerAutocomplete = new Autocomplete(salesState.dom.customerSelect);
     }
+
+    bindCustomerAutocompleteClearHandler();
+}
+
+function bindCustomerAutocompleteClearHandler() {
+    const customerInput = salesState.customerAutocomplete?.input;
+    if (!customerInput || !salesState.dom.customerSelect) return;
+    if (customerInput.dataset.clearSelectionBound === '1') return;
+
+    customerInput.dataset.clearSelectionBound = '1';
+    customerInput.addEventListener('input', () => {
+        if (customerInput.value.trim() !== '') return;
+        if (!salesState.dom.customerSelect.value) return;
+
+        salesState.dom.customerSelect.value = '';
+        salesState.dom.customerSelect.dispatchEvent(new Event('change'));
+    });
+
+    const reopenCustomerList = () => {
+        if (!salesState.customerAutocomplete || customerInput.disabled) return;
+        if (!salesState.dom.customerSelect.value) return;
+
+        // Autocomplete has its own focus/click handlers; defer so full list wins.
+        setTimeout(() => {
+            if (!salesState.customerAutocomplete || customerInput.disabled) return;
+            if (!salesState.dom.customerSelect.value) return;
+            salesState.customerAutocomplete.renderList('');
+        }, 70);
+    };
+
+    customerInput.addEventListener('focus', reopenCustomerList);
+    customerInput.addEventListener('click', reopenCustomerList);
 }
 
 async function loadInvoiceNumberSuggestions() {

@@ -5,25 +5,51 @@
 }
 
 .sales-page-header {
-    margin-bottom: 22px;
+    margin-bottom: 24px;
 }
 
 .sales-title-wrap {
-    display: grid;
-    gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.page-title-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--accent-color);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="dark"] .page-title-icon {
+    background: rgba(37, 99, 235, 0.2);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+}
+
+.sales-title-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .page-title {
     margin: 0;
-    font-size: 1.85rem;
+    font-size: 2rem;
     color: var(--primary-color);
-    font-weight: 800;
+    font-weight: 900;
+    letter-spacing: -0.5px;
 }
 
 .sales-subtitle {
     margin: 0;
     color: var(--text-muted);
-    font-size: 0.96rem;
+    font-size: 1rem;
+    font-weight: 500;
 }
 
 .invoice-form-container {
@@ -90,11 +116,16 @@
 .form-group label {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     margin-bottom: 8px;
     color: var(--text-color);
     font-weight: 700;
     font-size: 0.92rem;
+}
+
+.form-group label svg {
+    color: var(--accent-color);
+    opacity: 0.8;
 }
 
 .form-control {
@@ -107,13 +138,18 @@
     padding: 10px 12px;
     font-size: 0.96rem;
     box-sizing: border-box;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .form-control:focus {
     border-color: var(--accent-color);
     outline: none;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15), 0 0 12px rgba(37, 99, 235, 0.1);
+    background: var(--bg-color);
+}
+
+[data-theme="dark"] .form-control:focus {
+    box-shadow: 0 0 0 3px rgba(112, 181, 255, 0.2), 0 0 15px rgba(112, 181, 255, 0.15);
 }
 
 #invoiceNumber[readonly] {
@@ -123,12 +159,16 @@
 }
 
 .customer-balance {
-    margin-top: 10px;
-    border: 1px dashed var(--card-border);
-    border-radius: 10px;
-    padding: 8px 10px;
-    font-size: 0.88rem;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.82rem;
     font-weight: 700;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    box-shadow: 0 2px 4px var(--shadow-color);
 }
 
 .customer-balance.balance-positive {
@@ -206,16 +246,22 @@
 }
 
 .items-table th {
-    padding: 12px 10px;
+    padding: 14px 10px;
     text-align: center;
-    font-size: 0.86rem;
-    color: var(--text-color);
-    background: var(--table-header-bg);
-    border-bottom: 1px solid var(--table-border);
+    font-size: 0.88rem;
+    color: var(--primary-color);
+    background: rgba(37, 99, 235, 0.05);
+    border-bottom: 2px solid rgba(37, 99, 235, 0.15);
     font-weight: 800;
     position: sticky;
     top: 0;
     z-index: 2;
+}
+
+[data-theme="dark"] .items-table th {
+    background: rgba(37, 99, 235, 0.1);
+    border-bottom: 2px solid rgba(37, 99, 235, 0.25);
+    color: var(--text-color);
 }
 
 .items-table td {
@@ -228,7 +274,11 @@
     border-bottom: none;
 }
 
-.items-table tr:hover {
+.items-table tbody tr:nth-child(even) {
+    background: rgba(148, 163, 184, 0.03);
+}
+
+.items-table tbody tr:hover {
     background: rgba(37, 99, 235, 0.08);
 }
 
@@ -325,18 +375,23 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: 8px;
-    border: 1px solid rgba(239, 68, 68, 0.45);
-    color: var(--danger-color);
-    background: rgba(239, 68, 68, 0.1);
+    border: none;
+    color: var(--text-muted);
+    background: transparent;
     cursor: pointer;
-    transition: transform 0.15s ease, background 0.2s ease;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
 }
 
 .remove-row:hover {
-    transform: scale(1.07);
+    transform: scale(1.05);
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger-color);
+}
+
+[data-theme="dark"] .remove-row:hover {
     background: rgba(239, 68, 68, 0.2);
 }
 
@@ -361,7 +416,9 @@
 
 #invoiceNotes {
     min-height: 118px;
-    resize: vertical;
+    max-height: 140px;
+    resize: none;
+    overflow-y: auto;
 }
 
 .total-row {

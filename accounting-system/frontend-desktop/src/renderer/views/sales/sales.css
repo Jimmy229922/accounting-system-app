@@ -434,7 +434,9 @@
 
 #invoiceNotes {
     min-height: 118px;
-    resize: vertical;
+    max-height: 140px;
+    resize: none;
+    overflow-y: auto;
 }
 
 .total-row {

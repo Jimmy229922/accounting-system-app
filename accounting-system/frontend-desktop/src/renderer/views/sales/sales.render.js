@@ -26,13 +26,10 @@
 
                     <div class="invoice-top-grid">
                         <div class="form-group">
-                            <div class="form-group-header">
-                                <label>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                    ${t('sales.customer', 'العميل')}
-                                </label>
-                                <div id="customerBalance" class="customer-balance" style="display: none;"></div>
-                            </div>
+                            <label>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                ${t('sales.customer', 'العميل')}
+                            </label>
                             <select id="customerSelect" class="form-control">
                                 <option value="">${t('sales.selectCustomer', 'اختر العميل')}</option>
                             </select>
@@ -71,6 +68,7 @@
                         <div class="items-section-head">
                             <div class="items-section-title-wrap">
                                 <h3 class="items-section-title">${t('sales.invoiceItems', 'أصناف الفاتورة')}</h3>
+                                <div id="customerBalance" class="customer-balance" style="display: none;"></div>
                                 <span id="selectedItemAvailability" class="selected-item-availability"></span>
                             </div>
                             <button class="btn btn-outline" type="button" data-action="add-row">${t('sales.addItemBtn', '+ إضافة صنف')}</button>

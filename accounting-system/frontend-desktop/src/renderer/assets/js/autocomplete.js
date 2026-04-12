@@ -12,6 +12,7 @@ class Autocomplete {
     init() {
         // Hide original select
         this.selectElement.style.display = 'none';
+        this.useBodyPortal = this.selectElement.classList.contains('item-select');
 
         // Create wrapper
         this.wrapper = document.createElement('div');
@@ -29,7 +30,12 @@ class Autocomplete {
         // Create list container
         this.list = document.createElement('div');
         this.list.className = 'autocomplete-list';
-        this.wrapper.appendChild(this.list);
+        if (this.useBodyPortal) {
+            document.body.appendChild(this.list);
+            this.list.style.position = 'fixed';
+        } else {
+            this.wrapper.appendChild(this.list);
+        }
 
         // Event Listeners
         this.input.addEventListener('input', () => this.onInput());
@@ -48,7 +54,7 @@ class Autocomplete {
         
         // Close when clicking outside
         document.addEventListener('click', (e) => {
-            if (!this.wrapper.contains(e.target)) {
+            if (!this.wrapper.contains(e.target) && !this.list.contains(e.target)) {
                 this.closeList();
             }
         });
@@ -202,9 +208,46 @@ class Autocomplete {
         const inputRect = this.input.getBoundingClientRect();
         const windowHeight = window.innerHeight;
         
-        // Set fixed position based on input's viewport coordinates
-        this.list.style.left = `${inputRect.left}px`;
-        this.list.style.width = `${inputRect.width}px`;
+        // Remove manual positioning attributes
+        this.list.style.left = '';
+        this.list.style.width = '';
+        this.list.style.top = '';
+        this.list.style.bottom = '';
+
+        if (this.useBodyPortal) {
+            this.list.style.left = `${inputRect.left}px`;
+            this.list.style.width = `${inputRect.width}px`;
+
+            const margin = 10;
+            const spaceBelow = windowHeight - inputRect.bottom - margin;
+            const spaceAbove = inputRect.top - margin;
+            const actualHeight = this.list.offsetHeight;
+
+            if (spaceBelow >= actualHeight) {
+                this.list.style.top = `${inputRect.bottom}px`;
+                this.list.style.bottom = 'auto';
+                return;
+            }
+
+            if (spaceAbove >= actualHeight) {
+                this.list.classList.add('autocomplete-list-top');
+                this.list.style.bottom = `${windowHeight - inputRect.top}px`;
+                this.list.style.top = 'auto';
+                return;
+            }
+
+            if (spaceAbove > spaceBelow) {
+                this.list.classList.add('autocomplete-list-top');
+                this.list.style.bottom = `${windowHeight - inputRect.top}px`;
+                this.list.style.top = 'auto';
+                this.list.style.maxHeight = `${Math.max(100, spaceAbove)}px`;
+            } else {
+                this.list.style.top = `${inputRect.bottom}px`;
+                this.list.style.bottom = 'auto';
+                this.list.style.maxHeight = `${Math.max(100, spaceBelow)}px`;
+            }
+            return;
+        }
         
         // Calculate available space
         const margin = 10;
@@ -217,28 +260,20 @@ class Autocomplete {
         // Logic to determine position:
         // 1. If it fits perfectly below, keep it below.
         if (spaceBelow >= actualHeight) {
-            this.list.style.top = `${inputRect.bottom}px`;
-            this.list.style.bottom = 'auto';
             return;
         }
 
         // 2. If it fits perfectly above (and not below), move it top.
         if (spaceAbove >= actualHeight) {
             this.list.classList.add('autocomplete-list-top');
-            this.list.style.bottom = `${windowHeight - inputRect.top}px`;
-            this.list.style.top = 'auto';
             return;
         }
 
         // 3. If it fits neither, choose the side with MORE space and restrict height.
         if (spaceAbove > spaceBelow) {
             this.list.classList.add('autocomplete-list-top');
-            this.list.style.bottom = `${windowHeight - inputRect.top}px`;
-            this.list.style.top = 'auto';
             this.list.style.maxHeight = `${Math.max(100, spaceAbove)}px`;
         } else {
-            this.list.style.top = `${inputRect.bottom}px`;
-            this.list.style.bottom = 'auto';
             this.list.style.maxHeight = `${Math.max(100, spaceBelow)}px`;
         }
     }

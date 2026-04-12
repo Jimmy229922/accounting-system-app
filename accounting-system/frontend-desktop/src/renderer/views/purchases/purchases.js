@@ -336,6 +336,37 @@ async function loadSuppliers() {
     } else {
         purchasesState.supplierAutocomplete = new Autocomplete(purchasesState.dom.supplierSelect);
     }
+
+    bindSupplierAutocompleteClearHandler();
+}
+
+function bindSupplierAutocompleteClearHandler() {
+    const supplierInput = purchasesState.supplierAutocomplete?.input;
+    if (!supplierInput || !purchasesState.dom.supplierSelect) return;
+    if (supplierInput.dataset.clearSelectionBound === '1') return;
+
+    supplierInput.dataset.clearSelectionBound = '1';
+    supplierInput.addEventListener('input', () => {
+        if (supplierInput.value.trim() !== '') return;
+        if (!purchasesState.dom.supplierSelect.value) return;
+
+        purchasesState.dom.supplierSelect.value = '';
+        purchasesState.dom.supplierSelect.dispatchEvent(new Event('change'));
+    });
+
+    const reopenSupplierList = () => {
+        if (!purchasesState.supplierAutocomplete || supplierInput.disabled) return;
+        if (!purchasesState.dom.supplierSelect.value) return;
+
+        setTimeout(() => {
+            if (!purchasesState.supplierAutocomplete || supplierInput.disabled) return;
+            if (!purchasesState.dom.supplierSelect.value) return;
+            purchasesState.supplierAutocomplete.renderList('');
+        }, 70);
+    };
+
+    supplierInput.addEventListener('focus', reopenSupplierList);
+    supplierInput.addEventListener('click', reopenSupplierList);
 }
 
 async function loadInvoiceNumberSuggestions() {
@@ -381,7 +412,7 @@ async function displaySupplierBalance() {
         balanceDiv.textContent = t('purchases.balanceCurrentSettled', 'الرصيد الحالي: متزن');
     }
 
-    balanceDiv.style.display = 'block';
+    balanceDiv.style.display = 'inline-flex';
 }
 
 function clearSelectedItemAvailability() {

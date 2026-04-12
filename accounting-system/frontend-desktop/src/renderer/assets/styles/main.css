@@ -3,8 +3,8 @@
 
 html {
     overflow-y: scroll; /* Prevent layout shift (shaking) when scrollbar appears/disappears */
-    scrollbar-gutter: stable;
     background-color: var(--bg-color, #f4f6fb); /* Fallback prevents white flash before theme vars load */
+    direction: ltr; /* Force scrollbar to the right */
 }
 
 body {
@@ -14,6 +14,11 @@ body {
     background-color: var(--bg-color, #f4f6fb);
     color: var(--text-color);
     min-height: 100vh;
+    direction: ltr; /* Keep viewport scrollbar on the right */
+}
+
+body > * {
+    direction: rtl; /* Keep page content layout right-to-left */
 }
 
 #app {
@@ -137,6 +142,11 @@ table td {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    direction: ltr; /* Force scrollbar to the right */
+}
+
+.content > * {
+    direction: rtl; /* Revert layout to right-to-left for content */
 }
 
 header {

@@ -7,8 +7,13 @@
         <div class="content sales-content">
             <div class="sales-page-header">
                 <div class="sales-title-wrap">
-                    <h1 class="page-title">${t('purchases.pageTitle', 'فواتير المشتريات')}</h1>
-                    <p class="sales-subtitle">${t('purchases.subtitle', 'ترتيب واضح وسريع لتسجيل الفاتورة ومراجعة الإجمالي قبل الحفظ.')}</p>
+                    <div class="page-title-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    </div>
+                    <div class="sales-title-text">
+                        <h1 class="page-title">${t('purchases.pageTitle', 'فواتير المشتريات')}</h1>
+                        <p class="sales-subtitle">${t('purchases.subtitle', 'ترتيب واضح وسريع لتسجيل الفاتورة ومراجعة الإجمالي قبل الحفظ.')}</p>
+                    </div>
                 </div>
             </div>
 
@@ -21,26 +26,37 @@
 
                     <div class="invoice-top-grid">
                         <div class="form-group">
-                            <label>${t('purchases.supplier', 'المورد')}</label>
+                            <label>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                ${t('purchases.supplier', 'المورد')}
+                            </label>
                             <select id="supplierSelect" class="form-control">
                                 <option value="">${t('purchases.selectSupplier', 'اختر المورد')}</option>
                             </select>
-                            <div id="supplierBalance" class="customer-balance" style="display: none;"></div>
                         </div>
 
                         <div class="form-group">
-                            <label>${t('purchases.invoiceNumber', 'رقم الفاتورة')}</label>
+                            <label>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                ${t('purchases.invoiceNumber', 'رقم الفاتورة')}
+                            </label>
                             <input type="text" id="invoiceNumber" class="form-control" list="invoiceSuggestions" placeholder="${t('purchases.autoNumber', 'تلقائي')}" autocomplete="off">
                             <datalist id="invoiceSuggestions"></datalist>
                         </div>
 
                         <div class="form-group">
-                            <label>${t('purchases.invoiceDate', 'تاريخ الفاتورة')}</label>
+                            <label>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                ${t('purchases.invoiceDate', 'تاريخ الفاتورة')}
+                            </label>
                             <input type="date" id="invoiceDate" class="form-control">
                         </div>
 
                         <div class="form-group">
-                            <label>${t('purchases.paymentType', 'طريقة الدفع')}</label>
+                            <label>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                                ${t('purchases.paymentType', 'طريقة الدفع')}
+                            </label>
                             <select id="paymentType" class="form-control">
                                 <option value="cash">${t('purchases.paymentCash', 'كاش (نقدي)')}</option>
                                 <option value="credit" selected>${t('purchases.paymentCredit', 'آجل (ذمم)')}</option>
@@ -52,6 +68,7 @@
                         <div class="items-section-head">
                             <div class="items-section-title-wrap">
                                 <h3 class="items-section-title">${t('purchases.invoiceItems', 'أصناف الفاتورة')}</h3>
+                                <div id="supplierBalance" class="customer-balance" style="display: none;"></div>
                                 <span id="selectedItemAvailability" class="selected-item-availability"></span>
                             </div>
                             <button class="btn btn-outline" type="button" data-action="add-row">${t('purchases.addItemBtn', '+ إضافة صنف')}</button>
@@ -176,7 +193,9 @@
             <span class="row-total">${total.toFixed(2)}</span>
         </td>
         <td>
-            <span class="remove-row" data-action="remove-row">×</span>
+            <button class="remove-row" type="button" data-action="remove-row" title="${t('purchases.removeRow', 'حذف الصنف')}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            </button>
         </td>
     `;
 
