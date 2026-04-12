@@ -60,6 +60,14 @@
     --input-focus-ring: rgba(37, 99, 235, 0.2); 
     --table-header-bg: #f3f6fb;
     --table-hover-bg: rgba(37, 99, 235, 0.04);
+   --control-height: 44px;
+   --radius-sm: 10px;
+   --radius-md: 12px;
+   --radius-lg: 16px;
+   --elevation-sm: 0 6px 20px rgba(15, 23, 42, 0.08);
+   --elevation-md: 0 12px 30px rgba(15, 23, 42, 0.12);
+   --elevation-lg: 0 20px 50px rgba(15, 23, 42, 0.16);
+   --focus-outline: rgba(37, 99, 235, 0.35);
 
     /* =========================================================================
        7. GRADIENTS (Unified Palette)

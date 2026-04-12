@@ -59,6 +59,14 @@
     --input-focus-ring: rgba(112, 181, 255, 0.15);
     --table-header-bg: #131b2e;
     --table-hover-bg: rgba(112, 181, 255, 0.08);
+    --control-height: 44px;
+    --radius-sm: 10px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --elevation-sm: 0 6px 20px rgba(0, 0, 0, 0.32);
+    --elevation-md: 0 12px 30px rgba(0, 0, 0, 0.42);
+    --elevation-lg: 0 20px 50px rgba(0, 0, 0, 0.5);
+    --focus-outline: rgba(112, 181, 255, 0.42);
 
     /* =========================================================================
        7. GRADIENTS (Dashboard & Cards - Optimized contrast for Dark)

@@ -144,6 +144,39 @@
 - `frontend-desktop/src/renderer/assets/js/shared/navManager.js`
 - `frontend-desktop/src/renderer/assets/js/permissionManager.js`
 
+### UI Consistency Layer (2026-04-12)
+
+- تم تطبيق طبقة توحيد UI مشتركة بدون أي تعديل في منطق الأعمال على الملفات التالية:
+   - `frontend-desktop/src/renderer/assets/styles/main.css`
+   - `frontend-desktop/src/renderer/assets/styles/themes/light.css`
+   - `frontend-desktop/src/renderer/assets/styles/themes/dark.css`
+   - `frontend-desktop/src/renderer/css/navbar.css`
+   - `frontend-desktop/src/renderer/views/shell/shell.css`
+- وتم تعزيز الاتساق البصري داخل الصفحات التشغيلية الأساسية بإضافة نفس الطبقة في:
+   - `views/sales/sales.css`
+   - `views/purchases/purchases.css`
+   - `views/sales-returns/sales-returns.css`
+   - `views/purchase-returns/purchase-returns.css`
+   - `views/payments/payments.css`
+   - `views/reports/reports.css`
+   - `views/settings/settings.css`
+   - `views/dashboard/dashboard.css`
+- وتم استكمال التغطية لباقي صفحات `views` بنفس طبقة الاتساق في:
+   - `views/customers/customers.css`
+   - `views/items/items.css`
+   - `views/items/units.css`
+   - `views/inventory/inventory.css`
+   - `views/opening-balance/opening-balance.css`
+   - `views/finance/finance.css`
+   - `views/customer-reports/customer-reports.css`
+   - `views/reports/debtor-creditor/debtor-creditor.css`
+   - `views/search/search.css`
+   - `views/auth/auth.css`
+   - `views/auth-users/auth-users.css`
+   - `views/invite/invite.css`
+   - `views/shell/shell.css`
+- نطاق التغيير: تحسينات CSS فقط (focus states, controls, buttons, cards, tables, responsive spacing)، بدون تعديل IPC أو DB أو صلاحيات.
+
 ---
 
 ## 7) جداول قاعدة البيانات (الحالي)
