@@ -432,6 +432,27 @@ function initDB() {
         )
     `);
 
+    // 19. Damaged Stock Logs Table (جدول التالف)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS damaged_stock_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_id INTEGER NOT NULL,
+            warehouse_id INTEGER,
+            quantity REAL NOT NULL,
+            reason TEXT NOT NULL,
+            batch_no TEXT,
+            expiry_date TEXT,
+            notes TEXT,
+            damaged_date TEXT DEFAULT CURRENT_DATE,
+            cost_price REAL DEFAULT 0,
+            loss_amount REAL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT,
+            FOREIGN KEY (item_id) REFERENCES items(id),
+            FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)
+        )
+    `);
+
     // ── Performance Indexes ──
     db.exec(`CREATE INDEX IF NOT EXISTS idx_items_unit_id ON items(unit_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_items_is_deleted ON items(is_deleted)`);
@@ -462,6 +483,9 @@ function initDB() {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_opening_balances_item_id ON opening_balances(item_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_opening_balances_warehouse_id ON opening_balances(warehouse_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_user_permissions_user_id ON user_permissions(user_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_damaged_stock_logs_item_id ON damaged_stock_logs(item_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_damaged_stock_logs_warehouse_id ON damaged_stock_logs(warehouse_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_damaged_stock_logs_damaged_date ON damaged_stock_logs(damaged_date)`);
 
     // ── Data Safety Guard Rails ──
     db.exec(`
@@ -481,6 +505,26 @@ function initDB() {
         WHEN NEW.stock_quantity < 0
         BEGIN
             SELECT RAISE(ABORT, 'negative stock_quantity is not allowed');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_damaged_stock_logs_positive_quantity_insert
+        BEFORE INSERT ON damaged_stock_logs
+        FOR EACH ROW
+        WHEN NEW.quantity <= 0
+        BEGIN
+            SELECT RAISE(ABORT, 'damaged quantity must be greater than zero');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_damaged_stock_logs_positive_quantity_update
+        BEFORE UPDATE OF quantity ON damaged_stock_logs
+        FOR EACH ROW
+        WHEN NEW.quantity <= 0
+        BEGIN
+            SELECT RAISE(ABORT, 'damaged quantity must be greater than zero');
         END
     `);
 

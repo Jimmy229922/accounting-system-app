@@ -43,6 +43,58 @@ function register() {
         }
     });
 
+    const getActiveItemStmt = db.prepare(`
+        SELECT id, name, stock_quantity, cost_price
+        FROM items
+        WHERE id = ? AND is_deleted = 0
+    `);
+    const getWarehouseByIdStmt = db.prepare('SELECT id, name FROM warehouses WHERE id = ?');
+    const insertDamagedStockStmt = db.prepare(`
+        INSERT INTO damaged_stock_logs (
+            item_id,
+            warehouse_id,
+            quantity,
+            reason,
+            batch_no,
+            expiry_date,
+            notes,
+            damaged_date,
+            cost_price,
+            loss_amount
+        )
+        VALUES (
+            @item_id,
+            @warehouse_id,
+            @quantity,
+            @reason,
+            @batch_no,
+            @expiry_date,
+            @notes,
+            @damaged_date,
+            @cost_price,
+            @loss_amount
+        )
+    `);
+    const updateDamagedStockStmt = db.prepare(`
+        UPDATE damaged_stock_logs
+        SET item_id = @item_id,
+            warehouse_id = @warehouse_id,
+            quantity = @quantity,
+            reason = @reason,
+            batch_no = @batch_no,
+            expiry_date = @expiry_date,
+            notes = @notes,
+            damaged_date = @damaged_date,
+            cost_price = @cost_price,
+            loss_amount = @loss_amount,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = @id
+    `);
+    const getDamagedByIdStmt = db.prepare('SELECT * FROM damaged_stock_logs WHERE id = ?');
+    const deleteDamagedByIdStmt = db.prepare('DELETE FROM damaged_stock_logs WHERE id = ?');
+    const decreaseStockStmt = db.prepare('UPDATE items SET stock_quantity = stock_quantity - ? WHERE id = ?');
+    const increaseStockStmt = db.prepare('UPDATE items SET stock_quantity = stock_quantity + ? WHERE id = ?');
+
     // Add a new item
     ipcMain.handle('add-item', (event, item) => {
         const denied = requirePermission('items', 'add');
@@ -126,6 +178,275 @@ function register() {
             // Hard delete if no references
             const stmt = db.prepare('DELETE FROM items WHERE id = ?');
             stmt.run(id);
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Damaged stock log list
+    ipcMain.handle('get-damaged-stock-entries', (event, filters = {}) => {
+        const denied = requirePermission('inventory', 'view');
+        if (denied) return denied;
+
+        try {
+            const conditions = [];
+            const params = [];
+
+            const itemId = Number(filters.item_id);
+            if (Number.isFinite(itemId) && itemId > 0) {
+                conditions.push('d.item_id = ?');
+                params.push(itemId);
+            }
+
+            const fromDate = String(filters.from_date || '').trim();
+            if (fromDate) {
+                conditions.push('d.damaged_date >= ?');
+                params.push(fromDate);
+            }
+
+            const toDate = String(filters.to_date || '').trim();
+            if (toDate) {
+                conditions.push('d.damaged_date <= ?');
+                params.push(toDate);
+            }
+
+            const search = String(filters.search || '').trim();
+            if (search) {
+                conditions.push("(i.name LIKE ? OR IFNULL(i.barcode, '') LIKE ? OR IFNULL(d.reason, '') LIKE ? OR IFNULL(d.batch_no, '') LIKE ?)");
+                const likeTerm = `%${search}%`;
+                params.push(likeTerm, likeTerm, likeTerm, likeTerm);
+            }
+
+            const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+            const rows = db.prepare(`
+                SELECT
+                    d.*,
+                    i.name AS item_name,
+                    i.barcode AS item_barcode,
+                    u.name AS unit_name,
+                    w.name AS warehouse_name
+                FROM damaged_stock_logs d
+                JOIN items i ON d.item_id = i.id
+                LEFT JOIN units u ON i.unit_id = u.id
+                LEFT JOIN warehouses w ON d.warehouse_id = w.id
+                ${whereClause}
+                ORDER BY d.damaged_date DESC, d.id DESC
+            `).all(...params);
+
+            const stats = rows.reduce((acc, row) => {
+                acc.totalQuantity += Number(row.quantity) || 0;
+                acc.totalLoss += Number(row.loss_amount) || 0;
+                return acc;
+            }, { count: rows.length, totalQuantity: 0, totalLoss: 0 });
+
+            return { success: true, entries: rows, stats };
+        } catch (error) {
+            console.error('[get-damaged-stock-entries] Error:', error);
+            return { success: false, error: error.message, entries: [], stats: { count: 0, totalQuantity: 0, totalLoss: 0 } };
+        }
+    });
+
+    // Add damaged stock entry (direct posting)
+    ipcMain.handle('add-damaged-stock-entry', (event, payload = {}) => {
+        const denied = requirePermission('inventory', 'add');
+        if (denied) return denied;
+
+        const itemId = Number(payload.item_id);
+        const quantity = Number(payload.quantity);
+        const reason = String(payload.reason || '').trim();
+        const warehouseId = payload.warehouse_id ? Number(payload.warehouse_id) : null;
+        const batchNo = String(payload.batch_no || '').trim() || null;
+        const expiryDate = String(payload.expiry_date || '').trim() || null;
+        const notes = String(payload.notes || '').trim() || null;
+        const damagedDate = String(payload.damaged_date || '').trim() || new Date().toISOString().slice(0, 10);
+
+        if (!Number.isFinite(itemId) || itemId <= 0) {
+            return { success: false, error: 'الصنف غير صالح.' };
+        }
+
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            return { success: false, error: 'الكمية يجب أن تكون أكبر من صفر.' };
+        }
+
+        if (!reason) {
+            return { success: false, error: 'سبب التالف مطلوب.' };
+        }
+
+        const item = getActiveItemStmt.get(itemId);
+        if (!item) {
+            return { success: false, error: 'الصنف غير موجود.' };
+        }
+
+        const availableStock = Number(item.stock_quantity) || 0;
+        if (quantity > availableStock) {
+            return { success: false, error: `الصنف "${item.name}": الكمية المطلوبة للتالف (${quantity}) أكبر من المتاح (${availableStock}).` };
+        }
+
+        let normalizedWarehouseId = null;
+        if (Number.isFinite(warehouseId) && warehouseId > 0) {
+            const warehouse = getWarehouseByIdStmt.get(warehouseId);
+            if (!warehouse) {
+                return { success: false, error: 'المخزن غير موجود.' };
+            }
+            normalizedWarehouseId = warehouse.id;
+        }
+
+        const costPrice = Number.isFinite(Number(payload.cost_price)) && Number(payload.cost_price) > 0
+            ? Number(payload.cost_price)
+            : (Number(item.cost_price) || 0);
+        const lossAmount = quantity * costPrice;
+
+        const tx = db.transaction(() => {
+            const info = insertDamagedStockStmt.run({
+                item_id: itemId,
+                warehouse_id: normalizedWarehouseId,
+                quantity,
+                reason,
+                batch_no: batchNo,
+                expiry_date: expiryDate,
+                notes,
+                damaged_date: damagedDate,
+                cost_price: costPrice,
+                loss_amount: lossAmount
+            });
+
+            decreaseStockStmt.run(quantity, itemId);
+            return Number(info.lastInsertRowid);
+        });
+
+        try {
+            const id = tx();
+            return { success: true, id };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Update damaged stock entry (admin only)
+    ipcMain.handle('update-damaged-stock-entry', (event, payload = {}) => {
+        const denied = requirePermission('__admin_only__', 'edit');
+        if (denied) return denied;
+
+        const id = Number(payload.id);
+        const itemId = Number(payload.item_id);
+        const quantity = Number(payload.quantity);
+        const reason = String(payload.reason || '').trim();
+        const warehouseId = payload.warehouse_id ? Number(payload.warehouse_id) : null;
+        const batchNo = String(payload.batch_no || '').trim() || null;
+        const expiryDate = String(payload.expiry_date || '').trim() || null;
+        const notes = String(payload.notes || '').trim() || null;
+        const damagedDate = String(payload.damaged_date || '').trim() || new Date().toISOString().slice(0, 10);
+
+        if (!Number.isFinite(id) || id <= 0) {
+            return { success: false, error: 'معرف سجل التالف غير صالح.' };
+        }
+
+        if (!Number.isFinite(itemId) || itemId <= 0) {
+            return { success: false, error: 'الصنف غير صالح.' };
+        }
+
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            return { success: false, error: 'الكمية يجب أن تكون أكبر من صفر.' };
+        }
+
+        if (!reason) {
+            return { success: false, error: 'سبب التالف مطلوب.' };
+        }
+
+        const existing = getDamagedByIdStmt.get(id);
+        if (!existing) {
+            return { success: false, error: 'سجل التالف غير موجود.' };
+        }
+
+        const nextItem = getActiveItemStmt.get(itemId);
+        if (!nextItem) {
+            return { success: false, error: 'الصنف غير موجود.' };
+        }
+
+        let normalizedWarehouseId = null;
+        if (Number.isFinite(warehouseId) && warehouseId > 0) {
+            const warehouse = getWarehouseByIdStmt.get(warehouseId);
+            if (!warehouse) {
+                return { success: false, error: 'المخزن غير موجود.' };
+            }
+            normalizedWarehouseId = warehouse.id;
+        }
+
+        const currentStock = Number(nextItem.stock_quantity) || 0;
+        const oldQty = Number(existing.quantity) || 0;
+
+        if (Number(existing.item_id) === itemId) {
+            const maxAllowed = currentStock + oldQty;
+            if (quantity > maxAllowed) {
+                return { success: false, error: `الصنف "${nextItem.name}": الكمية المطلوبة للتعديل (${quantity}) أكبر من المتاح (${maxAllowed}).` };
+            }
+        } else if (quantity > currentStock) {
+            return { success: false, error: `الصنف "${nextItem.name}": الكمية المطلوبة (${quantity}) أكبر من المتاح (${currentStock}).` };
+        }
+
+        const costPrice = Number.isFinite(Number(payload.cost_price)) && Number(payload.cost_price) > 0
+            ? Number(payload.cost_price)
+            : (Number(nextItem.cost_price) || 0);
+        const lossAmount = quantity * costPrice;
+
+        const tx = db.transaction(() => {
+            if (Number(existing.item_id) === itemId) {
+                if (quantity > oldQty) {
+                    decreaseStockStmt.run(quantity - oldQty, itemId);
+                } else if (quantity < oldQty) {
+                    increaseStockStmt.run(oldQty - quantity, itemId);
+                }
+            } else {
+                increaseStockStmt.run(oldQty, Number(existing.item_id));
+                decreaseStockStmt.run(quantity, itemId);
+            }
+
+            updateDamagedStockStmt.run({
+                id,
+                item_id: itemId,
+                warehouse_id: normalizedWarehouseId,
+                quantity,
+                reason,
+                batch_no: batchNo,
+                expiry_date: expiryDate,
+                notes,
+                damaged_date: damagedDate,
+                cost_price: costPrice,
+                loss_amount: lossAmount
+            });
+        });
+
+        try {
+            tx();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
+    // Delete damaged stock entry (admin only + restore quantity)
+    ipcMain.handle('delete-damaged-stock-entry', (event, id) => {
+        const denied = requirePermission('__admin_only__', 'delete');
+        if (denied) return denied;
+
+        const normalizedId = Number(id);
+        if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+            return { success: false, error: 'معرف سجل التالف غير صالح.' };
+        }
+
+        const existing = getDamagedByIdStmt.get(normalizedId);
+        if (!existing) {
+            return { success: false, error: 'سجل التالف غير موجود.' };
+        }
+
+        const tx = db.transaction(() => {
+            deleteDamagedByIdStmt.run(normalizedId);
+            increaseStockStmt.run(Number(existing.quantity) || 0, Number(existing.item_id));
+        });
+
+        try {
+            tx();
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -240,14 +561,32 @@ function register() {
                 ORDER BY ob.created_at DESC
             `).all(itemId);
 
+            // حركات التالف (صادر)
+            const damagedMovements = db.prepare(`
+                SELECT
+                    d.id,
+                    ('تالف-' || CAST(d.id AS TEXT)) as invoice_number,
+                    d.damaged_date as date,
+                    d.reason as party_name,
+                    d.quantity,
+                    d.cost_price as price,
+                    d.loss_amount as total_price,
+                    'damaged' as type,
+                    'صادر - تالف' as type_label
+                FROM damaged_stock_logs d
+                WHERE d.item_id = ?
+                ORDER BY d.damaged_date DESC
+            `).all(itemId);
+
             // دمج جميع الحركات وترتيبها بالتاريخ
-            const allMovements = [...purchases, ...sales, ...salesReturns, ...purchaseReturns, ...openingBalances]
+            const allMovements = [...purchases, ...sales, ...salesReturns, ...purchaseReturns, ...openingBalances, ...damagedMovements]
                 .sort((a, b) => new Date(b.date) - new Date(a.date));
 
             // حساب الإحصائيات
             const totalPurchased = purchases.reduce((sum, p) => sum + p.quantity, 0);
             const totalSold = sales.reduce((sum, s) => sum + s.quantity, 0);
             const totalOpening = openingBalances.reduce((sum, o) => sum + o.quantity, 0);
+            const totalDamaged = damagedMovements.reduce((sum, d) => sum + d.quantity, 0);
 
             return {
                 success: true,
@@ -257,9 +596,11 @@ function register() {
                     totalPurchased,
                     totalSold,
                     totalOpening,
+                    totalDamaged,
                     currentStock: item.stock_quantity || 0,
                     purchaseCount: purchases.length,
-                    salesCount: sales.length
+                    salesCount: sales.length,
+                    damagedCount: damagedMovements.length
                 }
             };
         } catch (error) {
@@ -363,12 +704,30 @@ function register() {
         if (startDate) { prQuery += ' AND pr.return_date >= ?'; prParams.push(startDate); }
         if (endDate) { prQuery += ' AND pr.return_date <= ?'; prParams.push(endDate); }
 
+        // damaged stock (out)
+        let damagedQuery = `
+            SELECT
+                'damaged' as type,
+                d.damaged_date as date,
+                ('DAM-' || CAST(d.id AS TEXT)) as ref,
+                0 as qty_in,
+                d.quantity as qty_out,
+                d.cost_price as price,
+                d.reason as party
+            FROM damaged_stock_logs d
+            WHERE d.item_id = ?
+        `;
+        const damagedParams = [itemId];
+        if (startDate) { damagedQuery += ' AND d.damaged_date >= ?'; damagedParams.push(startDate); }
+        if (endDate) { damagedQuery += ' AND d.damaged_date <= ?'; damagedParams.push(endDate); }
+
         const purchases = db.prepare(purchaseQuery).all(...purchaseParams);
         const sales = db.prepare(salesQuery).all(...salesParams);
         const salesReturns = db.prepare(srQuery).all(...srParams);
         const purchaseReturns = db.prepare(prQuery).all(...prParams);
+        const damaged = db.prepare(damagedQuery).all(...damagedParams);
 
-        const allTx = [...purchases, ...sales, ...salesReturns, ...purchaseReturns]
+        const allTx = [...purchases, ...sales, ...salesReturns, ...purchaseReturns, ...damaged]
             .sort((a, b) => new Date(a.date) - new Date(b.date));
 
         let balance = openingQty;

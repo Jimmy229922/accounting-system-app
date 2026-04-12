@@ -70,7 +70,7 @@
 | Purchases | `../purchases/index.html` | `purchases/index.html`, `purchases.css`, `purchases.js`, `purchases.api.js`, `purchases.events.js`, `purchases.render.js`, `purchases.state.js` | `getNextInvoiceNumber`, `getInvoiceWithDetails`, `getCustomers`, `getItems`, `getPurchaseInvoices`, `savePurchaseInvoice`, `updatePurchaseInvoice` | `handlers/purchases.js`, `handlers/invoices.js` | `purchases` |
 | Purchase Returns | `../purchase-returns/index.html` | `purchase-returns/index.html`, `purchase-returns.css`, `purchase-returns.js`, `purchase-returns.api.js`, `purchase-returns.bootstrap.js`, `purchase-returns.events.js`, `purchase-returns.render.js`, `purchase-returns.state.js` | `getNextInvoiceNumber`, `getCustomers`, `getSupplierPurchaseInvoices`, `getInvoiceItemsForReturn`, `savePurchaseReturn`, `updatePurchaseReturn`, `getPurchaseReturns`, `getPurchaseReturnDetails`, `deletePurchaseReturn` | `handlers/purchaseReturns.js`, `handlers/invoices.js` | `purchase-returns` |
 | Opening Balance | `../opening-balance/index.html` | `opening-balance/index.html`, `opening-balance.css`, `opening-balance.js`, `opening-balance.bootstrap.js`, `opening-balance.render.js`, `opening-balance.utils.js` | `getWarehouses`, `getItems`, `getOpeningBalances`, `addOpeningBalance`, `updateOpeningBalance`, `deleteOpeningBalance`, `addWarehouse`, `updateWarehouse`, `deleteWarehouse` | `handlers/openingBalances.js`, `handlers/warehouses.js`, `handlers/items.js` | `opening-balance` |
-| Inventory | `../inventory/index.html` | `inventory/index.html`, `inventory.css`, `inventory.js` | `getItems`, `getItemMovements` | `handlers/items.js` | `inventory` |
+| Inventory | `../inventory/index.html` | `inventory/index.html`, `inventory.css`, `inventory.js` | `getItems`, `getItemMovements`, `getWarehouses`, `getDamagedStockEntries`, `addDamagedStockEntry`, `updateDamagedStockEntry`, `deleteDamagedStockEntry`, `getMyPermissions` | `handlers/items.js`, `handlers/warehouses.js`, `handlers/auth.js` | `inventory` |
 | Finance | `../finance/index.html` | `finance/index.html`, `finance.css`, `finance.js` | `getTreasuryBalance`, `getTreasuryTransactions`, `addTreasuryTransaction`, `updateTreasuryTransaction`, `deleteTreasuryTransaction` | `handlers/treasury.js` | `finance` |
 | Receipt | `../payments/receipt.html` | `payments/receipt.html`, `payments.css`, `receipt.js`, `treasury-page.shared.js`, `treasury-page.renderer.js` | `getCustomers`, `getTreasuryTransactions`, `getNextTreasuryVoucherNumber`, `addTreasuryTransaction`, `searchTreasuryByVoucher` | `handlers/treasury.js`, `handlers/customers.js` | `treasury` |
 | Payment | `../payments/payment.html` | `payments/payment.html`, `payments.css`, `payment.js`, `treasury-page.shared.js`, `treasury-page.renderer.js` | `getCustomers`, `getTreasuryTransactions`, `getNextTreasuryVoucherNumber`, `addTreasuryTransaction`, `searchTreasuryByVoucher` | `handlers/treasury.js`, `handlers/customers.js` | `treasury` |
@@ -82,6 +82,8 @@
 | Search | `../search/index.html` | `search/index.html`, `search.css`, `search.js` | لا يوجد استهلاك مباشر لـ `electronAPI` في الملف الحالي | يعتمد على `globalSearch.js` | غير مربوط في `SHELL_HREF_TO_PERMISSION` |
 
 > ملاحظة: `search/search.js` فارغ حاليًا.
+
+> ملاحظة Inventory (2026-04-12): إدارة التالف داخل صفحة `inventory` تعمل كمودال داخلي يفتح بزر من شريط التحكم (`data-action="open-damaged-manager"`) وتغلق بزر الإغلاق أو النقر خارج المودال.
 
 ### Settings UI Structure (2026-04-12)
 
@@ -183,7 +185,7 @@
 
 ### جداول `db.js`
 
-`units`, `items`, `customers`, `suppliers`, `purchase_invoices`, `purchase_invoice_details`, `sales_invoices`, `sales_invoice_details`, `treasury_transactions`, `settings`, `warehouses`, `opening_balances`, `opening_balance_groups`, `sales_returns`, `sales_return_details`, `purchase_returns`, `purchase_return_details`, `user_permissions`
+`units`, `items`, `customers`, `suppliers`, `purchase_invoices`, `purchase_invoice_details`, `sales_invoices`, `sales_invoice_details`, `treasury_transactions`, `settings`, `warehouses`, `opening_balances`, `opening_balance_groups`, `sales_returns`, `sales_return_details`, `purchase_returns`, `purchase_return_details`, `damaged_stock_logs`, `user_permissions`
 
 ### جداول تُنشأ من `handlers/auth.js`
 
@@ -198,6 +200,8 @@
 - `opening_balances`: إضافة `group_id`.
 - Data Safety Guard Rails (في `frontend-desktop/src/main/db.js` و `backend/src/desktop-compat/db.js`):
    - Triggers تمنع `stock_quantity` السالب في `items`.
+   - جدول `damaged_stock_logs` لتسجيل التالف مع خصم/إرجاع المخزون عبر IPC في `handlers/items.js`.
+   - Triggers تمنع إدخال/تعديل كمية تالف أقل من أو تساوي صفر.
    - Triggers تمنع تكرار أرقام المستندات: `sales_invoices.invoice_number`, `purchase_invoices.invoice_number`, `sales_returns.return_number`, `purchase_returns.return_number`.
 
 ---
@@ -206,7 +210,7 @@
 
 - `handlers/auth.js`: المصادقة + المستخدمين + الصلاحيات + invite.
 - `handlers/units.js`: الوحدات.
-- `handlers/items.js`: الأصناف وحركات المخزون.
+- `handlers/items.js`: الأصناف وحركات المخزون + سجل التالف (إضافة/عرض/تعديل/حذف).
 - `handlers/customers.js`: العملاء + تقرير مدين/دائن.
 - `handlers/purchases.js`: فواتير الشراء.
 - `handlers/sales.js`: فواتير البيع.
