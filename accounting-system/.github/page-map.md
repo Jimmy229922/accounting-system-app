@@ -163,6 +163,9 @@
 - `sales_invoices` و `purchase_invoices`: حقول الخصم + `paid_amount` + `remaining_amount` + `payment_type`.
 - `treasury_transactions`: `customer_id`, `supplier_id`, `voucher_number` + trigger لتوليد رقم السند.
 - `opening_balances`: إضافة `group_id`.
+- Data Safety Guard Rails (في `frontend-desktop/src/main/db.js` و `backend/src/desktop-compat/db.js`):
+   - Triggers تمنع `stock_quantity` السالب في `items`.
+   - Triggers تمنع تكرار أرقام المستندات: `sales_invoices.invoice_number`, `purchase_invoices.invoice_number`, `sales_returns.return_number`, `purchase_returns.return_number`.
 
 ---
 

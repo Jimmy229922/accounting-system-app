@@ -463,6 +463,159 @@ function initDB() {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_opening_balances_warehouse_id ON opening_balances(warehouse_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_user_permissions_user_id ON user_permissions(user_id)`);
 
+    // ── Data Safety Guard Rails ──
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_items_non_negative_stock_insert
+        BEFORE INSERT ON items
+        FOR EACH ROW
+        WHEN NEW.stock_quantity < 0
+        BEGIN
+            SELECT RAISE(ABORT, 'negative stock_quantity is not allowed');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_items_non_negative_stock_update
+        BEFORE UPDATE OF stock_quantity ON items
+        FOR EACH ROW
+        WHEN NEW.stock_quantity < 0
+        BEGIN
+            SELECT RAISE(ABORT, 'negative stock_quantity is not allowed');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_sales_invoice_number_unique_insert
+        BEFORE INSERT ON sales_invoices
+        FOR EACH ROW
+        WHEN NEW.invoice_number IS NOT NULL
+          AND TRIM(NEW.invoice_number) != ''
+          AND EXISTS (
+              SELECT 1
+              FROM sales_invoices
+              WHERE TRIM(invoice_number) = TRIM(NEW.invoice_number)
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'duplicate sales invoice number');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_sales_invoice_number_unique_update
+        BEFORE UPDATE OF invoice_number ON sales_invoices
+        FOR EACH ROW
+        WHEN NEW.invoice_number IS NOT NULL
+          AND TRIM(NEW.invoice_number) != ''
+          AND EXISTS (
+              SELECT 1
+              FROM sales_invoices
+              WHERE TRIM(invoice_number) = TRIM(NEW.invoice_number)
+                AND id <> OLD.id
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'duplicate sales invoice number');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_purchase_invoice_number_unique_insert
+        BEFORE INSERT ON purchase_invoices
+        FOR EACH ROW
+        WHEN NEW.invoice_number IS NOT NULL
+          AND TRIM(NEW.invoice_number) != ''
+          AND EXISTS (
+              SELECT 1
+              FROM purchase_invoices
+              WHERE TRIM(invoice_number) = TRIM(NEW.invoice_number)
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'duplicate purchase invoice number');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_purchase_invoice_number_unique_update
+        BEFORE UPDATE OF invoice_number ON purchase_invoices
+        FOR EACH ROW
+        WHEN NEW.invoice_number IS NOT NULL
+          AND TRIM(NEW.invoice_number) != ''
+          AND EXISTS (
+              SELECT 1
+              FROM purchase_invoices
+              WHERE TRIM(invoice_number) = TRIM(NEW.invoice_number)
+                AND id <> OLD.id
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'duplicate purchase invoice number');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_sales_return_number_unique_insert
+        BEFORE INSERT ON sales_returns
+        FOR EACH ROW
+        WHEN NEW.return_number IS NOT NULL
+          AND TRIM(NEW.return_number) != ''
+          AND EXISTS (
+              SELECT 1
+              FROM sales_returns
+              WHERE TRIM(return_number) = TRIM(NEW.return_number)
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'duplicate sales return number');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_sales_return_number_unique_update
+        BEFORE UPDATE OF return_number ON sales_returns
+        FOR EACH ROW
+        WHEN NEW.return_number IS NOT NULL
+          AND TRIM(NEW.return_number) != ''
+          AND EXISTS (
+              SELECT 1
+              FROM sales_returns
+              WHERE TRIM(return_number) = TRIM(NEW.return_number)
+                AND id <> OLD.id
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'duplicate sales return number');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_purchase_return_number_unique_insert
+        BEFORE INSERT ON purchase_returns
+        FOR EACH ROW
+        WHEN NEW.return_number IS NOT NULL
+          AND TRIM(NEW.return_number) != ''
+          AND EXISTS (
+              SELECT 1
+              FROM purchase_returns
+              WHERE TRIM(return_number) = TRIM(NEW.return_number)
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'duplicate purchase return number');
+        END
+    `);
+
+    db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_purchase_return_number_unique_update
+        BEFORE UPDATE OF return_number ON purchase_returns
+        FOR EACH ROW
+        WHEN NEW.return_number IS NOT NULL
+          AND TRIM(NEW.return_number) != ''
+          AND EXISTS (
+              SELECT 1
+              FROM purchase_returns
+              WHERE TRIM(return_number) = TRIM(NEW.return_number)
+                AND id <> OLD.id
+          )
+        BEGIN
+            SELECT RAISE(ABORT, 'duplicate purchase return number');
+        END
+    `);
+
     console.log('Database initialized at:', dbPath);
 }
 
