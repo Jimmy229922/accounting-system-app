@@ -83,6 +83,41 @@
 
 > ملاحظة: `search/search.js` فارغ حاليًا.
 
+### Settings UI Structure (2026-04-12)
+
+- الصفحة `settings/index.html` (عبر `settings.js`) أصبحت مقسمة بصريًا داخل الفورم إلى 4 أقسام واضحة:
+   - بيانات المؤسسة
+   - الشعار
+   - العنوان
+   - ملاحظات الفاتورة
+- CSS Classes المضافة في `settings.css`:
+   - `.settings-sections`
+   - `.settings-subsection`
+   - `.subsection-title`
+   - `.subsection-title-main`
+   - `.subsection-title-sub`
+   - `.subsection-grid`
+   - `.btn-upload-meta`
+   - `.settings-save-bar`
+   - `.btn-save.is-saving`
+   - `.btn-save.is-success`
+   - `.btn-save.is-error`
+   - `.change-log-grid`
+   - `.change-log-row`
+   - `.change-log-label`
+   - `.change-log-value`
+   - `.btn-save.has-unsaved`
+- سلوك إضافي في `settings.js`:
+   - سجل تغييرات مستقل يعرض:
+      - آخر تعديل
+      - من عدّل
+      - ماذا تم تغييره
+   - تخزين السجل داخل مفاتيح `settings`:
+      - `settings_last_modified_at`
+      - `settings_modified_by`
+      - `settings_change_summary`
+   - تحذير عند مغادرة الصفحة إذا كانت هناك تغييرات غير محفوظة (`beforeunload` + تأكيد عند النقر على روابط التنقل) مع bypass مؤقت بعد الموافقة لتجنب قفل التنقل.
+
 ---
 
 ## 5) صفحات خارج Shell

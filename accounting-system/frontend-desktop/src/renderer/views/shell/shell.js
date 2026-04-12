@@ -34,6 +34,8 @@ const shellState = {
     isNavigating: false,
     visibleItems: SHELL_ITEMS
 };
+const NAVIGATION_WATCHDOG_MS = 1800;
+let navigationWatchdogTimer = null;
 
 function normalizePath(value) {
     return String(value || '').replace(/\\/g, '/').toLowerCase();
@@ -51,6 +53,30 @@ function sameLocation(urlA, urlB) {
 
 function isViewsUrl(urlObj) {
     return normalizePath(urlObj.pathname).includes('/views/');
+}
+
+function clearNavigationWatchdog() {
+    if (!navigationWatchdogTimer) return;
+    clearTimeout(navigationWatchdogTimer);
+    navigationWatchdogTimer = null;
+}
+
+function armNavigationWatchdog(frame) {
+    clearNavigationWatchdog();
+    navigationWatchdogTimer = setTimeout(() => {
+        if (!shellState.isNavigating) return;
+
+        shellState.isNavigating = false;
+        try {
+            const actualHref = frame?.contentWindow?.location?.href;
+            if (actualHref) {
+                shellState.currentHref = actualHref;
+            }
+        } catch (_error) {
+            // Ignore inaccessible frame states.
+        }
+        renderTopNav();
+    }, NAVIGATION_WATCHDOG_MS);
 }
 
 function getCurrentTheme() {
@@ -286,6 +312,7 @@ function bindFrameBridge(frameDoc, frameWindow) {
 function onFrameLoaded() {
     const frame = document.getElementById('shellFrame');
     if (!frame) return;
+    clearNavigationWatchdog();
 
     try {
         const frameDoc = frame.contentDocument;
@@ -354,6 +381,7 @@ function navigateTo(rawTarget, options = {}) {
     renderTopNav();
 
     frame.src = targetUrl.href;
+    armNavigationWatchdog(frame);
 
     if (pushHistory) {
         setHistoryRoute(targetUrl.href, false);

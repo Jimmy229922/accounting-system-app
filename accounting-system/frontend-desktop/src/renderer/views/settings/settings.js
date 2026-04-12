@@ -1,6 +1,16 @@
 ﻿let companyNameInput, companyAddressInput, companyPhoneInput, invoiceFooterInput, settingsForm;
 let backupBtn, restoreBtn, backupStatusEl, restoreStatusEl, themeToggleBtn;
-let profileImageInput, profileImagePreview, removeImageBtn;
+let profileImageInput, profileImagePreview, removeImageBtn, saveBtn;
+let changeLogLastModifiedEl, changeLogModifiedByEl, changeLogSummaryEl;
+let saveStateTimer = null;
+let initialFormSnapshot = '';
+const SETTINGS_TRACKING_FIELDS = [
+    { key: 'companyName', label: 'اسم المؤسسة' },
+    { key: 'companyPhone', label: 'رقم الهاتف' },
+    { key: 'companyAddress', label: 'العنوان' },
+    { key: 'invoiceFooter', label: 'ملاحظة الفاتورة' },
+    { key: 'profileImage', label: 'الشعار' }
+];
 let ar = {};
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 
@@ -51,44 +61,100 @@ function renderPage() {
                     <h2>${t('settings.companySection', 'بيانات المؤسسة')}<span>${t('settings.companySectionDesc', 'معلومات الشركة التي تظهر في الفواتير والتقارير')}</span></h2>
                 </div>
                 <form id="settingsForm">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label><i class="fas fa-building"></i> ${t('settings.companyName', 'اسم الشركة / المؤسسة')}</label>
-                            <input type="text" id="companyName" class="form-control" placeholder="${t('settings.companyNamePlaceholder', 'أدخل اسم الشركة')}">
-                        </div>
-                        <div class="form-group">
-                            <label><i class="fas fa-phone"></i> ${t('settings.phone', 'رقم الهاتف')}</label>
-                            <input type="text" id="companyPhone" class="form-control" placeholder="${t('settings.phonePlaceholder', 'أدخل رقم الهاتف')}">
-                        </div>
-                        <div class="form-group full-width">
-                            <label><i class="fas fa-image"></i> ${t('settings.profileImage', 'صورة الملف الشخصي')}</label>
-                            <div class="profile-image-section">
-                                <div class="profile-image-preview" id="profileImagePreview">
-                                    <i class="fas fa-user-circle profile-placeholder-icon"></i>
+                    <div class="settings-sections">
+                        <section class="settings-subsection subsection-company">
+                            <h3 class="subsection-title">
+                                <span class="subsection-title-main"><i class="fas fa-building"></i> بيانات المؤسسة</span>
+                                <span class="subsection-title-sub">الاسم ورقم الهاتف المعتمدان في الفواتير والتقارير.</span>
+                            </h3>
+                            <div class="subsection-grid">
+                                <div class="form-group">
+                                    <label><i class="fas fa-building"></i> اسم المؤسسة</label>
+                                    <input type="text" id="companyName" class="form-control" placeholder="مثال: مؤسسة النور التجارية">
                                 </div>
-                                <div class="profile-image-actions">
-                                    <label class="btn-upload" for="profileImageInput">
-                                        <i class="fas fa-upload"></i> ${t('settings.uploadImage', 'اختر صورة')}
-                                    </label>
-                                    <input type="file" id="profileImageInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
-                                    <button type="button" id="removeImageBtn" class="btn-remove-image" style="display:none;">
-                                        <i class="fas fa-trash"></i> ${t('settings.removeImage', 'إزالة الصورة')}
-                                    </button>
-                                    <span class="profile-image-hint">${t('settings.profileImageDesc', 'صورة تظهر في التقارير وملفات PDF')}</span>
+                                <div class="form-group">
+                                    <label><i class="fas fa-phone"></i> رقم الهاتف</label>
+                                    <input type="text" id="companyPhone" class="form-control" placeholder="مثال: 01012345678">
                                 </div>
                             </div>
-                        </div>
-                        <div class="form-group full-width">
-                            <label><i class="fas fa-map-marker-alt"></i> ${t('settings.address', 'العنوان')}</label>
-                            <input type="text" id="companyAddress" class="form-control" placeholder="${t('settings.addressPlaceholder', 'أدخل العنوان')}">
-                        </div>
-                        <div class="form-group full-width">
-                            <label><i class="fas fa-file-alt"></i> ${t('settings.invoiceFooter', 'ملاحظات أسفل الفاتورة')}</label>
-                            <textarea id="invoiceFooter" class="form-control" rows="3" placeholder="${t('settings.invoiceFooterPlaceholder', 'نص يظهر أسفل الفواتير')}"></textarea>
-                        </div>
+                        </section>
+
+                        <section class="settings-subsection subsection-logo">
+                            <h3 class="subsection-title">
+                                <span class="subsection-title-main"><i class="fas fa-image"></i> الشعار</span>
+                                <span class="subsection-title-sub">الصورة الرسمية التي تظهر في المستندات المطبوعة.</span>
+                            </h3>
+                            <div class="form-group">
+                                <label><i class="fas fa-image"></i> صورة الشعار</label>
+                                <div class="profile-image-section">
+                                    <div class="profile-image-preview" id="profileImagePreview">
+                                        <i class="fas fa-user-circle profile-placeholder-icon"></i>
+                                    </div>
+                                    <div class="profile-image-actions">
+                                        <label class="btn-upload" for="profileImageInput">
+                                            <i class="fas fa-upload"></i> ${t('settings.uploadImage', 'اختر صورة')}
+                                        </label>
+                                        <span class="btn-upload-meta">الصيغ المسموحة: PNG / JPG / WEBP - حتى 2MB</span>
+                                        <input type="file" id="profileImageInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+                                        <button type="button" id="removeImageBtn" class="btn-remove-image" style="display:none;">
+                                            <i class="fas fa-trash"></i> ${t('settings.removeImage', 'إزالة الصورة')}
+                                        </button>
+                                        <span class="profile-image-hint">${t('settings.profileImageDesc', 'صورة تظهر في التقارير وملفات PDF')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="settings-subsection subsection-address">
+                            <h3 class="subsection-title">
+                                <span class="subsection-title-main"><i class="fas fa-map-marker-alt"></i> العنوان</span>
+                                <span class="subsection-title-sub">العنوان الذي يظهر في رأس الفاتورة والتقارير.</span>
+                            </h3>
+                            <div class="form-group">
+                                <label><i class="fas fa-map-marker-alt"></i> العنوان</label>
+                                <input type="text" id="companyAddress" class="form-control" placeholder="مثال: القاهرة - مدينة نصر">
+                            </div>
+                        </section>
+
+                        <section class="settings-subsection subsection-footer">
+                            <h3 class="subsection-title">
+                                <span class="subsection-title-main"><i class="fas fa-file-alt"></i> ملاحظات الفاتورة</span>
+                                <span class="subsection-title-sub">نص مختصر يظهر أسفل جميع فواتير الطباعة.</span>
+                            </h3>
+                            <div class="form-group">
+                                <label><i class="fas fa-file-alt"></i> ملاحظة الفاتورة</label>
+                                <textarea id="invoiceFooter" class="form-control" rows="3" placeholder="مثال: شكرا لتعاملكم معنا"></textarea>
+                            </div>
+                        </section>
                     </div>
-                    <button type="submit" class="btn-save"><i class="fas fa-save"></i> ${t('settings.saveSettings', 'حفظ الإعدادات')}</button>
+                    <div class="settings-save-bar">
+                        <button type="submit" class="btn-save" data-save-state="idle">
+                            <i class="fas fa-save"></i>
+                            <span class="btn-save-text">${t('settings.saveSettings', 'حفظ الإعدادات')}</span>
+                        </button>
+                    </div>
                 </form>
+            </div>
+
+            <div class="settings-card audit-card">
+                <div class="section-header">
+                    <div class="section-header-icon audit"><i class="fas fa-history"></i></div>
+                    <h2>سجل التغييرات<span>آخر تعديل، من عدل، وماذا تم تغييره.</span></h2>
+                </div>
+                <div class="change-log-grid">
+                    <div class="change-log-row">
+                        <div class="change-log-label">آخر تعديل</div>
+                        <div class="change-log-value" id="settingsAuditLastModified">لا يوجد تعديل مسجل بعد</div>
+                    </div>
+                    <div class="change-log-row">
+                        <div class="change-log-label">من عدّل</div>
+                        <div class="change-log-value" id="settingsAuditModifiedBy">-</div>
+                    </div>
+                    <div class="change-log-row">
+                        <div class="change-log-label">ماذا تم تغييره</div>
+                        <div class="change-log-value" id="settingsAuditSummary">-</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Appearance & Backup Section -->
@@ -171,6 +237,10 @@ function initializeElements() {
     profileImageInput = document.getElementById('profileImageInput');
     profileImagePreview = document.getElementById('profileImagePreview');
     removeImageBtn = document.getElementById('removeImageBtn');
+    saveBtn = settingsForm?.querySelector('.btn-save');
+    changeLogLastModifiedEl = document.getElementById('settingsAuditLastModified');
+    changeLogModifiedByEl = document.getElementById('settingsAuditModifiedBy');
+    changeLogSummaryEl = document.getElementById('settingsAuditSummary');
 
     settingsForm.addEventListener('submit', saveSettings);
     backupBtn.addEventListener('click', handleBackup);
@@ -182,6 +252,8 @@ function initializeElements() {
     if (themeToggleBtn && typeof window.bindThemeToggleButtons === 'function') {
         window.bindThemeToggleButtons();
     }
+
+    setSaveButtonState('idle');
 }
 
 async function loadSettings() {
@@ -194,7 +266,13 @@ async function loadSettings() {
         if (settings.profileImage) {
             showProfileImage(settings.profileImage);
         }
+        renderChangeLog({
+            lastModifiedAt: settings.settings_last_modified_at,
+            modifiedBy: settings.settings_modified_by,
+            changeSummary: settings.settings_change_summary
+        });
     }
+    resetDirtyTracking();
 }
 
 function showProfileImage(dataUrl) {
@@ -227,21 +305,173 @@ function handleImageRemove() {
 
 async function saveSettings(e) {
     e.preventDefault();
-    const imgEl = profileImagePreview.querySelector('img');
+    setSaveButtonState('saving');
+    const settingsPayload = getCurrentSettingsPayload();
+    const currentSnapshot = buildSettingsSnapshot(settingsPayload);
+    const previousSnapshotObj = parseSettingsSnapshot(initialFormSnapshot);
+    const currentSnapshotObj = parseSettingsSnapshot(currentSnapshot);
+    const changedFields = getChangedFields(previousSnapshotObj, currentSnapshotObj);
+    const modifiedAtIso = new Date().toISOString();
+    const modifiedBy = await resolveModifiedBy();
+    const changeSummary = changedFields.length
+        ? `تم تعديل: ${changedFields.join('، ')}`
+        : 'تم الضغط على حفظ بدون تغيير حقول.';
     const settings = {
+        ...settingsPayload,
+        settings_last_modified_at: modifiedAtIso,
+        settings_modified_by: modifiedBy,
+        settings_change_summary: changeSummary
+    };
+
+    try {
+        const result = await window.electronAPI.saveSettings(settings);
+        if (result.success) {
+            setSaveButtonState('success');
+            renderChangeLog({
+                lastModifiedAt: modifiedAtIso,
+                modifiedBy,
+                changeSummary
+            });
+            initialFormSnapshot = currentSnapshot;
+            if (window.showToast) window.showToast(t('settings.alerts.saveSuccess', 'تم حفظ الإعدادات بنجاح'), 'success');
+            saveStateTimer = setTimeout(() => setSaveButtonState('idle'), 1800);
+        } else {
+            setSaveButtonState('error');
+            if (window.showToast) window.showToast(t('settings.alerts.saveError', 'حدث خطأ أثناء الحفظ'), 'error');
+            saveStateTimer = setTimeout(() => setSaveButtonState('idle'), 2200);
+        }
+    } catch (error) {
+        setSaveButtonState('error');
+        if (window.showToast) window.showToast(t('settings.alerts.saveError', 'حدث خطأ أثناء الحفظ'), 'error');
+        saveStateTimer = setTimeout(() => setSaveButtonState('idle'), 2200);
+    }
+}
+
+function setSaveButtonState(state) {
+    if (!saveBtn) return;
+    const iconEl = saveBtn.querySelector('i');
+    const textEl = saveBtn.querySelector('.btn-save-text');
+
+    if (saveStateTimer) {
+        clearTimeout(saveStateTimer);
+        saveStateTimer = null;
+    }
+
+    saveBtn.classList.remove('is-saving', 'is-success', 'is-error');
+    saveBtn.disabled = false;
+    saveBtn.dataset.saveState = state;
+
+    if (state === 'saving') {
+        saveBtn.classList.add('is-saving');
+        saveBtn.disabled = true;
+        if (iconEl) iconEl.className = 'fas fa-spinner fa-spin';
+        if (textEl) textEl.textContent = 'جاري الحفظ...';
+        return;
+    }
+
+    if (state === 'success') {
+        saveBtn.classList.add('is-success');
+        if (iconEl) iconEl.className = 'fas fa-check';
+        if (textEl) textEl.textContent = 'تم الحفظ';
+        return;
+    }
+
+    if (state === 'error') {
+        saveBtn.classList.add('is-error');
+        if (iconEl) iconEl.className = 'fas fa-exclamation-triangle';
+        if (textEl) textEl.textContent = 'فشل الحفظ';
+        return;
+    }
+
+    if (iconEl) iconEl.className = 'fas fa-save';
+    if (textEl) textEl.textContent = t('settings.saveSettings', 'حفظ الإعدادات');
+}
+
+function getCurrentSettingsPayload() {
+    const imgEl = profileImagePreview.querySelector('img');
+    return {
         companyName: companyNameInput.value,
         companyAddress: companyAddressInput.value,
         companyPhone: companyPhoneInput.value,
         invoiceFooter: invoiceFooterInput.value,
         profileImage: imgEl ? imgEl.src : ''
     };
+}
 
-    const result = await window.electronAPI.saveSettings(settings);
-    if (result.success) {
-        if (window.showToast) window.showToast(t('settings.alerts.saveSuccess', 'تم حفظ الإعدادات بنجاح'), 'success');
-    } else {
-        if (window.showToast) window.showToast(t('settings.alerts.saveError', 'حدث خطأ أثناء الحفظ'), 'error');
+function buildSettingsSnapshot(payload) {
+    const normalized = {};
+    SETTINGS_TRACKING_FIELDS.forEach(({ key }) => {
+        normalized[key] = String(payload[key] || '').trim();
+    });
+    return JSON.stringify(normalized);
+}
+
+function parseSettingsSnapshot(snapshot) {
+    try {
+        return JSON.parse(snapshot || '{}');
+    } catch (error) {
+        return {};
     }
+}
+
+function getChangedFields(previousSnapshot, currentSnapshot) {
+    const changed = [];
+    SETTINGS_TRACKING_FIELDS.forEach(({ key, label }) => {
+        if ((previousSnapshot[key] || '') !== (currentSnapshot[key] || '')) {
+            changed.push(label);
+        }
+    });
+    return changed;
+}
+
+function resetDirtyTracking() {
+    initialFormSnapshot = buildSettingsSnapshot(getCurrentSettingsPayload());
+}
+
+function renderChangeLog({ lastModifiedAt, modifiedBy, changeSummary }) {
+    if (changeLogLastModifiedEl) {
+        changeLogLastModifiedEl.textContent = formatAuditDate(lastModifiedAt) || 'لا يوجد تعديل مسجل بعد';
+    }
+    if (changeLogModifiedByEl) {
+        changeLogModifiedByEl.textContent = modifiedBy || '-';
+    }
+    if (changeLogSummaryEl) {
+        changeLogSummaryEl.textContent = changeSummary || '-';
+    }
+}
+
+function formatAuditDate(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('ar-EG', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+async function resolveModifiedBy() {
+    try {
+        if (window.electronAPI && typeof window.electronAPI.getActiveAuthUser === 'function') {
+            let activeUser = null;
+            if (typeof window.electronAPI.getAuthSessionToken === 'function') {
+                const sessionToken = await window.electronAPI.getAuthSessionToken();
+                activeUser = await window.electronAPI.getActiveAuthUser({ sessionToken });
+            } else {
+                activeUser = await window.electronAPI.getActiveAuthUser({});
+            }
+            if (activeUser && activeUser.username) {
+                return activeUser.username;
+            }
+        }
+    } catch (error) {
+        // Ignore and fallback.
+    }
+
+    return 'مستخدم غير محدد';
 }
 
 function setStatus(element, message, isError = false) {
