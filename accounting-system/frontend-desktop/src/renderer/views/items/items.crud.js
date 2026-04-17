@@ -20,13 +20,16 @@ function resetAddForm() {
         profitMarginDisplay.className = 'profit-margin-display';
     }
 
+    syncAutoBarcodeField(true);
+
     // if (itemNameInput) itemNameInput.focus();
 }
 
 async function saveNewItem() {
     console.log('saveNewItem() called');
     
-    const barcode = itemBarcodeInput ? itemBarcodeInput.value.trim() : '';
+    const rawBarcode = itemBarcodeInput ? itemBarcodeInput.value.trim() : '';
+    const barcode = isBarcodeManuallyEdited ? rawBarcode : '';
     const name = itemNameInput ? itemNameInput.value.trim() : '';
     let unitId = itemUnitSelect ? itemUnitSelect.value : '';
     const costPrice = costPriceInput ? parseFloat(costPriceInput.value) || 0 : 0;

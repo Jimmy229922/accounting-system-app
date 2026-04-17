@@ -107,6 +107,8 @@
     border: 1px solid var(--card-border);
     border-radius: 14px;
     background: var(--bg-color);
+    position: relative;
+    z-index: 20;
 }
 
 .form-group {
@@ -205,6 +207,16 @@
     border-radius: 14px;
     background: var(--card-bg);
     padding: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+.invoice-top-grid .autocomplete-wrapper {
+    z-index: 30;
+}
+
+.invoice-top-grid .autocomplete-list {
+    z-index: 20000;
 }
 
 .items-section-head {

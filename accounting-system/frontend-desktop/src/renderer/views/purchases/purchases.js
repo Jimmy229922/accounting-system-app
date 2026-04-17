@@ -56,6 +56,8 @@ function initializeElements() {
             onSupplierChange: handleSupplierChange,
             onAddRow: () => addInvoiceRow(),
             onSubmitInvoice: submitInvoice,
+            onLoadPrevInvoice: () => navigateInvoice(-1),
+            onLoadNextInvoice: () => navigateInvoice(1),
             onRemoveRow: removeRow
         }
     });
@@ -64,7 +66,8 @@ function initializeElements() {
         dom: purchasesState.dom,
         handlers: {
             onItemSelect,
-            onRowInput
+            onRowInput,
+            onRowArrowNavigate: handleRowArrowNavigation
         }
     });
 
@@ -78,6 +81,12 @@ function initializeElements() {
 
     if (purchasesState.dom.paidAmountInput) {
         purchasesState.dom.paidAmountInput.addEventListener('input', () => calculateInvoiceTotal());
+    }
+
+    const invoiceNumberInput = document.getElementById('invoiceNumber');
+    if (invoiceNumberInput) {
+        invoiceNumberInput.addEventListener('input', updateInvoiceNavigationButtons);
+        invoiceNumberInput.addEventListener('change', updateInvoiceNavigationButtons);
     }
 }
 
@@ -119,7 +128,11 @@ function setEditLocked(locked) {
 
     const controls = form.querySelectorAll('input, select, textarea, button');
     controls.forEach((control) => {
-        if (control.dataset.action === 'submit-invoice') return;
+        if (
+            control.dataset.action === 'submit-invoice' ||
+            control.dataset.action === 'load-prev-invoice' ||
+            control.dataset.action === 'load-next-invoice'
+        ) return;
         control.disabled = lockActive;
 
         if (lockActive) {
@@ -215,6 +228,7 @@ async function initializeNewInvoice() {
         invoiceNumberInput.value = nextId;
     }
     calculateInvoiceTotal();
+    updateInvoiceNavigationButtons();
 }
 
 async function loadInvoiceForEdit(id) {
@@ -222,6 +236,7 @@ async function loadInvoiceForEdit(id) {
         const invoice = await purchasesApi.getInvoiceWithDetails(id);
         if (!invoice) {
             if (window.showToast) window.showToast(t('purchases.invoiceNotFound', 'الفاتورة غير موجودة'), 'error');
+            updateInvoiceNavigationButtons();
             return;
         }
 
@@ -281,8 +296,10 @@ async function loadInvoiceForEdit(id) {
 
         purchasesRender.setEditModeUI(t);
         setEditLocked(true);
+        updateInvoiceNavigationButtons();
     } catch (error) {
         if (window.showToast) window.showToast(t('purchases.toast.loadError', 'حدث خطأ أثناء تحميل الفاتورة: ') + error.message, 'error');
+        updateInvoiceNavigationButtons();
     }
 }
 
@@ -369,25 +386,208 @@ function bindSupplierAutocompleteClearHandler() {
     supplierInput.addEventListener('click', reopenSupplierList);
 }
 
+function getOrderedInvoicesForNavigation() {
+    const invoices = Array.isArray(purchasesState.invoiceNavigationList) ? purchasesState.invoiceNavigationList : [];
+    return invoices
+        .slice()
+        .sort((a, b) => (Number(a?.id) || 0) - (Number(b?.id) || 0));
+}
+
+function findCurrentInvoiceIndexForNavigation(orderedInvoices) {
+    if (!orderedInvoices.length) return -1;
+
+    if (Number.isFinite(Number(purchasesState.editingInvoiceId))) {
+        const activeId = Number(purchasesState.editingInvoiceId);
+        const editIdx = orderedInvoices.findIndex((inv) => Number(inv?.id) === activeId);
+        if (editIdx >= 0) return editIdx;
+    }
+
+    const invoiceNumberInput = document.getElementById('invoiceNumber');
+    const invoiceNumber = (invoiceNumberInput?.value || '').trim();
+    if (!invoiceNumber) return -1;
+
+    return orderedInvoices.findIndex((inv) => String(inv?.invoice_number || '').trim() === invoiceNumber);
+}
+
+function applyInvoiceNavButtonState(button, disabled, disabledTitle) {
+    if (!button) return;
+
+    button.disabled = Boolean(disabled);
+    button.style.opacity = disabled ? '0.55' : '1';
+    button.style.cursor = disabled ? 'not-allowed' : 'pointer';
+    button.title = disabled ? disabledTitle : '';
+}
+
+function updateInvoiceNavigationButtons() {
+    const prevBtn = document.querySelector('[data-action="load-prev-invoice"]');
+    const nextBtn = document.querySelector('[data-action="load-next-invoice"]');
+    if (!prevBtn || !nextBtn) return;
+
+    const orderedInvoices = getOrderedInvoicesForNavigation();
+    if (!orderedInvoices.length) {
+        applyInvoiceNavButtonState(prevBtn, true, 'لا توجد فواتير سابقة');
+        applyInvoiceNavButtonState(nextBtn, true, 'لا توجد فواتير تالية');
+        return;
+    }
+
+    const currentIndex = findCurrentInvoiceIndexForNavigation(orderedInvoices);
+    if (currentIndex < 0) {
+        applyInvoiceNavButtonState(prevBtn, false, '');
+        applyInvoiceNavButtonState(nextBtn, true, 'لا توجد فواتير تالية');
+        return;
+    }
+
+    const isPrevDisabled = currentIndex <= 0;
+    // Keep "next" enabled on the latest saved invoice to allow returning to a fresh empty form.
+    const isNextDisabled = false;
+
+    applyInvoiceNavButtonState(prevBtn, isPrevDisabled, 'لا توجد فواتير سابقة');
+    applyInvoiceNavButtonState(nextBtn, isNextDisabled, '');
+}
+
+async function navigateInvoice(direction) {
+    const orderedInvoices = getOrderedInvoicesForNavigation();
+    if (!orderedInvoices.length) {
+        if (window.showToast) window.showToast('لا توجد فواتير محفوظة للتنقل بينها', 'warning');
+        updateInvoiceNavigationButtons();
+        return;
+    }
+
+    const currentIndex = findCurrentInvoiceIndexForNavigation(orderedInvoices);
+    const targetIndex = currentIndex < 0
+        ? (direction < 0 ? orderedInvoices.length - 1 : 0)
+        : currentIndex + direction;
+
+    if (targetIndex < 0) {
+        if (window.showToast) window.showToast('لا توجد فاتورة سابقة', 'warning');
+        updateInvoiceNavigationButtons();
+        return;
+    }
+
+    if (targetIndex >= orderedInvoices.length) {
+        if (direction > 0 && currentIndex === orderedInvoices.length - 1) {
+            await resetForm();
+            updateInvoiceNavigationButtons();
+            return;
+        }
+
+        if (window.showToast) window.showToast('لا توجد فاتورة تالية', 'warning');
+        updateInvoiceNavigationButtons();
+        return;
+    }
+
+    const targetInvoice = orderedInvoices[targetIndex];
+    if (!targetInvoice?.id) {
+        if (window.showToast) window.showToast('تعذر فتح الفاتورة المطلوبة', 'error');
+        return;
+    }
+
+    await loadInvoiceForEdit(targetInvoice.id);
+}
+
 async function loadInvoiceNumberSuggestions() {
     try {
         const invoices = await purchasesApi.getPurchaseInvoices();
+        purchasesState.invoiceNavigationList = Array.isArray(invoices) ? invoices : [];
         const datalist = document.getElementById('invoiceSuggestions');
-        if (!datalist) return;
+        if (!datalist) {
+            updateInvoiceNavigationButtons();
+            return;
+        }
 
         datalist.innerHTML = '';
-        invoices.slice(0, 30).forEach((inv) => {
+        purchasesState.invoiceNavigationList.slice(0, 30).forEach((inv) => {
             if (!inv.invoice_number) return;
             const option = document.createElement('option');
             option.value = inv.invoice_number;
             datalist.appendChild(option);
         });
+        updateInvoiceNavigationButtons();
     } catch (_) {
+        purchasesState.invoiceNavigationList = [];
+        updateInvoiceNavigationButtons();
     }
 }
 
 async function loadItems() {
     purchasesState.allItems = await purchasesApi.getItems();
+}
+
+function normalizeBarcodeInput(value) {
+    if (value === null || value === undefined) return '';
+
+    const arabicIndic = '٠١٢٣٤٥٦٧٨٩';
+    const easternArabicIndic = '۰۱۲۳۴۵۶۷۸۹';
+
+    return String(value)
+        .trim()
+        .replace(/[٠-٩]/g, (digit) => String(arabicIndic.indexOf(digit)))
+        .replace(/[۰-۹]/g, (digit) => String(easternArabicIndic.indexOf(digit)));
+}
+
+function bindItemBarcodeQuickSelect(autocompleteInstance, selectElement) {
+    const inputElement = autocompleteInstance?.input;
+    if (!inputElement || !selectElement) return;
+    if (inputElement.dataset.barcodeQuickSelectBound === '1') return;
+
+    inputElement.dataset.barcodeQuickSelectBound = '1';
+    inputElement.addEventListener('input', () => {
+        const typedBarcode = normalizeBarcodeInput(inputElement.value);
+        if (!typedBarcode) return;
+
+        const matchedOption = Array.from(selectElement.options).find((option) => {
+            const optionBarcode = normalizeBarcodeInput(option.dataset?.barcode || '');
+            return optionBarcode !== '' && optionBarcode === typedBarcode;
+        });
+
+        if (!matchedOption || !matchedOption.value) return;
+
+        if (selectElement.value !== matchedOption.value) {
+            selectElement.value = matchedOption.value;
+            selectElement.dispatchEvent(new Event('change'));
+        }
+
+        inputElement.value = matchedOption.text;
+        autocompleteInstance.closeList();
+    });
+}
+
+function findItemByBarcode(barcodeValue) {
+    const normalizedTarget = normalizeBarcodeInput(barcodeValue);
+    if (!normalizedTarget) return null;
+
+    return purchasesState.allItems.find((item) => {
+        const itemBarcode = normalizeBarcodeInput(item?.barcode || '');
+        return itemBarcode !== '' && itemBarcode === normalizedTarget;
+    }) || null;
+}
+
+function onBarcodeInput(inputElement) {
+    if (isEditLocked()) return;
+
+    const row = inputElement.closest('tr');
+    if (!row) return;
+
+    const matchedItem = findItemByBarcode(inputElement.value);
+    if (!matchedItem) return;
+
+    const selectElement = row.querySelector('.item-select');
+    if (!selectElement) return;
+
+    const matchedItemId = String(matchedItem.id);
+    if (selectElement.value !== matchedItemId) {
+        selectElement.value = matchedItemId;
+        selectElement.dispatchEvent(new Event('change'));
+    } else {
+        onItemSelect(selectElement);
+    }
+
+    const selectedOption = Array.from(selectElement.options).find((opt) => opt.value === matchedItemId);
+    if (row.__itemAutocomplete?.input && selectedOption) {
+        row.__itemAutocomplete.input.value = selectedOption.text;
+    }
+
+    inputElement.value = matchedItem.barcode || inputElement.value;
 }
 
 async function displaySupplierBalance() {
@@ -514,7 +714,13 @@ function addInvoiceRow(existingItem = null) {
     purchasesState.dom.invoiceItemsBody.appendChild(row);
 
     const selectElement = row.querySelector('.item-select');
-    new Autocomplete(selectElement);
+    const itemAutocomplete = new Autocomplete(selectElement);
+    row.__itemAutocomplete = itemAutocomplete;
+    bindItemBarcodeQuickSelect(itemAutocomplete, selectElement);
+    const barcodeInput = row.querySelector('.barcode-input');
+    if (barcodeInput) {
+        barcodeInput.addEventListener('input', () => onBarcodeInput(barcodeInput));
+    }
     if (selectElement) {
         selectElement.addEventListener('change', () => onItemSelect(selectElement));
     }
@@ -558,6 +764,11 @@ function onItemSelect(select) {
     const unitEl = row.querySelector('.unit-label');
     if (unitEl) unitEl.textContent = unitName;
 
+    const barcodeInput = row.querySelector('.barcode-input');
+    if (barcodeInput) {
+        barcodeInput.value = match && match.barcode ? match.barcode : '';
+    }
+
     const priceInput = row.querySelector('.price-input');
     if (priceInput) {
         priceInput.value = Number.isFinite(costPrice) ? costPrice : 0;
@@ -580,6 +791,126 @@ function onRowInput(input) {
         maybeAutoAddRow(row);
         updateSelectedItemAvailability(row);
     }
+}
+
+const NAVIGABLE_ROW_FIELDS = ['barcode', 'item', 'quantity', 'price'];
+
+function getRowFieldKey(target, row) {
+    if (!target || !row) return '';
+    if (target.classList.contains('barcode-input')) return 'barcode';
+    if (target.classList.contains('quantity-input')) return 'quantity';
+    if (target.classList.contains('price-input')) return 'price';
+
+    if (target.classList.contains('autocomplete-input')) {
+        const wrapper = target.closest('.autocomplete-wrapper');
+        if (wrapper && row.contains(wrapper) && wrapper.querySelector('.item-select')) {
+            return 'item';
+        }
+    }
+
+    return '';
+}
+
+function getRowFieldElement(row, fieldKey) {
+    if (!row) return null;
+
+    if (fieldKey === 'barcode') return row.querySelector('.barcode-input');
+    if (fieldKey === 'item') {
+        if (row.__itemAutocomplete?.input) return row.__itemAutocomplete.input;
+        return row.querySelector('.autocomplete-wrapper .autocomplete-input');
+    }
+    if (fieldKey === 'quantity') return row.querySelector('.quantity-input');
+    if (fieldKey === 'price') return row.querySelector('.price-input');
+
+    return null;
+}
+
+function closeVisibleAutocompleteLists() {
+    if (typeof Autocomplete !== 'undefined' && typeof Autocomplete.closeAllVisible === 'function') {
+        Autocomplete.closeAllVisible();
+        return;
+    }
+
+    document.querySelectorAll('.autocomplete-list.visible').forEach((listEl) => {
+        listEl.classList.remove('visible');
+    });
+}
+
+function focusRowField(row, fieldKey) {
+    const field = getRowFieldElement(row, fieldKey);
+    if (!field) return;
+
+    closeVisibleAutocompleteLists();
+    field.focus();
+
+    if (typeof field.select === 'function') {
+        field.select();
+    }
+}
+
+function handleRowArrowNavigation(event) {
+    if (isEditLocked()) return;
+    if (!purchasesState.dom.invoiceItemsBody) return;
+    if (
+        event.key !== 'ArrowDown' &&
+        event.key !== 'ArrowUp' &&
+        event.key !== 'ArrowRight' &&
+        event.key !== 'ArrowLeft'
+    ) return;
+
+    const target = event.target;
+    const row = target?.closest?.('tr');
+    if (!row) return;
+
+    const fieldKey = getRowFieldKey(target, row);
+    if (!fieldKey) return;
+
+    if (fieldKey === 'item') {
+        const itemAutocomplete = row.__itemAutocomplete;
+        if (itemAutocomplete?.input === target && itemAutocomplete?.list?.classList.contains('visible')) {
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                return;
+            }
+        }
+    }
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        const currentFieldIndex = NAVIGABLE_ROW_FIELDS.indexOf(fieldKey);
+        if (currentFieldIndex < 0) return;
+
+        const horizontalStep = event.key === 'ArrowRight' ? -1 : 1;
+        const nextField = NAVIGABLE_ROW_FIELDS[currentFieldIndex + horizontalStep];
+        if (!nextField) return;
+
+        event.preventDefault();
+        focusRowField(row, nextField);
+        return;
+    }
+
+    event.preventDefault();
+
+    const rows = Array.from(purchasesState.dom.invoiceItemsBody.querySelectorAll('tr'));
+    const currentIndex = rows.indexOf(row);
+    if (currentIndex < 0) return;
+
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
+    let nextIndex = currentIndex + direction;
+
+    if (nextIndex < 0) return;
+
+    if (nextIndex >= rows.length) {
+        if (direction > 0 && row === purchasesState.dom.invoiceItemsBody.lastElementChild) {
+            addInvoiceRow();
+            const updatedRows = Array.from(purchasesState.dom.invoiceItemsBody.querySelectorAll('tr'));
+            nextIndex = updatedRows.indexOf(row) + 1;
+            if (nextIndex < updatedRows.length) {
+                focusRowField(updatedRows[nextIndex], fieldKey);
+            }
+        }
+        return;
+    }
+
+    focusRowField(rows[nextIndex], fieldKey);
 }
 
 function calculateRowTotal(input) {

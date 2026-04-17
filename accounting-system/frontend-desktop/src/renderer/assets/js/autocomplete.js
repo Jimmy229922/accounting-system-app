@@ -1,10 +1,40 @@
 class Autocomplete {
     static optionsCache = new Map();
+    static isGlobalOutsideClickBound = false;
+
+    static closeAllVisible(exceptList = null) {
+        document.querySelectorAll('.autocomplete-list.visible').forEach((listEl) => {
+            if (listEl !== exceptList) {
+                listEl.classList.remove('visible');
+            }
+        });
+    }
+
+    static ensureGlobalOutsideClickHandler() {
+        if (Autocomplete.isGlobalOutsideClickBound) return;
+
+        document.addEventListener('click', (event) => {
+            const target = event.target;
+            const clickedInsideAutocomplete = Boolean(
+                target &&
+                typeof target.closest === 'function' &&
+                (target.closest('.autocomplete-wrapper') || target.closest('.autocomplete-list'))
+            );
+
+            if (!clickedInsideAutocomplete) {
+                Autocomplete.closeAllVisible();
+            }
+        }, true);
+
+        Autocomplete.isGlobalOutsideClickBound = true;
+    }
 
     constructor(selectElement) {
         this.selectElement = selectElement;
         this.options = [];
         this.selectedIndex = -1;
+        this.forceOpenDown = this.selectElement.classList.contains('autocomplete-force-down');
+        this.showAllOnClick = this.selectElement.classList.contains('autocomplete-show-all-on-click');
         
         this.init();
     }
@@ -41,29 +71,41 @@ class Autocomplete {
         this.input.addEventListener('input', () => this.onInput());
         this.input.addEventListener('focus', () => {
             // Use setTimeout to ensure the UI is ready before showing the list
-            setTimeout(() => this.onInput(), 50);
+            setTimeout(() => {
+                if (this.showAllOnClick) {
+                    this.renderList('');
+                    return;
+                }
+                this.onInput();
+            }, 50);
         });
         this.input.addEventListener('click', (e) => {
             e.stopPropagation();
+
+            if (this.showAllOnClick) {
+                this.renderList('');
+                return;
+            }
+
             // Force show list on click
             if (!this.list.classList.contains('visible')) {
                 this.onInput();
             }
         });
         this.input.addEventListener('keydown', (e) => this.onKeyDown(e));
-        
-        // Close when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!this.wrapper.contains(e.target) && !this.list.contains(e.target)) {
-                this.closeList();
-            }
-        });
+
+        Autocomplete.ensureGlobalOutsideClickHandler();
 
         // Close or reposition on scroll/resize
-        this._onScrollOrResize = () => {
-            if (this.list.classList.contains('visible')) {
-                this.reposition();
+        this._onScrollOrResize = (event) => {
+            if (!this.list.classList.contains('visible')) return;
+
+            // Ignore internal list scrolling to avoid flipping direction/resetting list position.
+            if (event && event.type === 'scroll' && event.target === this.list) {
+                return;
             }
+
+            this.reposition();
         };
         window.addEventListener('resize', this._onScrollOrResize);
         // Listen to scroll on all ancestors (capture phase) to handle any scrollable parent
@@ -132,6 +174,8 @@ class Autocomplete {
     }
 
     renderList(filter = '') {
+        Autocomplete.closeAllVisible(this.list);
+
         // Clear existing content
         this.list.innerHTML = '';
 
@@ -198,6 +242,22 @@ class Autocomplete {
         this.list.classList.add('visible');
         this.reposition(); // Smart positioning
         this.selectedIndex = -1;
+        this.highlightCurrentSelection();
+    }
+
+    highlightCurrentSelection() {
+        const selectedValue = String(this.selectElement.value || '');
+        if (!selectedValue) return;
+
+        const items = Array.from(this.list.querySelectorAll('.autocomplete-item'));
+        if (!items.length) return;
+
+        const selectedItemIndex = items.findIndex((item) => String(item.dataset.value || '') === selectedValue);
+        if (selectedItemIndex < 0) return;
+
+        items.forEach((item) => item.classList.remove('selected'));
+        items[selectedItemIndex].classList.add('selected');
+        this.selectedIndex = selectedItemIndex;
     }
 
     reposition() {
@@ -222,6 +282,13 @@ class Autocomplete {
             const spaceBelow = windowHeight - inputRect.bottom - margin;
             const spaceAbove = inputRect.top - margin;
             const actualHeight = this.list.offsetHeight;
+
+            if (this.forceOpenDown) {
+                this.list.style.top = `${inputRect.bottom}px`;
+                this.list.style.bottom = 'auto';
+                this.list.style.maxHeight = `${Math.max(100, spaceBelow)}px`;
+                return;
+            }
 
             if (spaceBelow >= actualHeight) {
                 this.list.style.top = `${inputRect.bottom}px`;
@@ -253,6 +320,11 @@ class Autocomplete {
         const margin = 10;
         const spaceBelow = windowHeight - inputRect.bottom - margin;
         const spaceAbove = inputRect.top - margin;
+
+        if (this.forceOpenDown) {
+            this.list.style.maxHeight = `${Math.max(100, spaceBelow)}px`;
+            return;
+        }
         
         // Current actual height
         const actualHeight = this.list.offsetHeight;

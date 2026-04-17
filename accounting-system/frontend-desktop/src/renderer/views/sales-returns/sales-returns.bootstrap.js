@@ -85,7 +85,11 @@ function setEditLocked(locked) {
 
     const controls = form.querySelectorAll('input, select, textarea, button');
     controls.forEach((control) => {
-        if (control.dataset.action === 'save-return') return;
+        if (
+            control.dataset.action === 'save-return' ||
+            control.dataset.action === 'load-prev-return' ||
+            control.dataset.action === 'load-next-return'
+        ) return;
         control.disabled = lockActive;
 
         if (lockActive) {
@@ -136,13 +140,18 @@ function initializeElements() {
             onCheckboxChange,
             onQtyInput,
             onPriceInput: calculateTotal,
+            onItemsArrowNavigate: handleItemsArrowNavigation,
             onResetForm: resetForm,
             onSaveReturn: saveReturn,
+            onLoadPrevReturn: () => navigateReturn(-1),
+            onLoadNextReturn: () => navigateReturn(1),
             onHistoryPrev: () => changeSalesReturnsPage(salesReturnsState.salesReturnsPage - 1),
             onHistoryNext: () => changeSalesReturnsPage(salesReturnsState.salesReturnsPage + 1),
             onDeleteReturn: deleteReturn
         }
     });
+
+    updateReturnNavigationButtons();
 }
 
 async function loadNextReturnNumber() {
@@ -154,6 +163,11 @@ async function loadNextReturnNumber() {
 
 async function loadCustomers() {
     const customers = toArray(await salesReturnsApi.getCustomers());
+
+    if (salesReturnsState.dom.customerSelect) {
+        salesReturnsState.dom.customerSelect.classList.add('autocomplete-force-down');
+        salesReturnsState.dom.customerSelect.classList.add('item-select');
+    }
 
     salesReturnsState.dom.customerSelect.innerHTML = `<option value="">${t('common.actions.selectCustomer', 'Select Customer')}</option>`;
     customers.forEach((customer) => {
@@ -168,6 +182,53 @@ async function loadCustomers() {
     } else {
         salesReturnsState.customerAutocomplete = new Autocomplete(salesReturnsState.dom.customerSelect);
     }
+
+    applyCustomerAutocompleteDropdownStyle();
+
+    bindCustomerAutocompleteClearHandler();
+}
+
+function applyCustomerAutocompleteDropdownStyle() {
+    const customerAutocomplete = salesReturnsState.customerAutocomplete;
+    if (!customerAutocomplete) return;
+
+    customerAutocomplete.forceOpenDown = true;
+
+    const customerList = customerAutocomplete.list;
+    if (!customerList) return;
+    customerList.classList.add('sales-returns-customer-list');
+    customerList.style.maxHeight = '270px';
+    customerList.style.overflowY = 'auto';
+}
+
+function bindCustomerAutocompleteClearHandler() {
+    const customerInput = salesReturnsState.customerAutocomplete?.input;
+    if (!customerInput || !salesReturnsState.dom.customerSelect) return;
+    if (customerInput.dataset.clearSelectionBound === '1') return;
+
+    customerInput.dataset.clearSelectionBound = '1';
+    customerInput.addEventListener('input', () => {
+        if (customerInput.value.trim() !== '') return;
+        if (!salesReturnsState.dom.customerSelect.value) return;
+
+        salesReturnsState.dom.customerSelect.value = '';
+        salesReturnsState.dom.customerSelect.dispatchEvent(new Event('change'));
+    });
+
+    const reopenCustomerList = () => {
+        if (!salesReturnsState.customerAutocomplete || customerInput.disabled) return;
+        if (!salesReturnsState.dom.customerSelect.value) return;
+
+        // Autocomplete has its own focus/click handlers; defer so full list wins.
+        setTimeout(() => {
+            if (!salesReturnsState.customerAutocomplete || customerInput.disabled) return;
+            if (!salesReturnsState.dom.customerSelect.value) return;
+            salesReturnsState.customerAutocomplete.renderList('');
+        }, 70);
+    };
+
+    customerInput.addEventListener('focus', reopenCustomerList);
+    customerInput.addEventListener('click', reopenCustomerList);
 }
 
 async function handleCustomerChange() {
@@ -372,6 +433,109 @@ function onQtyInput(input) {
     calculateTotal();
 }
 
+const NAVIGABLE_RETURN_FIELDS = ['toggle', 'quantity', 'price'];
+
+function getItemsRowFieldKey(target) {
+    if (!target) return '';
+    if (target.classList.contains('return-checkbox')) return 'toggle';
+    if (target.classList.contains('return-qty-input')) return 'quantity';
+    if (target.classList.contains('return-price-input')) return 'price';
+    return '';
+}
+
+function getItemsRowFieldElement(row, fieldKey) {
+    if (!row) return null;
+    if (fieldKey === 'toggle') return row.querySelector('.return-checkbox');
+    if (fieldKey === 'quantity') return row.querySelector('.return-qty-input');
+    if (fieldKey === 'price') return row.querySelector('.return-price-input');
+    return null;
+}
+
+function closeVisibleAutocompleteLists() {
+    if (typeof Autocomplete !== 'undefined' && typeof Autocomplete.closeAllVisible === 'function') {
+        Autocomplete.closeAllVisible();
+        return;
+    }
+
+    document.querySelectorAll('.autocomplete-list.visible').forEach((listEl) => {
+        listEl.classList.remove('visible');
+    });
+}
+
+function isEnabledElement(field) {
+    return Boolean(field && !field.disabled && !field.hasAttribute('disabled'));
+}
+
+function focusItemsRowField(row, fieldKey) {
+    const field = getItemsRowFieldElement(row, fieldKey);
+    if (!isEnabledElement(field)) return;
+
+    closeVisibleAutocompleteLists();
+    field.focus();
+    if (field.type !== 'checkbox' && typeof field.select === 'function') {
+        field.select();
+    }
+}
+
+function getNextFieldKeyInSameRow(row, currentFieldIndex, step) {
+    for (
+        let idx = currentFieldIndex + step;
+        idx >= 0 && idx < NAVIGABLE_RETURN_FIELDS.length;
+        idx += step
+    ) {
+        const fieldKey = NAVIGABLE_RETURN_FIELDS[idx];
+        const field = getItemsRowFieldElement(row, fieldKey);
+        if (isEnabledElement(field)) return fieldKey;
+    }
+
+    return '';
+}
+
+function handleItemsArrowNavigation(event) {
+    if (isEditLocked()) return;
+    if (!salesReturnsState.dom.itemsBody) return;
+    if (
+        event.key !== 'ArrowDown' &&
+        event.key !== 'ArrowUp' &&
+        event.key !== 'ArrowRight' &&
+        event.key !== 'ArrowLeft'
+    ) return;
+
+    const target = event.target;
+    const row = target?.closest?.('tr');
+    if (!row) return;
+
+    const fieldKey = getItemsRowFieldKey(target);
+    if (!fieldKey) return;
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        const currentFieldIndex = NAVIGABLE_RETURN_FIELDS.indexOf(fieldKey);
+        if (currentFieldIndex < 0) return;
+
+        const horizontalStep = event.key === 'ArrowRight' ? -1 : 1;
+        const nextFieldKey = getNextFieldKeyInSameRow(row, currentFieldIndex, horizontalStep);
+        if (!nextFieldKey) return;
+
+        event.preventDefault();
+        focusItemsRowField(row, nextFieldKey);
+        return;
+    }
+
+    event.preventDefault();
+
+    const rows = Array.from(salesReturnsState.dom.itemsBody.querySelectorAll('tr'));
+    const currentIndex = rows.indexOf(row);
+    if (currentIndex < 0) return;
+
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
+    for (let idx = currentIndex + direction; idx >= 0 && idx < rows.length; idx += direction) {
+        const field = getItemsRowFieldElement(rows[idx], fieldKey);
+        if (!isEnabledElement(field)) continue;
+        focusItemsRowField(rows[idx], fieldKey);
+        return;
+    }
+}
+
 function calculateTotal() {
     let total = 0;
     let hasItems = false;
@@ -559,6 +723,7 @@ async function resetForm() {
     hideItemsSection();
     await loadNextReturnNumber();
     salesReturnsState.dom.returnDateInput.valueAsDate = new Date();
+    updateReturnNavigationButtons();
 }
 
 async function loadReturnForEdit(id) {
@@ -566,6 +731,7 @@ async function loadReturnForEdit(id) {
     if (!Number.isFinite(returnId) || returnId <= 0) {
         Toast.show(t('salesReturns.toast.invalidReturnId', 'Invalid return ID'), 'warning');
         clearEditQueryFromUrl();
+        updateReturnNavigationButtons();
         return;
     }
 
@@ -575,6 +741,7 @@ async function loadReturnForEdit(id) {
         if (!selectedReturn) {
             Toast.show(t('salesReturns.toast.returnNotFound', 'Return not found'), 'warning');
             clearEditQueryFromUrl();
+            updateReturnNavigationButtons();
             return;
         }
 
@@ -629,8 +796,10 @@ async function loadReturnForEdit(id) {
 
         await loadInvoiceItems(selectedReturn.original_invoice_id);
         setEditLocked(true);
+        updateReturnNavigationButtons();
     } catch (_) {
         Toast.show(t('salesReturns.toast.loadReturnError', 'Failed to load return data for editing'), 'error');
+        updateReturnNavigationButtons();
     }
 }
 
@@ -638,6 +807,104 @@ async function loadReturnsHistory() {
     salesReturnsState.allSalesReturns = toArray(await salesReturnsApi.getReturns());
     salesReturnsState.salesReturnsPage = 1;
     renderReturnsHistory();
+    updateReturnNavigationButtons();
+}
+
+function getOrderedReturnsForNavigation() {
+    return toArray(salesReturnsState.allSalesReturns)
+        .slice()
+        .sort((a, b) => (Number(a?.id) || 0) - (Number(b?.id) || 0));
+}
+
+function findCurrentReturnIndexForNavigation(orderedReturns) {
+    if (!orderedReturns.length) return -1;
+
+    if (Number.isFinite(Number(salesReturnsState.editingReturnId))) {
+        const activeId = Number(salesReturnsState.editingReturnId);
+        const editIdx = orderedReturns.findIndex((entry) => Number(entry?.id) === activeId);
+        if (editIdx >= 0) return editIdx;
+    }
+
+    const currentReturnNumber = (salesReturnsState.dom.returnNumberInput?.value || '').trim();
+    if (!currentReturnNumber) return -1;
+
+    return orderedReturns.findIndex((entry) => String(entry?.return_number || '').trim() === currentReturnNumber);
+}
+
+function applyReturnNavButtonState(button, disabled, disabledTitle) {
+    if (!button) return;
+
+    button.disabled = Boolean(disabled);
+    button.style.opacity = disabled ? '0.55' : '1';
+    button.style.cursor = disabled ? 'not-allowed' : 'pointer';
+    button.title = disabled ? disabledTitle : '';
+}
+
+function updateReturnNavigationButtons() {
+    const prevBtn = document.querySelector('[data-action="load-prev-return"]');
+    const nextBtn = document.querySelector('[data-action="load-next-return"]');
+    if (!prevBtn || !nextBtn) return;
+
+    const orderedReturns = getOrderedReturnsForNavigation();
+    if (!orderedReturns.length) {
+        applyReturnNavButtonState(prevBtn, true, 'لا يوجد مرتجع سابق');
+        applyReturnNavButtonState(nextBtn, true, 'لا يوجد مرتجع تالي');
+        return;
+    }
+
+    const currentIndex = findCurrentReturnIndexForNavigation(orderedReturns);
+    if (currentIndex < 0) {
+        applyReturnNavButtonState(prevBtn, false, '');
+        applyReturnNavButtonState(nextBtn, true, 'لا يوجد مرتجع تالي');
+        return;
+    }
+
+    const isPrevDisabled = currentIndex <= 0;
+    // Keep "next" enabled on the latest saved return to allow returning to a fresh empty form.
+    const isNextDisabled = false;
+
+    applyReturnNavButtonState(prevBtn, isPrevDisabled, 'لا يوجد مرتجع سابق');
+    applyReturnNavButtonState(nextBtn, isNextDisabled, '');
+}
+
+async function navigateReturn(direction) {
+    const orderedReturns = getOrderedReturnsForNavigation();
+    if (!orderedReturns.length) {
+        Toast.show('لا توجد مرتجعات محفوظة للتنقل بينها', 'warning');
+        updateReturnNavigationButtons();
+        return;
+    }
+
+    const currentIndex = findCurrentReturnIndexForNavigation(orderedReturns);
+    const targetIndex = currentIndex < 0
+        ? (direction < 0 ? orderedReturns.length - 1 : 0)
+        : currentIndex + direction;
+
+    if (targetIndex < 0) {
+        Toast.show('لا يوجد مرتجع سابق', 'warning');
+        updateReturnNavigationButtons();
+        return;
+    }
+
+    if (targetIndex >= orderedReturns.length) {
+        if (direction > 0 && currentIndex === orderedReturns.length - 1) {
+            await resetForm();
+            updateReturnNavigationButtons();
+            return;
+        }
+
+        Toast.show('لا يوجد مرتجع تالي', 'warning');
+        updateReturnNavigationButtons();
+        return;
+    }
+
+    const targetReturn = orderedReturns[targetIndex];
+    if (!targetReturn?.id) {
+        Toast.show('تعذر فتح المرتجع المطلوب', 'error');
+        return;
+    }
+
+    await loadReturnForEdit(targetReturn.id);
 }
 
 function renderReturnsHistory() {

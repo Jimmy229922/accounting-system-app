@@ -179,6 +179,42 @@
    - `views/shell/shell.css`
 - نطاق التغيير: تحسينات CSS فقط (focus states, controls, buttons, cards, tables, responsive spacing)، بدون تعديل IPC أو DB أو صلاحيات.
 
+### Payments Balance Preview (2026-04-15)
+
+- تم إضافة تلوين ديناميكي لمعاينة الرصيد داخل `views/payments` (الحالي/بعد العملية) لتمييز الحالات بصريًا:
+   - `.preview-value.positive`
+   - `.preview-value.negative`
+   - `.preview-value.zero`
+- التلوين يُطبّق من `treasury-page.shared.js` عبر تبديل الكلاسات على `#previewCurrentBalance` و `#previewAfterBalance` حسب إشارة الرصيد.
+
+### Invoice/Return Previous-Next Navigation (2026-04-16)
+
+- تم إضافة زرين `السابق` و`التالي` داخل نموذج المستند في الصفحات:
+   - `views/sales`
+   - `views/purchases`
+   - `views/sales-returns`
+   - `views/purchase-returns`
+- السلوك يعتمد على البيانات الحالية بدون أي IPC جديد:
+   - المبيعات: `getSalesInvoices`
+   - المشتريات: `getPurchaseInvoices`
+   - مردودات المبيعات: `getSalesReturns`
+   - مردودات المشتريات: `getPurchaseReturns`
+- عند الوصول لأول/آخر مستند، يتم تعطيل الزر المناسب وإظهار تنبيه واضح عند محاولة تجاوز الحدود.
+- حالات التعطيل أصبحت واضحة بصريًا داخل نفس الزر (opacity + cursor + title) لإظهار أن الضغط غير متاح عند عدم وجود سابق/تالي.
+- في صفحة `views/sales` فقط: عند فتح آخر فاتورة محفوظة ثم الضغط على `التالي` يتم فتح نموذج فاتورة بيع جديد فارغ (نفس حالة الدخول لأول مرة).
+- في `views/sales`: موضع زرّي `السابق/التالي` داخل `form-title-row` بجوار نص `تسجيل فاتورة بيع جديدة` للحفاظ على شكل شبكة بيانات الفاتورة.
+- في `views/purchases` و`views/sales-returns` و`views/purchase-returns`: تم توحيد نفس الموضع داخل `form-title-row` بجوار عنوان التسجيل.
+- تم توحيد سلوك التنقل مع المبيعات في الصفحات الثلاث (`views/purchases`, `views/sales-returns`, `views/purchase-returns`): عند فتح آخر مستند محفوظ ثم الضغط على `التالي` يتم فتح نموذج جديد فارغ.
+- في `views/sales-returns` و`views/purchase-returns`: تم توحيد سلوك قائمة اختيار العميل/المورد مع صفحة `views/sales` داخل حقول أعلى النموذج (ارتفاع قائمة ثابت 350px مع تمرير داخلي مستقل للقائمة).
+- في نفس القائمتين (`views/sales-returns` و`views/purchase-returns`): تم تثبيت اتجاه الفتح لأسفل (`autocomplete-force-down`) للحقل العلوي حتى لا تظهر القائمة مقلوبة لأعلى عند اختلاف ارتفاع الشاشة.
+
+### Customer Reports PDF Cleanup (2026-04-17)
+
+- في `views/customer-reports`: تم تعطيل بناء شريط التنقل العلوي الداخلي من `customer-reports.bootstrap.js` (الدالة `buildTopNavHTML` تعيد قيمة فارغة) لتفادي ظهور شريط التنقل وروابطه داخل ملفات PDF عند التصدير.
+- في handlers الخاصة بالتصدير (`main/handlers/reports.js` و `backend/src/desktop-compat/generated/handlers/reports.js`): تمت إضافة خطوة pre-capture لحظية عند تصدير PDF من داخل Shell لإخفاء `shell-top-nav` وتوسيع `shellFrame` على ارتفاع المحتوى قبل `printToPDF` ثم استرجاع الحالة بعد انتهاء التصدير.
+- في بناء ملخص الأصناف داخل `customer-reports.bootstrap.js`: يتم عرض الأربع مجموعات دائمًا في PDF؛ كل مجموعة تبدأ من أول صفحة مستقلة، والمجموعة الفارغة يظهر جدولها برسالة `لا توجد بيانات` بدون صف إجماليات، مع فاصل صفحة بين المجموعات.
+- تم ضبط كسر الصفحات في مجموعات الملخص ليعتمد على بداية كل مجموعة (`page-break-before`) بدون حجز ارتفاع صفحة إجباري؛ لتفادي دمج أول مجموعة مع صفحة الملخص، وتفادي تموضع الجداول الفارغة في منتصف الصفحة، ومنع الصفحة الفارغة الزائدة في النهاية.
+
 ---
 
 ## 7) جداول قاعدة البيانات (الحالي)

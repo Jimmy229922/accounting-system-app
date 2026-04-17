@@ -21,6 +21,14 @@
                 <div class="invoice-shell">
                     <div class="form-title-row">
                         <h2 class="form-title">${t('sales.formTitle', 'تسجيل فاتورة بيع جديدة')}</h2>
+                        <div style="display: flex; gap: 8px; margin-inline-start: auto;">
+                            <button class="btn btn-outline" type="button" data-action="load-prev-invoice" style="padding: 8px 10px;">
+                                ${t('common.actions.previous', 'السابق')}
+                            </button>
+                            <button class="btn btn-outline" type="button" data-action="load-next-invoice" style="padding: 8px 10px;">
+                                ${t('common.actions.next', 'التالي')}
+                            </button>
+                        </div>
                         <span class="form-status-chip">${t('sales.formStatusChip', 'فاتورة مبيعات')}</span>
                     </div>
 
@@ -37,7 +45,7 @@
 
                         <div class="form-group">
                             <label>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0" y2="13"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                                 ${t('sales.invoiceNumber', 'رقم الفاتورة')}
                             </label>
                             <input type="text" id="invoiceNumber" class="form-control" list="invoiceSuggestions" placeholder="${t('sales.autoNumber', 'تلقائي')}" autocomplete="off">
@@ -78,12 +86,13 @@
                             <table class="items-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 35%;">${t('sales.tableHeaders.item', 'الصنف')}</th>
+                                        <th style="width: 18%;">${t('items.barcode', 'الباركود')}</th>
+                                        <th style="width: 24%;">${t('sales.tableHeaders.item', 'الصنف')}</th>
                                         <th style="width: 10%;">${t('sales.tableHeaders.unit', 'الوحدة')}</th>
-                                        <th style="width: 15%;">${t('sales.tableHeaders.qty', 'الكمية')}</th>
-                                        <th style="width: 17.5%;">${t('sales.tableHeaders.price', 'سعر البيع')}</th>
-                                        <th style="width: 17.5%;">${t('sales.tableHeaders.total', 'الإجمالي')}</th>
-                                        <th style="width: 5%;"></th>
+                                        <th style="width: 14%;">${t('sales.tableHeaders.qty', 'الكمية')}</th>
+                                        <th style="width: 14%;">${t('sales.tableHeaders.price', 'سعر البيع')}</th>
+                                        <th style="width: 14%;">${t('sales.tableHeaders.total', 'الإجمالي')}</th>
+                                        <th style="width: 6%;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="invoiceItemsBody"></tbody>
@@ -153,7 +162,8 @@
         let itemsOptions = `<option value="">${t('sales.selectItem', 'اختر الصنف')}</option>`;
         allItems.forEach((item) => {
             const isSelected = existingItem && existingItem.item_id === item.id ? 'selected' : '';
-            itemsOptions += `<option value="${item.id}" data-price="${item.sale_price}" data-cost="${item.cost_price || 0}" ${isSelected}>${item.name}</option>`;
+            const itemLabel = item.name;
+            itemsOptions += `<option value="${item.id}" data-price="${item.sale_price}" data-cost="${item.cost_price || 0}" data-barcode="${item.barcode || ''}" ${isSelected}>${itemLabel}</option>`;
         });
         return itemsOptions;
     }
@@ -168,13 +178,18 @@
         const total = existingItem ? existingItem.total_price : 0;
 
         let unitName = '';
+        let barcodeValue = '';
         if (existingItem) {
             const existingItemId = parseInt(existingItem.item_id, 10);
             const match = Number.isFinite(existingItemId) ? allItems.find((i) => i.id === existingItemId) : null;
             unitName = match && match.unit_name ? match.unit_name : '';
+            barcodeValue = match && match.barcode ? match.barcode : '';
         }
 
         row.innerHTML = `
+        <td>
+            <input type="text" autocomplete="off" class="form-control barcode-input" value="${barcodeValue}" placeholder="${t('items.barcodePlaceholder', 'امسح الباركود...')}">
+        </td>
         <td>
             <select class="form-control item-select" data-autocomplete-cache-key="sales-items">
                 ${itemsOptions}
@@ -188,7 +203,6 @@
         </td>
         <td>
             <input type="text" autocomplete="off" class="form-control price-input" value="${price}">
-            <div class="profit-indicator"></div>
         </td>
         <td>
             <span class="row-total">${total.toFixed(2)}</span>
@@ -213,7 +227,7 @@
             saveBtn.textContent = t('sales.updateAndSave', 'تحديث وحفظ الفاتورة');
             saveBtn.style.opacity = '1';
             saveBtn.style.cursor = 'pointer';
-            saveBtn.disabled = false; // Just in case it was set statically
+            saveBtn.disabled = false;
         }
     }
 
@@ -227,7 +241,7 @@
             saveBtn.textContent = t('sales.saveAndPost', 'حفظ وترحيل الفاتورة');
             saveBtn.style.opacity = '1';
             saveBtn.style.cursor = 'pointer';
-            saveBtn.disabled = false; // Fix any static disabled state
+            saveBtn.disabled = false;
         }
     }
 
@@ -238,4 +252,3 @@
         setCreateModeUI
     };
 })();
-

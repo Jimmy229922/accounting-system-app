@@ -107,6 +107,8 @@
     border: 1px solid var(--card-border);
     border-radius: 14px;
     background: var(--bg-color);
+    position: relative;
+    z-index: 20;
 }
 
 .form-group {
@@ -172,15 +174,15 @@
 }
 
 .customer-balance.balance-positive {
-    color: var(--danger-color);
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.35);
-}
-
-.customer-balance.balance-negative {
     color: var(--success-color);
     background: rgba(16, 185, 129, 0.12);
     border-color: rgba(16, 185, 129, 0.35);
+}
+
+.customer-balance.balance-negative {
+    color: var(--danger-color);
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
 }
 
 .customer-balance.balance-zero {
@@ -194,6 +196,16 @@
     border-radius: 14px;
     background: var(--card-bg);
     padding: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+.invoice-top-grid .autocomplete-wrapper {
+    z-index: 30;
+}
+
+.invoice-top-grid .autocomplete-list {
+    z-index: 20000;
 }
 
 .items-section-head {
@@ -486,11 +498,11 @@
 }
 
 .customer-due-value.due-positive {
-    color: var(--danger-color);
+    color: var(--success-color);
 }
 
 .customer-due-value.due-negative {
-    color: var(--success-color);
+    color: var(--danger-color);
 }
 
 .grand-total {

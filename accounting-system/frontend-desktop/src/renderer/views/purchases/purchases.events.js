@@ -20,6 +20,16 @@
                     return;
                 }
 
+                if (action === 'load-prev-invoice') {
+                    handlers.onLoadPrevInvoice();
+                    return;
+                }
+
+                if (action === 'load-next-invoice') {
+                    handlers.onLoadNextInvoice();
+                    return;
+                }
+
                 if (action === 'remove-row') {
                     handlers.onRemoveRow(actionEl);
                 }
@@ -42,6 +52,29 @@
             if (!target) return;
             if (target.classList.contains('quantity-input') || target.classList.contains('price-input')) {
                 handlers.onRowInput(target);
+            }
+        });
+
+        dom.invoiceItemsBody.addEventListener('keydown', (event) => {
+            if (
+                event.key !== 'ArrowDown' &&
+                event.key !== 'ArrowUp' &&
+                event.key !== 'ArrowRight' &&
+                event.key !== 'ArrowLeft'
+            ) return;
+
+            const target = event.target;
+            if (!target) return;
+
+            const isGridField =
+                target.classList.contains('barcode-input') ||
+                target.classList.contains('autocomplete-input') ||
+                target.classList.contains('quantity-input') ||
+                target.classList.contains('price-input');
+
+            if (!isGridField) return;
+            if (handlers.onRowArrowNavigate) {
+                handlers.onRowArrowNavigate(event);
             }
         });
     }

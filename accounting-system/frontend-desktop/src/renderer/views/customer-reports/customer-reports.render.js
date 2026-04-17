@@ -1,10 +1,10 @@
-(function () {
+ (function () {
     function renderPage({ t, getNavHTML }) {
         const app = document.getElementById('app');
         app.innerHTML = `
-        ${getNavHTML()}
+            ${getNavHTML()}
 
-        <div class="content">
+            <div class="content">
             <div class="page-hero">
                 <div class="page-hero-right">
                     <div class="page-hero-icon"><i class="fas fa-chart-line"></i></div>
@@ -118,11 +118,9 @@
                 <div class="table-card">
                     <div class="table-card-header">
                         <h3><i class="fas fa-list-alt"></i> ${t('customerReports.transactionLog', 'سجل العمليات')}</h3>
-                        <div class="header-actions">
-                            <button class="btn-icon no-print" title="${t('customerReports.savePdfBtn', 'حفظ PDF')}" data-action="save-pdf">
-                                <i class="fas fa-file-pdf"></i>
-                            </button>
-                        </div>
+                        <button class="btn-icon no-print" title="${t('customerReports.savePdfBtn', 'حفظ PDF')}" data-action="save-pdf">
+                            <i class="fas fa-file-pdf"></i>
+                        </button>
                     </div>
                     <table>
                         <thead>
@@ -164,9 +162,35 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- PDF Options Modal -->
+                <div id="pdfModal" class="modal-overlay" style="display: none;">
+                    <div class="modal-content pdf-modal">
+                        <div class="modal-header">
+                            <h3>خيارات الطباعة</h3>
+                            <button class="modal-close" id="pdfModalClose">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <p>اختر نوع كشف الحساب:</p>
+                            <div class="pdf-buttons">
+                                <button class="pdf-btn detailed" id="detailedPdfBtn">
+                                    <i class="fas fa-list-ul"></i>
+                                    <span>كشف تفصيلي</span>
+                                </button>
+                                <button class="pdf-btn summary" id="summaryPdfBtn">
+                                    <i class="fas fa-table"></i>
+                                    <span>فاتورة مجمعة</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    `;
+    </div>
+`;
     }
 
     window.customerReportsPageRender = {

@@ -6,6 +6,160 @@ const { db } = require('../db');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const { sanitizeSuggestedFileName } = require('./utils');
 
+async function prepareShellFrameForPdfCapture(webContents) {
+    if (!webContents || webContents.isDestroyed()) {
+        return;
+    }
+
+    try {
+        await webContents.executeJavaScript(`
+            (() => {
+                const shellRoot = document.querySelector('.shell-root');
+                const frame = document.getElementById('shellFrame');
+                if (!shellRoot || !frame) return;
+
+                const shellNav = document.querySelector('.shell-top-nav');
+                const shellStage = document.querySelector('.shell-stage');
+                const htmlEl = document.documentElement;
+                const bodyEl = document.body;
+
+                const state = {
+                    htmlOverflow: htmlEl ? (htmlEl.style.overflow || '') : '',
+                    bodyOverflow: bodyEl ? (bodyEl.style.overflow || '') : '',
+                    rootHeight: shellRoot.style.height || '',
+                    rootMinHeight: shellRoot.style.minHeight || '',
+                    rootOverflow: shellRoot.style.overflow || '',
+                    navDisplay: shellNav ? (shellNav.style.display || '') : '',
+                    stagePadding: shellStage ? (shellStage.style.padding || '') : '',
+                    stageOverflow: shellStage ? (shellStage.style.overflow || '') : '',
+                    stageBackground: shellStage ? (shellStage.style.background || '') : '',
+                    frameHeight: frame.style.height || '',
+                    frameOverflow: frame.style.overflow || '',
+                    frameBorderRadius: frame.style.borderRadius || '',
+                    frameBoxShadow: frame.style.boxShadow || '',
+                    frameDocHtmlOverflow: '',
+                    frameDocBodyOverflow: '',
+                    injectedStyleId: 'pdf-shell-capture-style'
+                };
+
+                if (htmlEl) htmlEl.style.overflow = 'visible';
+                if (bodyEl) bodyEl.style.overflow = 'visible';
+                shellRoot.style.height = 'auto';
+                shellRoot.style.minHeight = '0';
+                shellRoot.style.overflow = 'visible';
+
+                if (shellNav) shellNav.style.display = 'none';
+                if (shellStage) {
+                    shellStage.style.padding = '0';
+                    shellStage.style.overflow = 'visible';
+                    shellStage.style.background = '#fff';
+                }
+
+                frame.style.overflow = 'visible';
+                frame.style.borderRadius = '0';
+                frame.style.boxShadow = 'none';
+
+                try {
+                    const frameDoc = frame.contentDocument;
+                    const frameWin = frame.contentWindow;
+                    if (frameDoc && frameWin) {
+                        const frameHtml = frameDoc.documentElement;
+                        const frameBody = frameDoc.body;
+
+                        state.frameDocHtmlOverflow = frameHtml ? (frameHtml.style.overflow || '') : '';
+                        state.frameDocBodyOverflow = frameBody ? (frameBody.style.overflow || '') : '';
+
+                        if (frameHtml) frameHtml.style.overflow = 'visible';
+                        if (frameBody) frameBody.style.overflow = 'visible';
+
+                        if (!frameDoc.getElementById(state.injectedStyleId)) {
+                            const style = frameDoc.createElement('style');
+                            style.id = state.injectedStyleId;
+                            style.textContent = '.top-nav, .shell-top-nav { display: none !important; } html, body, #app, .content, .report-container { overflow: visible !important; max-height: none !important; height: auto !important; }';
+                            frameDoc.head.appendChild(style);
+                        }
+
+                        const printableHeight = Math.max(
+                            frameHtml ? frameHtml.scrollHeight : 0,
+                            frameBody ? frameBody.scrollHeight : 0,
+                            frameWin.innerHeight || 0
+                        );
+                        frame.style.height = String(Math.max(printableHeight + 24, 1200)) + 'px';
+                    }
+                } catch (_) {}
+
+                window.__pdfShellCaptureState = state;
+            })();
+        `, true);
+    } catch (_) {
+        // Ignore capture prep errors and continue with normal print flow.
+    }
+}
+
+async function restoreShellFrameAfterPdfCapture(webContents) {
+    if (!webContents || webContents.isDestroyed()) {
+        return;
+    }
+
+    try {
+        await webContents.executeJavaScript(`
+            (() => {
+                const state = window.__pdfShellCaptureState;
+                if (!state) return;
+
+                const shellRoot = document.querySelector('.shell-root');
+                const frame = document.getElementById('shellFrame');
+                const shellNav = document.querySelector('.shell-top-nav');
+                const shellStage = document.querySelector('.shell-stage');
+                const htmlEl = document.documentElement;
+                const bodyEl = document.body;
+
+                if (htmlEl) htmlEl.style.overflow = state.htmlOverflow || '';
+                if (bodyEl) bodyEl.style.overflow = state.bodyOverflow || '';
+
+                if (shellRoot) {
+                    shellRoot.style.height = state.rootHeight || '';
+                    shellRoot.style.minHeight = state.rootMinHeight || '';
+                    shellRoot.style.overflow = state.rootOverflow || '';
+                }
+
+                if (shellNav) shellNav.style.display = state.navDisplay || '';
+                if (shellStage) {
+                    shellStage.style.padding = state.stagePadding || '';
+                    shellStage.style.overflow = state.stageOverflow || '';
+                    shellStage.style.background = state.stageBackground || '';
+                }
+
+                if (frame) {
+                    frame.style.height = state.frameHeight || '';
+                    frame.style.overflow = state.frameOverflow || '';
+                    frame.style.borderRadius = state.frameBorderRadius || '';
+                    frame.style.boxShadow = state.frameBoxShadow || '';
+
+                    try {
+                        const frameDoc = frame.contentDocument;
+                        if (frameDoc) {
+                            const frameHtml = frameDoc.documentElement;
+                            const frameBody = frameDoc.body;
+                            if (frameHtml) frameHtml.style.overflow = state.frameDocHtmlOverflow || '';
+                            if (frameBody) frameBody.style.overflow = state.frameDocBodyOverflow || '';
+
+                            const injectedStyle = frameDoc.getElementById(state.injectedStyleId || 'pdf-shell-capture-style');
+                            if (injectedStyle && injectedStyle.parentNode) {
+                                injectedStyle.parentNode.removeChild(injectedStyle);
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                delete window.__pdfShellCaptureState;
+            })();
+        `, true);
+    } catch (_) {
+        // Ignore restore errors.
+    }
+}
+
 function register() {
     // --- Reports Handlers ---
 
@@ -93,7 +247,7 @@ function register() {
 
         if (queries.length === 0) return [];
 
-        const finalQuery = queries.join(' UNION ALL ') + ' ORDER BY invoice_date DESC';
+        const finalQuery = queries.join(' UNION ALL ') + ' ORDER BY invoice_date ASC';
         
         return db.prepare(finalQuery).all({ startDate, endDate, customerId });
         } catch (error) {
@@ -319,6 +473,7 @@ function register() {
                     JOIN items i ON sid.item_id = i.id
                     LEFT JOIN units u ON i.unit_id = u.id
                     WHERE sid.invoice_id = ?
+                    ORDER BY sid.id ASC
                 `).all(id);
             } else if (type === 'purchase') {
                 details = db.prepare(`
@@ -328,6 +483,7 @@ function register() {
                     JOIN items i ON pid.item_id = i.id
                     LEFT JOIN units u ON i.unit_id = u.id
                     WHERE pid.invoice_id = ?
+                    ORDER BY pid.id ASC
                 `).all(id);
             } else if (type === 'sales_return') {
                 details = db.prepare(`
@@ -337,6 +493,7 @@ function register() {
                     JOIN items i ON srd.item_id = i.id
                     LEFT JOIN units u ON i.unit_id = u.id
                     WHERE srd.return_id = ?
+                    ORDER BY srd.id ASC
                 `).all(id);
             } else if (type === 'purchase_return') {
                 details = db.prepare(`
@@ -346,6 +503,7 @@ function register() {
                     JOIN items i ON prd.item_id = i.id
                     LEFT JOIN units u ON i.unit_id = u.id
                     WHERE prd.return_id = ?
+                    ORDER BY prd.id ASC
                 `).all(id);
             }
             return { success: true, details };
@@ -403,8 +561,9 @@ function register() {
     });
 
     ipcMain.handle('save-customer-report-pdf', async (event, payload) => {
+        const sourceWebContents = event.sender;
         try {
-            const win = BrowserWindow.fromWebContents(event.sender);
+            const win = BrowserWindow.fromWebContents(sourceWebContents);
             if (!win) {
                 return { success: false, error: 'No active window found' };
             }
@@ -412,7 +571,7 @@ function register() {
             const date = new Date().toISOString().split('T')[0];
             const requestedDefault = payload?.defaultName;
             const defaultName = sanitizeSuggestedFileName(requestedDefault || `Customer_Report_${date}.pdf`);
-            const defaultPath = path.join(app.getPath('documents'), defaultName);
+            const defaultPath = path.join(app.getPath('downloads'), defaultName);
 
             const { canceled, filePath } = await dialog.showSaveDialog(win, {
                 title: 'حفظ تقرير العميل PDF',
@@ -424,7 +583,9 @@ function register() {
                 return { success: false, canceled: true };
             }
 
-            const pdfBuffer = await win.webContents.printToPDF({
+            await prepareShellFrameForPdfCapture(sourceWebContents);
+
+            const pdfBuffer = await sourceWebContents.printToPDF({
                 printBackground: true,
                 pageSize: 'A4',
                 landscape: true,
@@ -465,6 +626,77 @@ function register() {
         } catch (error) {
             console.error('[save-customer-report-pdf] error:', error);
             return { success: false, error: error.message };
+        } finally {
+            await restoreShellFrameAfterPdfCapture(sourceWebContents);
+        }
+    });
+
+    ipcMain.handle('save-customer-summary-pdf', async (event, payload) => {
+        const sourceWebContents = event.sender;
+        try {
+            const win = BrowserWindow.fromWebContents(sourceWebContents);
+            if (!win) {
+                return { success: false, error: 'No active window found' };
+            }
+
+            const date = new Date().toISOString().split('T')[0];
+            const requestedDefault = payload?.defaultName;
+            const defaultName = sanitizeSuggestedFileName(requestedDefault || `Customer_Summary_${date}.pdf`);
+            const defaultPath = path.join(app.getPath('downloads'), defaultName);
+
+            const { canceled, filePath } = await dialog.showSaveDialog(win, {
+                title: 'حفظ فاتورة مجمعة PDF',
+                defaultPath,
+                filters: [{ name: 'PDF', extensions: ['pdf'] }]
+            });
+
+            if (canceled || !filePath) {
+                return { success: false, canceled: true };
+            }
+
+            await prepareShellFrameForPdfCapture(sourceWebContents);
+
+            const pdfBuffer = await sourceWebContents.printToPDF({
+                printBackground: true,
+                pageSize: 'A4',
+                landscape: false,
+                marginsType: 0,
+                preferCSSPageSize: true
+            });
+
+            const title = path.basename(filePath, path.extname(filePath));
+            const pdfDoc = await PDFDocument.load(pdfBuffer);
+            pdfDoc.setTitle(title);
+            pdfDoc.setCreator('Accounting System');
+            pdfDoc.setProducer('Accounting System');
+
+            const pages = pdfDoc.getPages();
+            const totalPages = pages.length;
+            if (totalPages > 0) {
+                const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                pages.forEach((page, i) => {
+                    const { width } = page.getSize();
+                    const text = `${i + 1} / ${totalPages}`;
+                    const textWidth = font.widthOfTextAtSize(text, 9);
+                    page.drawText(text, {
+                        x: (width - textWidth) / 2,
+                        y: 6,
+                        size: 9,
+                        font,
+                        color: rgb(0.45, 0.45, 0.45)
+                    });
+                });
+            }
+
+            const finalPdf = await pdfDoc.save();
+            fs.writeFileSync(filePath, finalPdf);
+
+            return { success: true, filePath };
+        } catch (error) {
+            console.error('[save-customer-summary-pdf] error:', error);
+            return { success: false, error: error.message };
+        } finally {
+            await restoreShellFrameAfterPdfCapture(sourceWebContents);
         }
     });
 }

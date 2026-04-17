@@ -332,6 +332,15 @@
     color: var(--text-muted);
 }
 
+/* Supplier payment page: keep word-based colors (له=green, عليه=red) */
+#paymentForm .balance-amount.positive {
+    color: var(--success-color);
+}
+
+#paymentForm .balance-amount.negative {
+    color: var(--danger-color);
+}
+
 .balance-hint {
     font-size: 0.8rem;
     color: var(--text-muted);
@@ -552,6 +561,26 @@
     font-size: 0.94rem;
     color: var(--text-color);
     font-weight: 700;
+}
+
+.preview-value.positive {
+    color: var(--danger-color);
+}
+
+.preview-value.negative {
+    color: var(--success-color);
+}
+
+.preview-value.zero {
+    color: var(--text-muted);
+}
+
+#paymentForm .preview-value.positive {
+    color: var(--success-color);
+}
+
+#paymentForm .preview-value.negative {
+    color: var(--danger-color);
 }
 
 .preview-divider {

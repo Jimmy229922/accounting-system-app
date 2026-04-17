@@ -296,8 +296,12 @@ function seedData() {
         { name: 'ورق تغليف شفاف', barcode: '6003010', unit_id: unitIds['رول'], cost_price: 18, sale_price: 25, stock_quantity: 0, reorder_level: 25 },
     ];
     const itemIds = {};
-    for (const item of itemsData) {
-        const info = insertItem.run(item);
+    for (const [index, item] of itemsData.entries()) {
+        const itemWithSeedBarcode = {
+            ...item,
+            barcode: String(1000 + index)
+        };
+        const info = insertItem.run(itemWithSeedBarcode);
         itemIds[item.name] = Number(info.lastInsertRowid);
     }
     console.log(`  ✓ ${itemsData.length} items`);

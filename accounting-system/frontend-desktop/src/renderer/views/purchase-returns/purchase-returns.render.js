@@ -15,11 +15,19 @@
             </div>
 
             <div id="invoiceForm" class="invoice-form-container">
-                <div class="invoice-shell" style="background: var(--card-bg); border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.04); border: 1px solid var(--card-border); overflow: hidden; padding: 25px;">
-                    <div class="form-title-row" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid rgba(var(--primary-rgb), 0.1); padding-bottom: 15px; margin-bottom: 25px;">
+                <div class="invoice-shell" style="background: var(--card-bg); border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.04); border: 1px solid var(--card-border); padding: 25px;">
+                    <div class="form-title-row" style="display: flex; align-items: center; gap: 10px; border-bottom: 2px solid rgba(var(--primary-rgb), 0.1); padding-bottom: 15px; margin-bottom: 25px;">
                         <h2 class="form-title" style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.3rem; color: var(--primary-color);">
                             <i class="fas fa-file-invoice"></i> ${t('purchaseReturns.newReturnTitle', 'تسجيل مرتجع مشتريات جديد')}
                         </h2>
+                        <div style="display: flex; gap: 8px; margin-inline-start: auto;">
+                            <button class="btn btn-outline" type="button" data-action="load-prev-return" style="padding: 8px 10px;">
+                                ${t('common.actions.previous', 'السابق')}
+                            </button>
+                            <button class="btn btn-outline" type="button" data-action="load-next-return" style="padding: 8px 10px;">
+                                ${t('common.actions.next', 'التالي')}
+                            </button>
+                        </div>
                         <span class="form-status-chip" style="color: var(--warning-color); background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">
                             ${t('purchaseReturns.formStatusChip', 'مرتجع مشتريات')}
                         </span>

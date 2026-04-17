@@ -339,8 +339,8 @@
             font-weight: 600;
             font-variant-numeric: tabular-nums;
         }
-        .amount.debit  { color: #10b981; }
-        .amount.credit { color: #ef4444; }
+        .amount.debit  { color: #ef4444; }
+        .amount.credit { color: #10b981; }
 
         /* ===== Running Balance ===== */
         .running-bal {
@@ -552,7 +552,8 @@
         /* ===== Print Styles ===== */
         @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            @page { size: A4 landscape; margin: 2mm 3mm; }
+            @page { size: A4 landscape; margin: 7mm 8mm; }
+            html, body { overflow: visible !important; }
             
             /* Force light theme colors for print - override dark mode */
             [data-theme="dark"] {
@@ -586,9 +587,47 @@
             .card, .table-card, .summary-card, .report-container {
                 background: #ffffff !important;
             }
-            .top-nav, .selection-card, .page-hero, .btn-icon, .row-actions, .no-print, .btn-toggle, .empty-state { display: none !important; }
-            .content { padding: 0 2px !important; max-width: 100% !important; margin: 0 !important; }
-            .report-container { display: block !important; }
+            .top-nav, .shell-top-nav, .selection-card, .page-hero, .btn-icon, .row-actions, .no-print, .btn-toggle, .empty-state { display: none !important; }
+            .content { padding: 0 !important; max-width: 100% !important; margin: 0 !important; overflow: visible !important; }
+            .report-container {
+                display: block !important;
+                max-height: none !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            /* ---- Summary PDF mode: keep colored financial values ---- */
+            body.summary-pdf-mode .summary-print-view,
+            body.summary-pdf-mode .summary-print-view * {
+                color: #1a1a1a !important;
+            }
+            body.summary-pdf-mode .summary-print-view .summary-items-section > div {
+                color: #ffffff !important;
+            }
+            body.summary-pdf-mode .summary-print-view .summary-cell-debit {
+                color: #047857 !important;
+                font-weight: 800 !important;
+            }
+            body.summary-pdf-mode .summary-print-view .summary-cell-credit {
+                color: #b91c1c !important;
+                font-weight: 800 !important;
+            }
+            body.summary-pdf-mode .summary-print-view .summary-cell-balance {
+                font-weight: 800 !important;
+            }
+            body.summary-pdf-mode .summary-print-view .summary-cell-balance-positive {
+                color: #047857 !important;
+            }
+            body.summary-pdf-mode .summary-print-view .summary-cell-balance-negative {
+                color: #b91c1c !important;
+            }
+            body.summary-pdf-mode .summary-print-view .summary-cell-balance-neutral {
+                color: #1f2937 !important;
+            }
+            body.summary-pdf-mode .summary-print-view .summary-opening-row td {
+                background: linear-gradient(135deg, #dbeafe, #ede9fe) !important;
+                color: #1e1b4b !important;
+            }
 
             /* ---- Print Header ---- */
             .print-header {
@@ -658,35 +697,35 @@
 
             /* ---- Summary Cards ---- */
             .summary-strip {
-                gap: 4px !important;
-                grid-template-columns: repeat(6, 1fr) !important;
-                margin-bottom: 8px !important;
+                gap: 6px !important;
+                grid-template-columns: repeat(3, 1fr) !important;
+                margin-bottom: 10px !important;
             }
             .summary-card {
-                padding: 5px 6px !important;
+                padding: 8px 9px !important;
                 box-shadow: none !important;
-                border: 1.5px solid #bbb !important;
-                border-radius: 5px !important;
-                gap: 4px !important;
-                background: #fafafa !important;
+                border: 1px solid #d1d9e2 !important;
+                border-radius: 8px !important;
+                gap: 6px !important;
+                background: #f9fbfe !important;
             }
-            .summary-card .sc-icon { width: 22px !important; height: 22px !important; font-size: 0.6rem !important; border-radius: 4px !important; }
-            .summary-card .sc-value { font-size: 10px !important; font-weight: 700 !important; }
-            .summary-card .sc-label { font-size: 7.5px !important; }
+            .summary-card .sc-icon { width: 26px !important; height: 26px !important; font-size: 0.72rem !important; border-radius: 6px !important; }
+            .summary-card .sc-value { font-size: 11.5px !important; font-weight: 700 !important; }
+            .summary-card .sc-label { font-size: 9px !important; }
 
             /* ---- Table ---- */
             .table-card {
                 box-shadow: none !important;
-                border: 2px solid #555 !important;
-                border-radius: 0 !important;
+                border: 1.5px solid #c6cfda !important;
+                border-radius: 8px !important;
                 overflow: visible !important;
             }
             .table-card-header {
-                padding: 6px 10px !important;
-                border-bottom: 2px solid #555 !important;
-                background: #f0f0f0 !important;
+                padding: 8px 10px !important;
+                border-bottom: 1px solid #d6dee8 !important;
+                background: #f4f7fb !important;
             }
-            .table-card-header h3 { font-size: 12px !important; font-weight: 700 !important; }
+            .table-card-header h3 { font-size: 12.5px !important; font-weight: 700 !important; }
 
             /* Repeat thead on every page */
             .table-card table { border-collapse: collapse !important; width: 100% !important; }
@@ -695,29 +734,29 @@
             .table-card tfoot { display: table-footer-group !important; }
 
             .table-card th {
-                font-size: 13px !important;
-                padding: 10px 8px !important;
-                background: #d9d9d9 !important;
+                font-size: 11.5px !important;
+                padding: 8px 6px !important;
+                background: #eaf0f6 !important;
                 color: #111 !important;
-                border: 1px solid #999 !important;
+                border: 1px solid #d2d9e2 !important;
                 font-weight: 800 !important;
                 text-align: center !important;
                 vertical-align: middle !important;
             }
             .table-card td {
-                font-size: 13px !important;
-                padding: 10px 8px !important;
+                font-size: 11px !important;
+                padding: 8px 6px !important;
                 color: #1a1a1a !important;
                 line-height: 1.4 !important;
-                border-left: 1px solid #ccc !important;
-                border-right: 1px solid #ccc !important;
-                font-weight: 700 !important;
+                border-left: 1px solid #dee4ec !important;
+                border-right: 1px solid #dee4ec !important;
+                font-weight: 600 !important;
                 text-align: center !important;
                 vertical-align: middle !important;
             }
             /* Ensure inner table cells keep their own borders */
             .table-card .items-inner-table td {
-                border: 3px solid #777 !important;
+                border: 1px solid #aeb8c5 !important;
             }
 
             /* ---- Wider debit/credit columns ---- */
@@ -736,72 +775,72 @@
                 overflow: visible !important;
                 text-overflow: clip !important;
                 color: #1a1a1a !important;
-                font-size: 13px !important;
-                font-weight: 700 !important;
+                font-size: 11px !important;
+                font-weight: 600 !important;
                 text-align: center !important;
             }
 
             /* ---- Transaction row separators (clear divider between invoices) ---- */
             .trans-main-row {
-                border-top: 4px solid #bbb !important;
+                border-top: 1px solid #d7dee8 !important;
             }
             .trans-main-row > td {
                 border-bottom: none !important;
-                padding-top: 10px !important;
-                padding-bottom: 10px !important;
+                padding-top: 8px !important;
+                padding-bottom: 8px !important;
             }
 
             /* Bottom border on main row (for rows WITHOUT detail sub-rows) */
-            .trans-main-row + .trans-main-row { border-top: 4px solid #bbb !important; }
+            .trans-main-row + .trans-main-row { border-top: 1px solid #d7dee8 !important; }
             .trans-main-row:last-child > td {
-                border-bottom: 4px solid #bbb !important;
-                padding-bottom: 10px !important;
+                border-bottom: 1px solid #d7dee8 !important;
+                padding-bottom: 8px !important;
             }
 
             /* Detail rows: merge with parent, add thick bottom border */
             .items-detail-row[data-loaded="true"] td {
                 border-top: none !important;
-                padding-bottom: 10px !important;
+                padding-bottom: 6px !important;
                 border-bottom: none !important;
             }
 
             /* Next transaction after sales/purchase detail: colored top separator */
             .trans-type-sales + .items-detail-row + .trans-main-row {
-                border-top: 4px solid #059669 !important;
+                border-top: 2px solid #059669 !important;
             }
             .trans-type-purchase + .items-detail-row + .trans-main-row {
-                border-top: 4px solid #d97706 !important;
+                border-top: 2px solid #d97706 !important;
             }
             /* Sales/Purchase without detail row: colored top on next row */
             .trans-type-sales + .trans-main-row {
-                border-top: 4px solid #059669 !important;
+                border-top: 2px solid #059669 !important;
             }
             .trans-type-purchase + .trans-main-row {
-                border-top: 4px solid #d97706 !important;
+                border-top: 2px solid #d97706 !important;
             }
 
             /* Spacing inside the group - add a bit of breathing room */
-            .trans-main-row > td:first-child { padding-top: 12px !important; }
+            .trans-main-row > td:first-child { padding-top: 8px !important; }
 
             /* ---- Type-colored left border per row ---- */
-            .trans-type-sales > td:first-child       { border-right: 4px solid #059669 !important; }
-            .trans-type-purchase > td:first-child     { border-right: 4px solid #d97706 !important; }
-            .trans-type-payment_in > td:first-child   { border-right: 4px solid #2563eb !important; }
-            .trans-type-payment_out > td:first-child  { border-right: 4px solid #dc2626 !important; }
-            .trans-type-sales_return > td:first-child { border-right: 4px solid #9333ea !important; }
-            .trans-type-purchase_return > td:first-child { border-right: 4px solid #0d9488 !important; }
+            .trans-type-sales > td:first-child       { border-right: 2px solid #059669 !important; }
+            .trans-type-purchase > td:first-child     { border-right: 2px solid #d97706 !important; }
+            .trans-type-payment_in > td:first-child   { border-right: 2px solid #2563eb !important; }
+            .trans-type-payment_out > td:first-child  { border-right: 2px solid #dc2626 !important; }
+            .trans-type-sales_return > td:first-child { border-right: 2px solid #9333ea !important; }
+            .trans-type-purchase_return > td:first-child { border-right: 2px solid #0d9488 !important; }
 
             /* ---- Sales & Purchase Box Style ---- */
             /* Sales: full colored border box */
             .trans-type-sales {
-                border-top: 3px solid #059669 !important;
+                border-top: 1.5px solid #059669 !important;
             }
             .trans-type-sales > td {
                 border-top: none !important;
-                border-bottom: 3px solid #059669 !important;
+                border-bottom: 1.5px solid #059669 !important;
             }
-            .trans-type-sales > td:first-child  { border-right: 3px solid #059669 !important; }
-            .trans-type-sales > td:last-child   { border-left: 3px solid #059669 !important; }
+            .trans-type-sales > td:first-child  { border-right: 1.5px solid #059669 !important; }
+            .trans-type-sales > td:last-child   { border-left: 1.5px solid #059669 !important; }
 
             /* When detail row exists, remove bottom from main row */
             .trans-type-sales:has(+ .items-detail-row[data-loaded="true"]) > td {
@@ -810,22 +849,22 @@
 
             /* Sales detail row: side + bottom borders */
             .trans-type-sales + .items-detail-row[data-loaded="true"] > td {
-                border-right: 3px solid #059669 !important;
-                border-left: 3px solid #059669 !important;
-                border-bottom: 3px solid #059669 !important;
+                border-right: 1.5px solid #059669 !important;
+                border-left: 1.5px solid #059669 !important;
+                border-bottom: 1.5px solid #059669 !important;
                 border-top: none !important;
             }
 
             /* Purchase: full colored border box */
             .trans-type-purchase {
-                border-top: 3px solid #d97706 !important;
+                border-top: 1.5px solid #d97706 !important;
             }
             .trans-type-purchase > td {
                 border-top: none !important;
-                border-bottom: 3px solid #d97706 !important;
+                border-bottom: 1.5px solid #d97706 !important;
             }
-            .trans-type-purchase > td:first-child  { border-right: 3px solid #d97706 !important; }
-            .trans-type-purchase > td:last-child   { border-left: 3px solid #d97706 !important; }
+            .trans-type-purchase > td:first-child  { border-right: 1.5px solid #d97706 !important; }
+            .trans-type-purchase > td:last-child   { border-left: 1.5px solid #d97706 !important; }
 
             /* When detail row exists, remove bottom from main row */
             .trans-type-purchase:has(+ .items-detail-row[data-loaded="true"]) > td {
@@ -834,35 +873,35 @@
 
             /* Purchase detail row: side + bottom borders */
             .trans-type-purchase + .items-detail-row[data-loaded="true"] > td {
-                border-right: 3px solid #d97706 !important;
-                border-left: 3px solid #d97706 !important;
-                border-bottom: 3px solid #d97706 !important;
+                border-right: 1.5px solid #d97706 !important;
+                border-left: 1.5px solid #d97706 !important;
+                border-bottom: 1.5px solid #d97706 !important;
                 border-top: none !important;
             }
 
             /* ---- Row background tint per transaction type ---- */
-            .trans-type-sales > td              { background: rgba(16, 185, 129, 0.08) !important; }
-            .trans-type-purchase > td           { background: rgba(245, 158, 11, 0.08) !important; }
-            .trans-type-payment_in > td         { background: rgba(59, 130, 246, 0.08) !important; }
-            .trans-type-payment_out > td        { background: rgba(239, 68, 68, 0.08) !important; }
-            .trans-type-sales_return > td       { background: rgba(168, 85, 247, 0.08) !important; }
-            .trans-type-purchase_return > td    { background: rgba(20, 184, 166, 0.08) !important; }
+            .trans-type-sales > td              { background: rgba(16, 185, 129, 0.04) !important; }
+            .trans-type-purchase > td           { background: rgba(245, 158, 11, 0.04) !important; }
+            .trans-type-payment_in > td         { background: rgba(59, 130, 246, 0.04) !important; }
+            .trans-type-payment_out > td        { background: rgba(239, 68, 68, 0.04) !important; }
+            .trans-type-sales_return > td       { background: rgba(168, 85, 247, 0.04) !important; }
+            .trans-type-purchase_return > td    { background: rgba(20, 184, 166, 0.04) !important; }
 
             /* Detail rows inherit same tint as their parent transaction */
-            .trans-type-sales + .items-detail-row > td           { background: rgba(16, 185, 129, 0.04) !important; }
-            .trans-type-purchase + .items-detail-row > td        { background: rgba(245, 158, 11, 0.04) !important; }
-            .trans-type-payment_in + .items-detail-row > td      { background: rgba(59, 130, 246, 0.04) !important; }
-            .trans-type-payment_out + .items-detail-row > td     { background: rgba(239, 68, 68, 0.04) !important; }
-            .trans-type-sales_return + .items-detail-row > td    { background: rgba(168, 85, 247, 0.04) !important; }
-            .trans-type-purchase_return + .items-detail-row > td { background: rgba(20, 184, 166, 0.04) !important; }
+            .trans-type-sales + .items-detail-row > td           { background: rgba(16, 185, 129, 0.02) !important; }
+            .trans-type-purchase + .items-detail-row > td        { background: rgba(245, 158, 11, 0.02) !important; }
+            .trans-type-payment_in + .items-detail-row > td      { background: rgba(59, 130, 246, 0.02) !important; }
+            .trans-type-payment_out + .items-detail-row > td     { background: rgba(239, 68, 68, 0.02) !important; }
+            .trans-type-sales_return + .items-detail-row > td    { background: rgba(168, 85, 247, 0.02) !important; }
+            .trans-type-purchase_return + .items-detail-row > td { background: rgba(20, 184, 166, 0.02) !important; }
 
-            /* ---- Colored amounts (debit=green, credit=red) ---- */
-            .amount.debit  { color: #047857 !important; font-weight: 800 !important; font-size: 13px !important; }
-            .amount.credit { color: #b91c1c !important; font-weight: 800 !important; font-size: 13px !important; }
+            /* ---- Colored amounts (debit=red, credit=green) ---- */
+            .amount.debit  { color: #b91c1c !important; font-weight: 800 !important; font-size: 13px !important; }
+            .amount.credit { color: #047857 !important; font-weight: 800 !important; font-size: 13px !important; }
 
             /* ---- Badge colors preserved in print ---- */
             .badge {
-                font-size: 12px !important;
+                font-size: 11px !important;
                 padding: 4px 10px !important;
                 border-radius: 4px !important;
                 font-weight: 700 !important;
@@ -894,9 +933,9 @@
 
             /* ---- Balance footer ---- */
             .balance-footer {
-                background: #e0e0e0 !important;
+                background: #f3f5f8 !important;
                 padding: 8px 14px !important;
-                border-top: 3px double #333 !important;
+                border-top: 1px solid #ccd4df !important;
             }
             .balance-footer .bf-label { font-size: 11px !important; color: #000 !important; font-weight: 700 !important; }
             .balance-footer .bf-value { font-size: 13px !important; font-weight: 800 !important; }
@@ -910,7 +949,7 @@
                 border-bottom: none !important;
             }
             .items-detail-box {
-                border: 2px solid #999 !important;
+                border: 1px solid #b8c1ce !important;
                 border-radius: 3px !important;
                 overflow: hidden !important;
             }
@@ -925,37 +964,37 @@
                 background: #e8e8e8 !important;
                 font-weight: 700 !important;
                 color: #333 !important;
-                border: 3px solid #777 !important;
+                border: 1px solid #b8c1ce !important;
             }
             .items-inner-table tr {
-                border-bottom: 3px solid #777 !important;
+                border-bottom: 1px solid #b8c1ce !important;
             }
             .items-inner-table td {
                 font-size: 8.5px !important;
                 padding: 5px 6px !important;
                 color: #1a1a1a !important;
-                border-left: 3px solid #777 !important;
-                border-right: 3px solid #777 !important;
-                border-bottom: 3px solid #777 !important;
+                border-left: 1px solid #b8c1ce !important;
+                border-right: 1px solid #b8c1ce !important;
+                border-bottom: 1px solid #b8c1ce !important;
                 border-top: none !important;
             }
             .items-inner-table tbody tr:last-child td {
-                border-bottom: 3px solid #777 !important;
+                border-bottom: 1px solid #b8c1ce !important;
             }
 
             /* ---- Running balance & Opening row ---- */
-            .running-bal { font-size: 13px !important; font-weight: 800 !important; }
+            .running-bal { font-size: 11.5px !important; font-weight: 800 !important; }
             .opening-row td {
                 background: linear-gradient(135deg, #dbeafe, #ede9fe) !important;
-                border-bottom: 2.5px solid #6366f1 !important;
-                font-size: 11px !important;
+                border-bottom: 1.5px solid #6366f1 !important;
+                font-size: 10.5px !important;
                 font-weight: 700 !important;
-                padding: 9px 8px !important;
+                padding: 7px 6px !important;
                 color: #1e1b4b !important;
             }
 
             /* ---- Amounts ---- */
-            .amount { font-size: 13px !important; font-weight: 800 !important; }
+            .amount { font-size: 11.5px !important; font-weight: 800 !important; }
 
             /* ---- Print Summary Table ---- */
             .print-summary {
@@ -998,6 +1037,221 @@
             .selection-card { flex-direction: column; }
             .page-hero { flex-direction: column; align-items: flex-start; gap: 12px; }
             .btn-show-report { width: 100%; justify-content: center; }
+        }
+
+        /* ===== PDF Modal ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+            animation: modalFadeIn 0.25s ease;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .pdf-modal {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--card-border);
+            width: 90vw;
+            max-width: 420px;
+            max-height: 90vh;
+            overflow: hidden;
+            animation: modalSlideUp 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .pdf-modal .modal-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .pdf-modal h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            background: var(--card-bg);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+        .modal-close:hover {
+            background: var(--accent-color);
+            color: #fff;
+            border-color: var(--accent-color);
+        }
+        .pdf-modal .modal-body {
+            padding: 24px;
+            text-align: center;
+        }
+        .pdf-modal .modal-body p {
+            margin: 0 0 20px 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+        .pdf-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .pdf-btn {
+            flex: 1;
+            min-width: 160px;
+            padding: 14px 20px;
+            border: 2px solid var(--card-border);
+            border-radius: 12px;
+            background: var(--card-bg);
+            color: var(--text-color);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s;
+            position: relative;
+            overflow: hidden;
+        }
+        .pdf-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+        .pdf-btn:hover::before {
+            left: 100%;
+        }
+        .pdf-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border-color: var(--accent-color);
+        }
+        .pdf-btn.detailed {
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .pdf-btn.detailed:hover {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.08);
+            color: #059669;
+        }
+        .pdf-btn.summary {
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+        .pdf-btn.summary:hover {
+            border-color: var(--accent-color);
+            background: rgba(99, 102, 241, 0.08);
+            color: var(--accent-color);
+        }
+        .pdf-btn i {
+            font-size: 1.4rem;
+        }
+
+        /* ===== Summary PDF Capture Mode ===== */
+        /* When body has .summary-pdf-mode, hide the entire app and show only the overlay */
+        body.summary-pdf-mode #app {
+            display: none !important;
+        }
+        body.summary-pdf-mode {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        body.summary-pdf-mode .summary-pdf-overlay {
+            display: block !important;
+            position: relative;
+            width: 100%;
+            background: #fff;
+            color: #1a1a1a;
+            font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+            direction: rtl;
+        }
+        body.summary-pdf-mode .summary-pdf-overlay * {
+            color: #1a1a1a;
+        }
+        /* Override dark mode in PDF capture */
+        body.summary-pdf-mode[data-theme="dark"] {
+            --bg-color: #ffffff !important;
+            --text-color: #1a1a1a !important;
+            --card-bg: #ffffff !important;
+        }
+        .summary-pdf-overlay {
+            display: none;
+        }
+        .summary-print-view {
+            padding: 20px 24px;
+            max-width: 210mm;
+            margin: 0 auto;
+            background: #fff;
+        }
+        .summary-print-view table {
+            page-break-inside: auto;
+        }
+        .summary-print-view table tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+        .summary-print-view table thead {
+            display: table-header-group;
+        }
+        .summary-print-view .summary-items-section {
+            page-break-inside: avoid;
+            break-inside: avoid-page;
+        }
+        .summary-print-view .summary-items-section > div {
+            page-break-after: avoid;
+            break-after: avoid-page;
+        }
+        .summary-print-view .summary-items-section > table {
+            page-break-inside: avoid;
+            break-inside: avoid-page;
+            page-break-before: avoid;
+            break-before: avoid-page;
+        }
+        .summary-print-view .summary-items-section > table thead,
+        .summary-print-view .summary-items-section > table tbody,
+        .summary-print-view .summary-items-section > table tfoot {
+            page-break-inside: avoid;
+            break-inside: avoid-page;
+        }
+
+        /* Dark mode modal enhancements */
+        [data-theme="dark"] .pdf-modal {
+            background: rgb(24 25 28);
+            border-color: rgb(51 65 85);
+        }
+        [data-theme="dark"] .pdf-btn:hover {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
         }
 
 /* Professional UI consistency layer */

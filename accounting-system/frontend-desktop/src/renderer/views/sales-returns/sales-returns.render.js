@@ -18,6 +18,14 @@
                 <div class="invoice-shell">
                     <div class="form-title-row">
                         <h2 class="form-title">${t('salesReturns.newReturnTitle', 'تسجيل مرتجع جديد')}</h2>
+                        <div style="display: flex; gap: 8px; margin-inline-start: auto;">
+                            <button class="btn btn-outline" type="button" data-action="load-prev-return" style="padding: 8px 10px;">
+                                ${t('common.actions.previous', 'السابق')}
+                            </button>
+                            <button class="btn btn-outline" type="button" data-action="load-next-return" style="padding: 8px 10px;">
+                                ${t('common.actions.next', 'التالي')}
+                            </button>
+                        </div>
                         <span class="form-status-chip" style="color: var(--danger-color); background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.35);">${t('salesReturns.formStatusChip', 'مرتجع مبيعات')}</span>
                     </div>
 

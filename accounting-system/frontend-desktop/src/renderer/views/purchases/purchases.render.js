@@ -21,6 +21,14 @@
                 <div class="invoice-shell">
                     <div class="form-title-row">
                         <h2 class="form-title">${t('purchases.formTitle', 'تسجيل فاتورة شراء جديدة')}</h2>
+                        <div style="display: flex; gap: 8px; margin-inline-start: auto;">
+                            <button class="btn btn-outline" type="button" data-action="load-prev-invoice" style="padding: 8px 10px;">
+                                ${t('common.actions.previous', 'السابق')}
+                            </button>
+                            <button class="btn btn-outline" type="button" data-action="load-next-invoice" style="padding: 8px 10px;">
+                                ${t('common.actions.next', 'التالي')}
+                            </button>
+                        </div>
                         <span class="form-status-chip">${t('purchases.formStatusChip', 'فاتورة مشتريات')}</span>
                     </div>
 
@@ -78,12 +86,13 @@
                             <table class="items-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 35%;">${t('purchases.tableHeaders.item', 'الصنف')}</th>
+                                        <th style="width: 18%;">${t('items.barcode', 'الباركود')}</th>
+                                        <th style="width: 24%;">${t('purchases.tableHeaders.item', 'الصنف')}</th>
                                         <th style="width: 10%;">${t('purchases.tableHeaders.unit', 'الوحدة')}</th>
-                                        <th style="width: 15%;">${t('purchases.tableHeaders.qty', 'الكمية')}</th>
-                                        <th style="width: 17.5%;">${t('purchases.tableHeaders.price', 'سعر الشراء')}</th>
-                                        <th style="width: 17.5%;">${t('purchases.tableHeaders.total', 'الإجمالي')}</th>
-                                        <th style="width: 5%;"></th>
+                                        <th style="width: 14%;">${t('purchases.tableHeaders.qty', 'الكمية')}</th>
+                                        <th style="width: 14%;">${t('purchases.tableHeaders.price', 'سعر الشراء')}</th>
+                                        <th style="width: 14%;">${t('purchases.tableHeaders.total', 'الإجمالي')}</th>
+                                        <th style="width: 6%;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="invoiceItemsBody"></tbody>
@@ -153,7 +162,8 @@
         let itemsOptions = `<option value="">${t('purchases.selectItem', 'اختر الصنف')}</option>`;
         allItems.forEach((item) => {
             const isSelected = existingItem && existingItem.item_id === item.id ? 'selected' : '';
-            itemsOptions += `<option value="${item.id}" data-price="${item.cost_price}" ${isSelected}>${item.name}</option>`;
+            const itemLabel = item.name;
+            itemsOptions += `<option value="${item.id}" data-price="${item.cost_price}" data-barcode="${item.barcode || ''}" ${isSelected}>${itemLabel}</option>`;
         });
         return itemsOptions;
     }
@@ -167,13 +177,18 @@
         const total = existingItem ? existingItem.total_price : 0;
 
         let unitName = '';
+        let barcodeValue = '';
         if (existingItem) {
             const existingItemId = parseInt(existingItem.item_id, 10);
             const match = Number.isFinite(existingItemId) ? allItems.find((i) => i.id === existingItemId) : null;
             unitName = match && match.unit_name ? match.unit_name : '';
+            barcodeValue = match && match.barcode ? match.barcode : '';
         }
 
         row.innerHTML = `
+        <td>
+            <input type="text" autocomplete="off" class="form-control barcode-input" value="${barcodeValue}" placeholder="${t('items.barcodePlaceholder', 'امسح الباركود...')}">
+        </td>
         <td>
                 <select class="form-control item-select" data-autocomplete-cache-key="purchases-items">
                 ${buildItemsOptions({ allItems, existingItem, t, fmt })}

@@ -60,6 +60,8 @@ let currentPage = 1;
 let itemsPerPage = 50;
 let currentFilteredItems = [];
 let itemToDeleteId = null;
+let lastAutoBarcodeValue = '';
+let isBarcodeManuallyEdited = false;
 
 // ============================================
 // INITIALIZATION
@@ -137,6 +139,13 @@ function initializeElements() {
 
     // Enter key navigation in form
     setupEnterNavigation();
+
+    if (itemBarcodeInput) {
+        itemBarcodeInput.addEventListener('input', () => {
+            const currentValue = itemBarcodeInput.value.trim();
+            isBarcodeManuallyEdited = currentValue !== '' && currentValue !== lastAutoBarcodeValue;
+        });
+    }
 
     // Profit Margin Listeners (Add Form)
     if (costPriceInput && salePriceInput) {
@@ -256,6 +265,35 @@ function setupEnterNavigation() {
     });
 }
 
+function getNextAutoBarcodeFromItems() {
+    let maxBarcode = 999;
+    allItems.forEach((item) => {
+        const value = String(item?.barcode || '').trim();
+        if (!/^\d+$/.test(value)) return;
+
+        const numericValue = parseInt(value, 10);
+        if (Number.isFinite(numericValue) && numericValue >= 1000 && numericValue > maxBarcode) {
+            maxBarcode = numericValue;
+        }
+    });
+    return String(maxBarcode + 1);
+}
+
+function syncAutoBarcodeField(force = false) {
+    if (!itemBarcodeInput) return;
+
+    if (!force && isBarcodeManuallyEdited) return;
+
+    const nextBarcode = getNextAutoBarcodeFromItems();
+    const currentValue = itemBarcodeInput.value.trim();
+
+    if (force || currentValue === '' || currentValue === lastAutoBarcodeValue) {
+        itemBarcodeInput.value = nextBarcode;
+        lastAutoBarcodeValue = nextBarcode;
+        isBarcodeManuallyEdited = false;
+    }
+}
+
 // ============================================
 // DATA LOADING
 // ============================================
@@ -289,6 +327,7 @@ async function loadUnits() {
 async function loadItems() {
     try {
         allItems = await window.electronAPI.getItems();
+        syncAutoBarcodeField();
         currentFilteredItems = [...allItems];
         renderTable();
         updateStats();

@@ -521,6 +521,17 @@
     outline: none;
 }
 
+.autocomplete-list.sales-returns-customer-list {
+    max-height: 270px !important;
+    z-index: 20000 !important;
+}
+
+.autocomplete-list.sales-returns-customer-list .autocomplete-item {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+}
+
 [data-theme="dark"] .invoice-shell {
     background:
         radial-gradient(circle at 8% 4%, rgba(96, 165, 250, 0.12), transparent 26%),

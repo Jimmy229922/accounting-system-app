@@ -103,6 +103,15 @@ function register() {
             INSERT INTO items (name, barcode, unit_id, cost_price, sale_price, stock_quantity, reorder_level)
             VALUES (@name, @barcode, @unit_id, @cost_price, @sale_price, @stock_quantity, @reorder_level)
         `);
+        const getNextAutoBarcode = db.prepare(`
+            SELECT COALESCE(MAX(CAST(TRIM(barcode) AS INTEGER)), 999) + 1 AS next_barcode
+            FROM items
+            WHERE barcode IS NOT NULL
+              AND TRIM(barcode) <> ''
+              AND TRIM(barcode) NOT GLOB '*[^0-9]*'
+              AND CAST(TRIM(barcode) AS INTEGER) >= 1000
+              AND CAST(TRIM(barcode) AS INTEGER) <= 999999
+        `);
 
         const getWarehouse = db.prepare('SELECT id FROM warehouses ORDER BY id ASC LIMIT 1');
         const createWarehouse = db.prepare('INSERT INTO warehouses (name) VALUES (?)');
@@ -112,16 +121,24 @@ function register() {
         `);
 
         const tx = db.transaction((item) => {
-            const info = insertItem.run(item);
+            const normalizedBarcode = String(item.barcode || '').trim();
+            const nextBarcodeRow = getNextAutoBarcode.get();
+            const nextBarcodeValue = Number(nextBarcodeRow?.next_barcode);
+            const itemToInsert = {
+                ...item,
+                barcode: normalizedBarcode || String(Number.isFinite(nextBarcodeValue) ? nextBarcodeValue : 1000)
+            };
+
+            const info = insertItem.run(itemToInsert);
             const itemId = info.lastInsertRowid;
 
-            if (item.stock_quantity > 0) {
+            if (itemToInsert.stock_quantity > 0) {
                 let warehouse = getWarehouse.get();
                 if (!warehouse) {
                     const wInfo = createWarehouse.run(DEFAULT_WAREHOUSE_NAME);
                     warehouse = { id: wInfo.lastInsertRowid };
                 }
-                insertBalance.run(itemId, warehouse.id, item.stock_quantity, item.cost_price || 0);
+                insertBalance.run(itemId, warehouse.id, itemToInsert.stock_quantity, itemToInsert.cost_price || 0);
             }
             return itemId;
         });

@@ -31,6 +31,28 @@
                     handlers.onPriceInput(target);
                 }
             });
+
+            dom.itemsBody.addEventListener('keydown', (event) => {
+                if (
+                    event.key !== 'ArrowDown' &&
+                    event.key !== 'ArrowUp' &&
+                    event.key !== 'ArrowRight' &&
+                    event.key !== 'ArrowLeft'
+                ) return;
+
+                const target = event.target;
+                if (!target) return;
+
+                const isGridField =
+                    target.classList.contains('return-checkbox') ||
+                    target.classList.contains('return-qty-input') ||
+                    target.classList.contains('return-price-input');
+
+                if (!isGridField) return;
+                if (handlers.onItemsArrowNavigate) {
+                    handlers.onItemsArrowNavigate(event);
+                }
+            });
         }
 
         if (root) {
@@ -46,6 +68,16 @@
 
                 if (action === 'save-return') {
                     handlers.onSaveReturn();
+                    return;
+                }
+
+                if (action === 'load-prev-return') {
+                    handlers.onLoadPrevReturn();
+                    return;
+                }
+
+                if (action === 'load-next-return') {
+                    handlers.onLoadNextReturn();
                     return;
                 }
 

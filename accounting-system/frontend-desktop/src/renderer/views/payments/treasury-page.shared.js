@@ -263,7 +263,26 @@
             const afterEl = document.getElementById('previewAfterBalance');
             if (!currentEl || !afterEl) return;
 
+            const resetPreviewClasses = (el) => {
+                if (!el) return;
+                el.classList.remove('positive', 'negative', 'zero');
+            };
+
+            const applyPreviewClass = (el, balance) => {
+                if (!el) return;
+                resetPreviewClasses(el);
+                if (balance > 0) {
+                    el.classList.add('positive');
+                } else if (balance < 0) {
+                    el.classList.add('negative');
+                } else {
+                    el.classList.add('zero');
+                }
+            };
+
             if (!selectedEntity) {
+                resetPreviewClasses(currentEl);
+                resetPreviewClasses(afterEl);
                 currentEl.textContent = '-';
                 afterEl.textContent = '-';
                 return;
@@ -275,6 +294,8 @@
 
             currentEl.textContent = formatBalancePreview(currentBalance);
             afterEl.textContent = formatBalancePreview(afterBalance);
+            applyPreviewClass(currentEl, currentBalance);
+            applyPreviewClass(afterEl, afterBalance);
         }
 
         function renderRecentTransactions() {
@@ -308,13 +329,27 @@
         }
 
         function payFullBalance() {
-            if (selectedEntity && selectedEntity.balance > 0) {
-                document.getElementById('amount').value = selectedEntity.balance.toFixed(2);
+            if (!selectedEntity) {
+                showToast(text('toastSelectEntityWithBalance'), 'warning');
+                return;
+            }
+
+            const entityBalance = Number(selectedEntity.balance) || 0;
+
+            if (entityBalance > 0) {
+                document.getElementById('amount').value = entityBalance.toFixed(2);
                 document.getElementById('description').value = text('fullBalanceDescription');
                 updatePreview();
-            } else {
-                showToast(text('toastSelectEntityWithBalance'), 'warning');
+                return;
             }
+
+            if (entityBalance === 0) {
+                const entityType = text('entityType') || 'حساب';
+                showToast(`ال${entityType} المختار رصيده متزن ومش عليه فلوس مستحقة.`, 'warning');
+                return;
+            }
+
+            showToast(text('toastSelectEntityWithBalance'), 'warning');
         }
         async function handleSubmit(e) {
             e.preventDefault();
