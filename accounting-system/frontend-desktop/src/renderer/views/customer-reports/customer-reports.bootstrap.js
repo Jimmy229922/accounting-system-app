@@ -517,11 +517,22 @@ window.savePDF = async () => {
     const customerName = selectedOption ? selectedOption.textContent.trim() : '';
     const date = new Date().toISOString().split('T')[0];
     const defaultName = `كشف_حساب_${customerName}_${date}.pdf`;
-    const result = await window.electronAPI.saveCustomerReportPdf({ defaultName });
-    if (result && result.success) {
-        if (window.showToast) window.showToast(t('customerReports.pdfSaved', 'تم حفظ الملف بنجاح'), 'success');
-    } else if (result && !result.canceled) {
-        if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+
+    // Force stable light capture mode for PDF regardless of current UI theme.
+    document.documentElement.classList.add('customer-report-pdf-mode');
+    document.body.classList.add('customer-report-pdf-mode');
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    try {
+        const result = await window.electronAPI.saveCustomerReportPdf({ defaultName });
+        if (result && result.success) {
+            if (window.showToast) window.showToast(t('customerReports.pdfSaved', 'تم حفظ الملف بنجاح'), 'success');
+        } else if (result && !result.canceled) {
+            if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+        }
+    } finally {
+        document.documentElement.classList.remove('customer-report-pdf-mode');
+        document.body.classList.remove('customer-report-pdf-mode');
     }
 };
 
