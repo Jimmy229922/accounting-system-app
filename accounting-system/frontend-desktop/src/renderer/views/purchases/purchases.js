@@ -19,6 +19,11 @@ document.addEventListener('DOMContentLoaded', async () => {    // Reset submitti
     }
 
     purchasesRender.renderPage({ t, getNavHTML: buildTopNavHTML });
+
+    if (window.FieldSystem && typeof window.FieldSystem.enable === 'function') {
+        window.FieldSystem.enable(document, { watch: true });
+    }
+
     initializeElements();
 
     if (purchasesState.dom.invoiceDateInput) {

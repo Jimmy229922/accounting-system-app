@@ -24,6 +24,11 @@ document.addEventListener('DOMContentLoaded', async () => {    // Reset submitti
     }
 
     salesReturnsRender.renderPage({ t, getNavHTML: buildTopNavHTML });
+
+    if (window.FieldSystem && typeof window.FieldSystem.enable === 'function') {
+        window.FieldSystem.enable(document, { watch: true });
+    }
+
     initializeElements();
 
     await Promise.all([loadCustomers(), loadReturnsHistory()]);
@@ -197,7 +202,7 @@ function applyCustomerAutocompleteDropdownStyle() {
     const customerList = customerAutocomplete.list;
     if (!customerList) return;
     customerList.classList.add('sales-returns-customer-list');
-    customerList.style.maxHeight = '270px';
+    customerList.style.maxHeight = '350px';
     customerList.style.overflowY = 'auto';
 }
 

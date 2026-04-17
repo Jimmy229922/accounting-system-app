@@ -132,10 +132,10 @@
             <td style="text-align: center; vertical-align: middle; font-weight: 600;">${quantity}</td>
             <td class="returned-qty" style="text-align: center; vertical-align: middle;">${returnedQty > 0 ? returnedQty : '-'}</td>
             <td style="text-align: center; vertical-align: middle;">
-                <input type="number" class="form-control quantity-input return-qty-input" data-index="${index}" min="0" max="${availableToReturn}" step="any" value="0" disabled>
+                <input type="number" class="form-control quantity-input return-qty-input" data-fs-size="sm" data-index="${index}" min="0" max="${availableToReturn}" step="any" value="0" disabled>
             </td>
             <td style="text-align: center; vertical-align: middle;">
-                <input type="number" class="form-control price-input return-price-input" data-index="${index}" value="${toSafeNumber(item.sale_price)}" step="any" disabled>
+                <input type="number" class="form-control price-input return-price-input" data-fs-size="sm" data-index="${index}" value="${toSafeNumber(item.sale_price)}" step="any" disabled>
             </td>
             <td class="row-total" data-index="${index}" style="text-align: center; vertical-align: middle;">0.00</td>
         `;

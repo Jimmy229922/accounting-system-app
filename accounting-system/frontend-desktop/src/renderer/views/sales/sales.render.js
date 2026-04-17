@@ -112,18 +112,18 @@
                             <div class="invoice-financial-grid">
                                 <div class="form-group">
                                     <label>${t('sales.discountType', 'نوع الخصم')}</label>
-                                    <select id="discountType" class="form-control">
+                                    <select id="discountType" class="form-control" data-fs-size="sm">
                                         <option value="amount">${t('sales.discountTypeAmount', 'مبلغ')}</option>
                                         <option value="percent">${t('sales.discountTypePercent', 'نسبة %')}</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
                                     <label>${t('sales.discountValue', 'قيمة الخصم')}</label>
-                                    <input type="text" id="discountValue" class="form-control" value="0" autocomplete="off" placeholder="0">
+                                    <input type="text" id="discountValue" class="form-control" data-fs-size="sm" value="0" autocomplete="off" placeholder="0">
                                 </div>
                                 <div class="form-group">
                                     <label>${t('sales.paidNow', 'المدفوع الآن')}</label>
-                                    <input type="text" id="paidAmount" class="form-control" value="0" autocomplete="off" placeholder="0">
+                                    <input type="text" id="paidAmount" class="form-control" data-fs-size="sm" value="0" autocomplete="off" placeholder="0">
                                 </div>
                             </div>
 
@@ -210,7 +210,7 @@
 
                         <div class="sales-shift-history-head">
                             <h4 class="sales-shift-history-title">سجل إقفالات الوردية</h4>
-                            <input type="text" id="shiftCloseSearch" class="form-control sales-shift-search" placeholder="بحث في سجل الإقفالات">
+                            <input type="text" id="shiftCloseSearch" class="form-control sales-shift-search" data-fs-size="sm" placeholder="بحث في سجل الإقفالات">
                         </div>
 
                         <div class="sales-shift-table-wrap">
@@ -273,10 +273,10 @@
 
         row.innerHTML = `
         <td>
-            <input type="text" autocomplete="off" class="form-control barcode-input" value="${barcodeValue}" placeholder="${t('items.barcodePlaceholder', 'امسح الباركود...')}">
+            <input type="text" autocomplete="off" class="form-control barcode-input" data-fs-size="sm" value="${barcodeValue}" placeholder="${t('items.barcodePlaceholder', 'امسح الباركود...')}">
         </td>
         <td>
-            <select class="form-control item-select" data-autocomplete-cache-key="sales-items">
+            <select class="form-control item-select" data-fs-size="sm" data-autocomplete-cache-key="sales-items">
                 ${itemsOptions}
             </select>
         </td>
@@ -284,10 +284,10 @@
             <span class="unit-label">${unitName}</span>
         </td>
         <td>
-            <input type="text" autocomplete="off" class="form-control quantity-input" value="${quantity}" placeholder="0">
+            <input type="text" autocomplete="off" class="form-control quantity-input" data-fs-size="sm" value="${quantity}" placeholder="0">
         </td>
         <td>
-            <input type="text" autocomplete="off" class="form-control price-input" value="${price}">
+            <input type="text" autocomplete="off" class="form-control price-input" data-fs-size="sm" value="${price}">
         </td>
         <td>
             <span class="row-total">${total.toFixed(2)}</span>

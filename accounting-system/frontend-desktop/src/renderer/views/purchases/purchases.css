@@ -294,8 +294,8 @@
     background: rgba(37, 99, 235, 0.08);
 }
 
-.items-table .form-control,
-.items-table .autocomplete-input {
+.items-table .form-control:not(.fs-control),
+.items-table .autocomplete-input:not(.fs-control) {
     min-height: 40px;
     border-radius: 9px;
     font-size: 0.9rem;
@@ -458,7 +458,7 @@
     font-size: 0.84rem;
 }
 
-.invoice-financial-grid .form-control {
+.invoice-financial-grid .form-control:not(.fs-control) {
     min-height: 40px;
     font-size: 0.9rem;
 }
@@ -571,8 +571,8 @@
     min-width: 180px;
 }
 
-.invoice-top-grid .autocomplete-input,
-.items-table .autocomplete-input {
+.invoice-top-grid .autocomplete-input:not(.fs-control),
+.items-table .autocomplete-input:not(.fs-control) {
     width: 100%;
     min-height: 44px;
     border-radius: 10px;

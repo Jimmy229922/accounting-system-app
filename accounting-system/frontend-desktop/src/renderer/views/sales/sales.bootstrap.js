@@ -21,6 +21,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     salesRender.renderPage({ t, getNavHTML });
+
+    if (window.FieldSystem && typeof window.FieldSystem.enable === 'function') {
+        window.FieldSystem.enable(document, { watch: true });
+    }
+
     initializeElements();
 
     if (salesState.dom.invoiceDateInput) {

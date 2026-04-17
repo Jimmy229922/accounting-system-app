@@ -248,6 +248,31 @@
 - تم أيضًا استبدال `confirm/window.confirm` في الواجهة بدالة تأكيد غير حاجبة (`window.showConfirmDialog`) داخل `assets/js/toast.js`، مع تحديث مسارات الحذف/التأكيد في: `shared/navManager.js`, `sales/sales.bootstrap.js`, `finance/finance.js`, `inventory/inventory.js`, `reports/reports.bootstrap.js`, `sales-returns/sales-returns.bootstrap.js`, `purchase-returns/purchase-returns.bootstrap.js`, `opening-balance/opening-balance.bootstrap.js`, `items/items.crud.js`, `settings/settings.js`, `customer-reports/customer-reports.bootstrap.js`.
 - لضمان عمل التأكيد غير الحاجب داخل Shell/iframe: `views/shell/index.html` أصبح يحمّل `assets/js/toast.js`، وتم إضافة bridge في `assets/js/shared/navManager.js` لتمرير `showConfirmDialog` من نافذة Shell إلى الصفحات الداخلية التي لا تحمّل toast مباشرة.
 
+### Field System Base (2026-04-18)
+
+- تم تجهيز طبقة أساسية موحدة للحقول (بدون تعميم الصفحات بعد) في:
+   - `frontend-desktop/src/renderer/assets/styles/field-system.css`
+   - `frontend-desktop/src/renderer/assets/js/fieldSystem.js`
+- `main.css` أصبح يستورد `field-system.css` لتجهيز المتغيرات والأنماط المشتركة.
+- الطبقة الأساسية تدعم توحيد: الأحجام (`lg/sm`)، الحالات (`focus/error/disabled/readonly`)، وتغليف `select/autocomplete`.
+- خطة التعميم التفصيلية صفحة-بصفحة موجودة في:
+   - `frontend-desktop/docs/field-system-rollout-plan.md`
+- بدء أول تعميم فعلي على `views/sales` مع تفعيل النظام من `sales.bootstrap.js` عبر `window.FieldSystem.enable(document, { watch: true })`.
+- في `views/sales/index.html` تم تحميل `assets/js/fieldSystem.js` قبل ملفات Bootstrap الخاصة بالصفحة.
+- في `views/sales/sales.render.js` تم تحديد حقول مدمجة بـ `data-fs-size="sm"` (حقول صف الأصناف + خصم/مدفوع + بحث سجل إقفالات الوردية).
+- في `views/sales/sales.css` تم حصر بعض القواعد المحلية لتعمل فقط عند غياب `fs-control` لتفادي تعارض الأولوية بعد تفعيل النظام الموحّد.
+- بدء تعميم صفحة `views/purchases` بنفس نمط `sales` مع تفعيل النظام من `purchases.js` عبر `window.FieldSystem.enable(document, { watch: true })`.
+- في `views/purchases/index.html` تم تحميل `assets/js/fieldSystem.js` قبل ملفات Bootstrap الخاصة بالصفحة.
+- في `views/purchases/purchases.render.js` تم تحديد حقول مدمجة بـ `data-fs-size="sm"` (حقول صف الأصناف + خصم/مدفوع).
+- في `views/purchases/purchases.css` تم حصر بعض القواعد المحلية لتعمل فقط عند غياب `fs-control` لتفادي تعارض الأولوية بعد تفعيل النظام الموحّد.
+- بدء تعميم صفحة `views/sales-returns` بنفس نمط `sales` و`purchases` مع تفعيل النظام من `sales-returns.bootstrap.js` عبر `window.FieldSystem.enable(document, { watch: true })`.
+- في `views/sales-returns/index.html` تم تحميل `assets/js/fieldSystem.js` قبل ملفات Bootstrap الخاصة بالصفحة.
+- في `views/sales-returns/sales-returns.render.js` تم تحديد حقول مدمجة بـ `data-fs-size="sm"` في صفوف أصناف المرتجع (`return-qty-input`, `return-price-input`).
+- في `views/sales-returns/sales-returns.css` تم حصر بعض القواعد المحلية لتعمل فقط عند غياب `fs-control` لتفادي تعارض الأولوية بعد تفعيل النظام الموحّد.
+- في `assets/js/fieldSystem.js` تمت إضافة:
+   - وراثة حجم الحقل تلقائيًا لمدخل `autocomplete-input` من الحقل المصدر (مثل `select[data-fs-size]`).
+   - التعامل المباشر مع العناصر الديناميكية `autocomplete-list` و`autocomplete-item` أثناء الـ `MutationObserver`.
+
 ---
 
 ## 7) جداول قاعدة البيانات (الحالي)
