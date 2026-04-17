@@ -179,7 +179,9 @@ async function saveEditedItem() {
                 unitId = matchingUnit.id;
             } else {
                 // Unit doesn't exist - ask user to add it
-                const confirmAdd = confirm(fmt(t('items.toast.unitConfirmNew', `الوحدة "{name}" غير موجودة في قائمة الوحدات.\n\nهل تريد إضافتها الآن للوحدات وللصنف؟`), {name: inputText}));
+                const confirmAdd = typeof window.showConfirmDialog === 'function'
+                    ? await window.showConfirmDialog(fmt(t('items.toast.unitConfirmNew', `الوحدة "{name}" غير موجودة في قائمة الوحدات.\n\nهل تريد إضافتها الآن للوحدات وللصنف؟`), {name: inputText}))
+                    : false;
                 if (!confirmAdd) {
                     Toast.show(t('items.toast.unitSelectionRequired', 'يجب اختيار وحدة موجودة'), 'warning');
                     // editItemUnitAutocomplete.input.focus();

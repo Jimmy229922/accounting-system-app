@@ -36,7 +36,7 @@ autoCheckStatus();
 copyMachineIdBtn.addEventListener('click', () => {
     if (machineIdDisplay.value) {
         navigator.clipboard.writeText(machineIdDisplay.value).then(() => {
-            alert('تم نسخ رقم الجهاز بنجاح!');
+            setStatus('تم نسخ رقم الجهاز بنجاح!', 'success');
         });
     }
 });

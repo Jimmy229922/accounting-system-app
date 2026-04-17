@@ -26,14 +26,18 @@ function getNextTreasuryVoucherNumberForType(type) {
     return `${prefix}-${String(nextNumber).padStart(4, '0')}`;
 }
 
+function getCurrentTreasuryBalance() {
+    const income = Number(db.prepare("SELECT SUM(amount) as total FROM treasury_transactions WHERE type = 'income'").get().total || 0);
+    const expense = Number(db.prepare("SELECT SUM(amount) as total FROM treasury_transactions WHERE type = 'expense'").get().total || 0);
+    return income - expense;
+}
+
 function register() {
     // --- Treasury Handlers ---
 
     ipcMain.handle('get-treasury-balance', () => {
         try {
-            const income = db.prepare("SELECT SUM(amount) as total FROM treasury_transactions WHERE type = 'income'").get().total || 0;
-            const expense = db.prepare("SELECT SUM(amount) as total FROM treasury_transactions WHERE type = 'expense'").get().total || 0;
-            return income - expense;
+            return getCurrentTreasuryBalance();
         } catch (error) {
             console.error(error);
             return 0;
@@ -70,6 +74,18 @@ function register() {
             if (!voucher_number) {
                 return { success: false, error: 'Invalid treasury transaction type' };
             }
+
+            if (type === 'expense') {
+                const currentBalance = getCurrentTreasuryBalance();
+                if (currentBalance <= 0) {
+                    return { success: false, error: 'لا يمكن تسجيل حركة سحب لأن رصيد الخزينة الحالي يساوي صفر.' };
+                }
+
+                const expenseAmount = Number(amount) || 0;
+                if (expenseAmount > currentBalance) {
+                    return { success: false, error: 'لا يمكن تسجيل حركة سحب لأن قيمة السحب أكبر من الرصيد المتاح في الخزينة.' };
+                }
+            }
             
             const stmt = db.prepare(`
                 INSERT INTO treasury_transactions (type, amount, transaction_date, description, customer_id, voucher_number)
@@ -101,6 +117,30 @@ function register() {
         const denied = requirePermission('treasury', 'edit');
         if (denied) return denied;
         try {
+            const { id, type } = transaction;
+            if (type === 'expense') {
+                const existing = db.prepare('SELECT id, type, amount FROM treasury_transactions WHERE id = ? LIMIT 1').get(id);
+                if (!existing) {
+                    return { success: false, error: 'الحركة المطلوب تعديلها غير موجودة.' };
+                }
+
+                let balanceBeforeUpdate = getCurrentTreasuryBalance();
+                if (existing.type === 'expense') {
+                    balanceBeforeUpdate += Number(existing.amount) || 0;
+                } else if (existing.type === 'income') {
+                    balanceBeforeUpdate -= Number(existing.amount) || 0;
+                }
+
+                if (balanceBeforeUpdate <= 0) {
+                    return { success: false, error: 'لا يمكن تسجيل حركة سحب لأن رصيد الخزينة الحالي يساوي صفر.' };
+                }
+
+                const expenseAmount = Number(transaction.amount) || 0;
+                if (expenseAmount > balanceBeforeUpdate) {
+                    return { success: false, error: 'لا يمكن تسجيل حركة سحب لأن قيمة السحب أكبر من الرصيد المتاح في الخزينة.' };
+                }
+            }
+
             const stmt = db.prepare(`
                 UPDATE treasury_transactions 
                 SET type = @type, amount = @amount, transaction_date = @date, description = @description

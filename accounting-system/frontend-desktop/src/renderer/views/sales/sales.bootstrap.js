@@ -27,13 +27,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         salesState.dom.invoiceDateInput.valueAsDate = new Date();
     }
 
-    Promise.all([loadCustomers(), loadItems(), loadInvoiceNumberSuggestions()]).then(() => {
+    Promise.all([loadCustomers(), loadItems(), loadInvoiceNumberSuggestions()]).then(async () => {
         const urlParams = new URLSearchParams(window.location.search);
         const editId = urlParams.get('editId');
         if (editId) {
-            loadInvoiceForEdit(editId);
+            await loadInvoiceForEdit(editId);
         } else {
-            initializeNewInvoice();
+            await initializeNewInvoice();
+        }
+
+        if (urlParams.get('openShiftClose') === '1') {
+            await openShiftCloseModal();
+            clearShiftCloseAutoOpenQueryParam();
         }
     });
     } catch (error) {
@@ -56,7 +61,16 @@ function initializeElements() {
             onSubmitInvoice: submitInvoice,
             onLoadPrevInvoice: () => navigateInvoice(-1),
             onLoadNextInvoice: () => navigateInvoice(1),
-            onRemoveRow: removeRow
+            onRemoveRow: removeRow,
+            onOpenShiftCloseModal: () => openShiftCloseModal(),
+            onCloseShiftCloseModal: () => closeShiftCloseModal(),
+            onRefreshShiftClosePreview: () => refreshShiftClosePreview({ keepCurrentAmounts: false }),
+            onSubmitShiftClose: () => submitShiftClose(),
+            onResetShiftCloseForm: () => resetShiftCloseForm({ keepSearch: true }),
+            onEditShiftClose: editShiftCloseFromAction,
+            onDeleteShiftClose: deleteShiftCloseFromAction,
+            onShiftCloseSearchInput: () => queueShiftCloseHistoryRefresh(),
+            onShiftCloseAmountsInput: () => updateShiftCloseDifferenceDisplay()
         }
     });
 
@@ -85,6 +99,466 @@ function initializeElements() {
     if (invoiceNumberInput) {
         invoiceNumberInput.addEventListener('input', updateInvoiceNavigationButtons);
         invoiceNumberInput.addEventListener('change', updateInvoiceNavigationButtons);
+    }
+
+    if (salesState.dom.shiftCloseModal) {
+        salesState.dom.shiftCloseModal.addEventListener('click', (event) => {
+            if (event.target === salesState.dom.shiftCloseModal) {
+                closeShiftCloseModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (!salesState.dom.shiftCloseModal) return;
+        if (!salesState.dom.shiftCloseModal.classList.contains('is-open')) return;
+        closeShiftCloseModal();
+    });
+}
+
+function clearShiftCloseAutoOpenQueryParam() {
+    const currentUrl = new URL(window.location.href);
+    if (!currentUrl.searchParams.has('openShiftClose')) return;
+
+    currentUrl.searchParams.delete('openShiftClose');
+    const nextSearch = currentUrl.searchParams.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash || ''}`;
+    window.history.replaceState({}, document.title, nextUrl);
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatMoneyForUi(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '0.00';
+    return roundMoney(num).toFixed(2);
+}
+
+function formatShiftCloseDateTime(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+
+    return date.toLocaleString('ar-EG', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function parseShiftCloseMoney(value, { allowEmpty = false } = {}) {
+    const normalized = String(value ?? '').trim();
+    if (normalized === '') {
+        return allowEmpty ? null : NaN;
+    }
+
+    const parsed = parseLocaleFloat(normalized);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return NaN;
+    }
+
+    return roundMoney(parsed);
+}
+
+function setShiftCloseSubmitMode(isEditMode) {
+    if (!salesState.dom.shiftCloseSubmitLabel || !salesState.dom.shiftCloseSubmitBtn) return;
+
+    if (isEditMode) {
+        salesState.dom.shiftCloseSubmitLabel.textContent = 'حفظ تعديل الإقفال';
+        salesState.dom.shiftCloseSubmitBtn.title = 'تحديث سجل الإقفال مع تعديل رصيد المالية';
+        if (salesState.dom.shiftCloseTotalInput) {
+            salesState.dom.shiftCloseTotalInput.readOnly = false;
+            salesState.dom.shiftCloseTotalInput.title = 'يمكنك تعديل إجمالي المرحل عند مراجعة السجل';
+        }
+    } else {
+        salesState.dom.shiftCloseSubmitLabel.textContent = 'تأكيد الإقفال وترحيل المالية';
+        salesState.dom.shiftCloseSubmitBtn.title = 'ترحيل إجمالي المقبوض إلى المالية كعملية واحدة';
+        if (salesState.dom.shiftCloseTotalInput) {
+            salesState.dom.shiftCloseTotalInput.readOnly = true;
+            salesState.dom.shiftCloseTotalInput.title = 'يتم احتساب الإجمالي تلقائيًا من مدفوع فواتير البيع';
+        }
+    }
+}
+
+function updateShiftCloseDifferenceDisplay() {
+    const diffEl = salesState.dom.shiftCloseDifferenceSpan;
+    if (!diffEl) return;
+
+    const totalValue = parseShiftCloseMoney(salesState.dom.shiftCloseTotalInput?.value, { allowEmpty: false });
+    const drawerValue = parseShiftCloseMoney(salesState.dom.shiftCloseDrawerInput?.value, { allowEmpty: true });
+
+    diffEl.classList.remove('diff-positive', 'diff-negative');
+
+    if (!Number.isFinite(totalValue)) {
+        diffEl.textContent = '0.00';
+        return;
+    }
+
+    if (Number.isNaN(drawerValue) || drawerValue === null) {
+        diffEl.textContent = '0.00';
+        return;
+    }
+
+    const difference = roundMoney(drawerValue - totalValue);
+    diffEl.textContent = difference.toFixed(2);
+
+    if (difference > 0) {
+        diffEl.classList.add('diff-positive');
+    } else if (difference < 0) {
+        diffEl.classList.add('diff-negative');
+    }
+}
+
+function applyShiftClosePreviewToUi(preview) {
+    if (salesState.dom.shiftClosePeriodStartSpan) {
+        salesState.dom.shiftClosePeriodStartSpan.textContent = formatShiftCloseDateTime(preview?.period_start_at);
+    }
+
+    if (salesState.dom.shiftClosePeriodEndSpan) {
+        salesState.dom.shiftClosePeriodEndSpan.textContent = formatShiftCloseDateTime(preview?.period_end_at);
+    }
+}
+
+function setShiftCloseSubmitLoading(loading) {
+    const submitBtn = salesState.dom.shiftCloseSubmitBtn;
+    if (!submitBtn) return;
+
+    submitBtn.disabled = Boolean(loading);
+    submitBtn.style.opacity = loading ? '0.65' : '1';
+    submitBtn.style.cursor = loading ? 'not-allowed' : 'pointer';
+}
+
+async function resolveActiveAuthUsername() {
+    try {
+        if (!window.electronAPI || typeof window.electronAPI.getActiveAuthUser !== 'function') {
+            return '';
+        }
+
+        let sessionToken = '';
+        if (typeof window.electronAPI.getAuthSessionToken === 'function') {
+            sessionToken = await window.electronAPI.getAuthSessionToken();
+        }
+
+        const activeUser = await window.electronAPI.getActiveAuthUser({ sessionToken });
+        return String(activeUser?.username || '').trim();
+    } catch (_error) {
+        return '';
+    }
+}
+
+async function hydrateShiftCloseUserField() {
+    if (!salesState.dom.shiftCloseCreatedByInput) return;
+
+    if (String(salesState.dom.shiftCloseCreatedByInput.value || '').trim() !== '') {
+        return;
+    }
+
+    const username = await resolveActiveAuthUsername();
+    if (username) {
+        salesState.dom.shiftCloseCreatedByInput.value = username;
+    }
+}
+
+function getShiftCloseHistoryRowStatus(row = {}) {
+    const hasDrawer = row?.drawer_amount !== null && row?.drawer_amount !== undefined && String(row.drawer_amount).trim() !== '';
+    if (!hasDrawer) return 'missing';
+
+    const totalValue = Number(row?.sales_paid_total);
+    const drawerValue = Number(row?.drawer_amount);
+    if (!Number.isFinite(totalValue) || !Number.isFinite(drawerValue)) {
+        return 'mismatch';
+    }
+
+    const difference = roundMoney(drawerValue - totalValue);
+    return difference === 0 ? 'match' : 'mismatch';
+}
+
+function renderShiftCloseHistoryRows() {
+    const body = salesState.dom.shiftCloseTableBody;
+    if (!body) return;
+
+    const rows = Array.isArray(salesState.shiftClosings) ? salesState.shiftClosings : [];
+    if (!rows.length) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="10" class="sales-shift-empty">لا توجد إقفالات مسجلة حتى الآن.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    body.innerHTML = rows.map((row) => {
+        const rowId = Number(row?.id) || 0;
+        const isEditing = Number(salesState.editingShiftClosingId) === rowId;
+        const rowStatus = getShiftCloseHistoryRowStatus(row);
+        const rowClass = rowStatus === 'match'
+            ? 'sales-shift-status-match'
+            : rowStatus === 'mismatch'
+                ? 'sales-shift-status-mismatch'
+                : 'sales-shift-status-missing';
+        const periodStart = formatShiftCloseDateTime(row?.period_start_at);
+        const periodEnd = formatShiftCloseDateTime(row?.period_end_at);
+        const total = formatMoneyForUi(row?.sales_paid_total);
+
+        const hasDrawer = row?.drawer_amount !== null && row?.drawer_amount !== undefined && String(row.drawer_amount) !== '';
+        const drawer = hasDrawer ? formatMoneyForUi(row.drawer_amount) : '-';
+
+        const hasDifference = row?.difference_amount !== null && row?.difference_amount !== undefined && String(row.difference_amount) !== '';
+        const difference = hasDifference ? formatMoneyForUi(row.difference_amount) : '-';
+
+        const createdBy = row?.created_by ? escapeHtml(row.created_by) : '-';
+        const notes = row?.notes ? escapeHtml(row.notes) : '-';
+        const updatedAt = row?.updated_at ? formatShiftCloseDateTime(row.updated_at) : '-';
+
+        return `
+            <tr class="${rowClass}">
+                <td>${rowId}</td>
+                <td>${escapeHtml(periodStart)}</td>
+                <td>${escapeHtml(periodEnd)}</td>
+                <td>${total}</td>
+                <td>${drawer}</td>
+                <td>${difference}</td>
+                <td>${createdBy}</td>
+                <td class="sales-shift-note-cell" title="${notes}">${notes}</td>
+                <td>${escapeHtml(updatedAt)}</td>
+                <td>
+                    <div class="sales-shift-actions-cell">
+                        <button class="btn ${isEditing ? 'btn-success' : 'btn-outline'}" type="button" data-action="edit-shift-close" data-id="${rowId}">تعديل</button>
+                        <button class="btn btn-outline" type="button" data-action="delete-shift-close" data-id="${rowId}">حذف</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function loadShiftCloseHistory() {
+    const search = String(salesState.dom.shiftCloseSearchInput?.value || '').trim();
+    const result = await salesApi.getShiftClosings({ search });
+
+    if (!result || !result.success) {
+        if (window.showToast) window.showToast('تعذر تحميل سجل إقفالات الوردية', 'error');
+        return;
+    }
+
+    salesState.shiftClosings = Array.isArray(result.closings) ? result.closings : [];
+    renderShiftCloseHistoryRows();
+}
+
+function queueShiftCloseHistoryRefresh() {
+    if (salesState.shiftCloseSearchTimer) {
+        clearTimeout(salesState.shiftCloseSearchTimer);
+    }
+
+    salesState.shiftCloseSearchTimer = setTimeout(() => {
+        loadShiftCloseHistory();
+    }, 180);
+}
+
+function resetShiftCloseForm({ keepSearch = false } = {}) {
+    salesState.editingShiftClosingId = null;
+    setShiftCloseSubmitMode(false);
+
+    if (!keepSearch && salesState.dom.shiftCloseSearchInput) {
+        salesState.dom.shiftCloseSearchInput.value = '';
+    }
+
+    if (salesState.dom.shiftCloseNotesInput) {
+        salesState.dom.shiftCloseNotesInput.value = '';
+    }
+
+    if (salesState.dom.shiftCloseDrawerInput) {
+        salesState.dom.shiftCloseDrawerInput.value = '';
+    }
+
+    if (salesState.dom.shiftCloseTotalInput) {
+        const previewTotal = salesState.shiftClosePreview?.sales_paid_total;
+        salesState.dom.shiftCloseTotalInput.value = Number.isFinite(Number(previewTotal))
+            ? formatMoneyForUi(previewTotal)
+            : '0.00';
+    }
+
+    applyShiftClosePreviewToUi(salesState.shiftClosePreview || null);
+    updateShiftCloseDifferenceDisplay();
+    hydrateShiftCloseUserField();
+}
+
+async function refreshShiftClosePreview({ keepCurrentAmounts = false } = {}) {
+    const result = await salesApi.getShiftClosePreview();
+    if (!result || !result.success) {
+        if (window.showToast) window.showToast('تعذر تحميل إجمالي المقبوض للفترة الحالية', 'error');
+        return;
+    }
+
+    salesState.shiftClosePreview = result;
+    applyShiftClosePreviewToUi(result);
+
+    if (!keepCurrentAmounts && !salesState.editingShiftClosingId && salesState.dom.shiftCloseTotalInput) {
+        salesState.dom.shiftCloseTotalInput.value = formatMoneyForUi(result.sales_paid_total);
+    }
+
+    updateShiftCloseDifferenceDisplay();
+}
+
+async function openShiftCloseModal() {
+    if (!salesState.dom.shiftCloseModal) return;
+
+    salesState.dom.shiftCloseModal.style.display = 'flex';
+    salesState.dom.shiftCloseModal.classList.add('is-open');
+    salesState.dom.shiftCloseModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    await hydrateShiftCloseUserField();
+    await refreshShiftClosePreview({ keepCurrentAmounts: false });
+    resetShiftCloseForm({ keepSearch: true });
+    await loadShiftCloseHistory();
+}
+
+function closeShiftCloseModal() {
+    if (!salesState.dom.shiftCloseModal) return;
+
+    salesState.dom.shiftCloseModal.classList.remove('is-open');
+    salesState.dom.shiftCloseModal.setAttribute('aria-hidden', 'true');
+    salesState.dom.shiftCloseModal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function editShiftCloseFromAction(actionEl) {
+    const id = Number(actionEl?.dataset?.id);
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    const row = (salesState.shiftClosings || []).find((entry) => Number(entry?.id) === id);
+    if (!row) return;
+
+    salesState.editingShiftClosingId = id;
+    setShiftCloseSubmitMode(true);
+
+    if (salesState.dom.shiftClosePeriodStartSpan) {
+        salesState.dom.shiftClosePeriodStartSpan.textContent = formatShiftCloseDateTime(row.period_start_at);
+    }
+
+    if (salesState.dom.shiftClosePeriodEndSpan) {
+        salesState.dom.shiftClosePeriodEndSpan.textContent = formatShiftCloseDateTime(row.period_end_at);
+    }
+
+    if (salesState.dom.shiftCloseTotalInput) {
+        salesState.dom.shiftCloseTotalInput.value = formatMoneyForUi(row.sales_paid_total);
+    }
+
+    if (salesState.dom.shiftCloseDrawerInput) {
+        const hasDrawer = row.drawer_amount !== null && row.drawer_amount !== undefined && String(row.drawer_amount) !== '';
+        salesState.dom.shiftCloseDrawerInput.value = hasDrawer ? formatMoneyForUi(row.drawer_amount) : '';
+    }
+
+    if (salesState.dom.shiftCloseNotesInput) {
+        salesState.dom.shiftCloseNotesInput.value = row.notes || '';
+    }
+
+    if (salesState.dom.shiftCloseCreatedByInput) {
+        salesState.dom.shiftCloseCreatedByInput.value = row.created_by || salesState.dom.shiftCloseCreatedByInput.value || '';
+    }
+
+    updateShiftCloseDifferenceDisplay();
+    renderShiftCloseHistoryRows();
+}
+
+async function deleteShiftCloseFromAction(actionEl) {
+    const id = Number(actionEl?.dataset?.id);
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    const confirmed = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog('هل أنت متأكد من حذف سجل الإقفال؟ سيتم خصم قيمته من المالية.')
+        : false;
+    if (!confirmed) return;
+
+    const result = await salesApi.deleteShiftClosing(id);
+    if (!result || !result.success) {
+        if (window.showToast) window.showToast((result && result.error) || 'تعذر حذف سجل الإقفال', 'error');
+        return;
+    }
+
+    if (window.showToast) window.showToast('تم حذف سجل الإقفال وتحديث المالية', 'success');
+
+    if (Number(salesState.editingShiftClosingId) === id) {
+        resetShiftCloseForm({ keepSearch: true });
+    }
+
+    await refreshShiftClosePreview({ keepCurrentAmounts: false });
+    await loadShiftCloseHistory();
+}
+
+async function submitShiftClose() {
+    const totalValue = parseShiftCloseMoney(salesState.dom.shiftCloseTotalInput?.value, { allowEmpty: false });
+    if (!Number.isFinite(totalValue) || totalValue < 0) {
+        if (window.showToast) window.showToast('يرجى إدخال إجمالي صحيح (صفر أو أكثر)', 'error');
+        return;
+    }
+
+    const drawerValue = parseShiftCloseMoney(salesState.dom.shiftCloseDrawerInput?.value, { allowEmpty: true });
+    if (Number.isNaN(drawerValue)) {
+        if (window.showToast) window.showToast('قيمة الدرج الفعلية غير صحيحة', 'error');
+        return;
+    }
+
+    const notes = String(salesState.dom.shiftCloseNotesInput?.value || '').trim();
+    let createdBy = String(salesState.dom.shiftCloseCreatedByInput?.value || '').trim();
+    if (!createdBy) {
+        createdBy = await resolveActiveAuthUsername();
+        if (createdBy && salesState.dom.shiftCloseCreatedByInput) {
+            salesState.dom.shiftCloseCreatedByInput.value = createdBy;
+        }
+    }
+
+    setShiftCloseSubmitLoading(true);
+    try {
+        const editingShiftId = Number(salesState.editingShiftClosingId);
+        const isEditMode = Number.isFinite(editingShiftId) && editingShiftId > 0;
+        let result;
+
+        if (isEditMode) {
+            result = await salesApi.updateShiftClosing({
+                id: editingShiftId,
+                sales_paid_total: totalValue,
+                drawer_amount: drawerValue,
+                notes,
+                created_by: createdBy,
+                updated_by: createdBy
+            });
+        } else {
+            result = await salesApi.createShiftClosing({
+                drawer_amount: drawerValue,
+                notes,
+                created_by: createdBy,
+                period_end_at: new Date().toISOString()
+            });
+        }
+
+        if (!result || !result.success) {
+            if (window.showToast) window.showToast((result && result.error) || 'تعذر حفظ إقفال الوردية', 'error');
+            return;
+        }
+
+        if (window.showToast) {
+            window.showToast(isEditMode ? 'تم تعديل الإقفال وتحديث المالية' : 'تم إقفال الوردية وترحيل القيمة إلى المالية', 'success');
+        }
+
+        await refreshShiftClosePreview({ keepCurrentAmounts: false });
+        resetShiftCloseForm({ keepSearch: true });
+        await loadShiftCloseHistory();
+    } catch (error) {
+        if (window.showToast) window.showToast(error.message || 'حدث خطأ أثناء حفظ الإقفال', 'error');
+    } finally {
+        setShiftCloseSubmitLoading(false);
     }
 }
 
@@ -158,7 +632,7 @@ function setEditLocked(locked) {
         } else if (salesState.editingInvoiceId) {
             submitBtn.textContent = t('sales.updateAndSave', 'تحديث وحفظ الفاتورة');
         } else {
-            submitBtn.textContent = t('sales.saveAndPost', 'حفظ وترحيل الفاتورة');
+            submitBtn.textContent = t('sales.saveAndPost', 'حفظ الفاتورة');
         }
     }
 

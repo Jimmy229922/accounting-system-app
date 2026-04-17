@@ -14,6 +14,27 @@ function buildTopNavHTML() {
     return '';
 }
 
+function showFinanceToast(message, type = 'info') {
+    if (!message) return;
+
+    if (window.toast && typeof window.toast[type] === 'function') {
+        window.toast[type](message);
+        return;
+    }
+
+    if (typeof Toast !== 'undefined' && typeof Toast.show === 'function') {
+        Toast.show(message, type);
+        return;
+    }
+
+    if (type === 'error') {
+        console.error('[finance]', message);
+        return;
+    }
+
+    console.log('[finance]', message);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
@@ -349,11 +370,11 @@ async function saveTransaction() {
     const description = document.getElementById('transDesc').value;
 
     if (!amount || amount <= 0) {
-        alert(t('finance.toast.invalidAmount', 'الرجاء إدخال مبلغ صحيح'));
+        showFinanceToast(t('finance.toast.invalidAmount', 'الرجاء إدخال مبلغ صحيح'), 'error');
         return;
     }
     if (!description) {
-        alert(t('finance.toast.descriptionRequired', 'الرجاء إدخال وصف للحركة'));
+        showFinanceToast(t('finance.toast.descriptionRequired', 'الرجاء إدخال وصف للحركة'), 'error');
         return;
     }
 
@@ -365,25 +386,28 @@ async function saveTransaction() {
     });
 
     if (result.success) {
-        alert(t('finance.toast.saveSuccess', 'تم حفظ الحركة بنجاح'));
+        showFinanceToast(t('finance.toast.saveSuccess', 'تم حفظ الحركة بنجاح'), 'success');
         hideForm();
         loadFinanceData();
     } else {
-        alert(fmt(t('finance.toast.saveError', 'حدث خطأ: {error}'), { error: result.error }));
+        showFinanceToast(fmt(t('finance.toast.saveError', 'حدث خطأ: {error}'), { error: result.error }), 'error');
     }
 }
 
 // --- Edit & Delete Functions ---
 
 async function deleteTransaction(id) {
-    if (confirm(t('finance.toast.deleteConfirm', 'هل أنت متأكد من حذف هذه الحركة؟ لا يمكن التراجع عن هذا الإجراء.'))) {
-        const result = await window.electronAPI.deleteTreasuryTransaction(id);
-        if (result.success) {
-            alert(t('finance.toast.deleteSuccess', 'تم الحذف بنجاح'));
-            loadFinanceData();
-        } else {
-            alert(fmt(t('finance.toast.deleteError', 'حدث خطأ أثناء الحذف: {error}'), { error: result.error }));
-        }
+    const confirmed = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('finance.toast.deleteConfirm', 'هل أنت متأكد من حذف هذه الحركة؟ لا يمكن التراجع عن هذا الإجراء.'))
+        : false;
+    if (!confirmed) return;
+
+    const result = await window.electronAPI.deleteTreasuryTransaction(id);
+    if (result.success) {
+        showFinanceToast(t('finance.toast.deleteSuccess', 'تم الحذف بنجاح'), 'success');
+        loadFinanceData();
+    } else {
+        showFinanceToast(fmt(t('finance.toast.deleteError', 'حدث خطأ أثناء الحذف: {error}'), { error: result.error }), 'error');
     }
 }
 
@@ -409,7 +433,7 @@ async function updateTransaction() {
     const description = document.getElementById('editTransDesc').value;
 
     if (!amount || amount <= 0) {
-        alert(t('finance.toast.invalidAmount', 'الرجاء إدخال مبلغ صحيح'));
+        showFinanceToast(t('finance.toast.invalidAmount', 'الرجاء إدخال مبلغ صحيح'), 'error');
         return;
     }
 
@@ -422,11 +446,11 @@ async function updateTransaction() {
     });
 
     if (result.success) {
-        alert(t('finance.toast.updateSuccess', 'تم تحديث الحركة بنجاح'));
+        showFinanceToast(t('finance.toast.updateSuccess', 'تم تحديث الحركة بنجاح'), 'success');
         closeEditModal();
         loadFinanceData();
     } else {
-        alert(fmt(t('finance.toast.updateError', 'حدث خطأ: {error}'), { error: result.error }));
+        showFinanceToast(fmt(t('finance.toast.updateError', 'حدث خطأ: {error}'), { error: result.error }), 'error');
     }
 }
 

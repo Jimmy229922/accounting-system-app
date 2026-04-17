@@ -12,6 +12,16 @@ function roundMoney(value) {
     return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+function toNullableNonNegativeNumber(value) {
+    if (value === null || value === undefined) return null;
+    const normalized = String(value).trim();
+    if (normalized === '') return null;
+
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    return roundMoney(parsed);
+}
+
 function calculateInvoiceFinancials({ subtotalAmount, discountType, discountValue, paidAmount }) {
     const subtotal = roundMoney(Math.max(Number(subtotalAmount) || 0, 0));
     const normalizedDiscountType = discountType === 'percent' ? 'percent' : 'amount';
@@ -42,6 +52,61 @@ function calculateInvoiceFinancials({ subtotalAmount, discountType, discountValu
     };
 }
 
+function getLastSalesShiftClosing() {
+    return db.prepare(`
+        SELECT id, period_end_at
+        FROM sales_shift_closings
+        ORDER BY id DESC
+        LIMIT 1
+    `).get();
+}
+
+function getSalesPaidTotalForPeriod(periodStartAt, periodEndAt) {
+    if (periodStartAt) {
+        const row = db.prepare(`
+            SELECT COALESCE(SUM(paid_amount), 0) AS total_paid, COUNT(*) AS invoices_count
+            FROM sales_invoices
+            WHERE datetime(created_at) > datetime(@periodStartAt)
+              AND datetime(created_at) <= datetime(@periodEndAt)
+        `).get({ periodStartAt, periodEndAt });
+
+        return {
+            totalPaid: roundMoney(Number(row?.total_paid || 0)),
+            invoicesCount: Number(row?.invoices_count || 0)
+        };
+    }
+
+    const row = db.prepare(`
+        SELECT COALESCE(SUM(paid_amount), 0) AS total_paid, COUNT(*) AS invoices_count
+        FROM sales_invoices
+        WHERE datetime(created_at) <= datetime(@periodEndAt)
+    `).get({ periodEndAt });
+
+    return {
+        totalPaid: roundMoney(Number(row?.total_paid || 0)),
+        invoicesCount: Number(row?.invoices_count || 0)
+    };
+}
+
+function getSalesShiftClosingById(id) {
+    return db.prepare(`
+        SELECT
+            sc.*,
+            tt.amount AS treasury_amount,
+            tt.transaction_date AS treasury_transaction_date
+        FROM sales_shift_closings sc
+        LEFT JOIN treasury_transactions tt ON tt.id = sc.treasury_transaction_id
+        WHERE sc.id = ?
+        LIMIT 1
+    `).get(id);
+}
+
+function buildSalesShiftClosingDescription(shiftClosingId, amount, notes) {
+    const notesText = String(notes || '').trim();
+    const notesSuffix = notesText ? ` - ${notesText}` : '';
+    return `اقفال وردية مبيعات رقم ${shiftClosingId} (مدفوع ${roundMoney(amount).toFixed(2)})${notesSuffix}`;
+}
+
 function register() {
     // --- Sales Invoices Handlers ---
 
@@ -56,6 +121,299 @@ function register() {
         } catch (error) {
             console.error('[get-sales-invoices] Error:', error);
             return [];
+        }
+    });
+
+    ipcMain.handle('get-sales-shift-close-preview', () => {
+        try {
+            const periodEndAt = new Date().toISOString();
+            const lastClosing = getLastSalesShiftClosing();
+            const periodStartAt = lastClosing?.period_end_at || null;
+            const periodTotals = getSalesPaidTotalForPeriod(periodStartAt, periodEndAt);
+
+            return {
+                success: true,
+                period_start_at: periodStartAt,
+                period_end_at: periodEndAt,
+                sales_paid_total: periodTotals.totalPaid,
+                invoices_count: periodTotals.invoicesCount
+            };
+        } catch (error) {
+            console.error('[get-sales-shift-close-preview] Error:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('create-sales-shift-closing', (event, payload = {}) => {
+        try {
+            const createdBy = String(payload.created_by || '').trim() || null;
+            const notes = String(payload.notes || '').trim() || null;
+            const periodEndAt = String(payload.period_end_at || '').trim() || new Date().toISOString();
+
+            const lastClosing = getLastSalesShiftClosing();
+            const periodStartAt = lastClosing?.period_end_at || null;
+            const periodTotals = getSalesPaidTotalForPeriod(periodStartAt, periodEndAt);
+            const drawerAmount = toNullableNonNegativeNumber(payload.drawer_amount);
+            const differenceAmount = drawerAmount === null ? null : roundMoney(drawerAmount - periodTotals.totalPaid);
+
+            const createTx = db.transaction(() => {
+                const insertClosingInfo = db.prepare(`
+                    INSERT INTO sales_shift_closings (
+                        period_start_at,
+                        period_end_at,
+                        sales_paid_total,
+                        drawer_amount,
+                        difference_amount,
+                        notes,
+                        created_by
+                    ) VALUES (
+                        @period_start_at,
+                        @period_end_at,
+                        @sales_paid_total,
+                        @drawer_amount,
+                        @difference_amount,
+                        @notes,
+                        @created_by
+                    )
+                `).run({
+                    period_start_at: periodStartAt,
+                    period_end_at: periodEndAt,
+                    sales_paid_total: periodTotals.totalPaid,
+                    drawer_amount: drawerAmount,
+                    difference_amount: differenceAmount,
+                    notes,
+                    created_by: createdBy
+                });
+
+                const shiftClosingId = Number(insertClosingInfo.lastInsertRowid);
+
+                const treasuryInfo = db.prepare(`
+                    INSERT INTO treasury_transactions (
+                        type,
+                        amount,
+                        transaction_date,
+                        description,
+                        related_invoice_id,
+                        related_type
+                    ) VALUES (
+                        'income',
+                        @amount,
+                        @transaction_date,
+                        @description,
+                        @related_invoice_id,
+                        'sales_shift_close'
+                    )
+                `).run({
+                    amount: periodTotals.totalPaid,
+                    transaction_date: String(periodEndAt).slice(0, 10),
+                    description: buildSalesShiftClosingDescription(shiftClosingId, periodTotals.totalPaid, notes),
+                    related_invoice_id: shiftClosingId
+                });
+
+                db.prepare('UPDATE sales_shift_closings SET treasury_transaction_id = ? WHERE id = ?')
+                    .run(Number(treasuryInfo.lastInsertRowid), shiftClosingId);
+
+                return shiftClosingId;
+            });
+
+            const shiftClosingId = createTx();
+            const createdClosing = getSalesShiftClosingById(shiftClosingId);
+
+            return {
+                success: true,
+                closing: createdClosing
+            };
+        } catch (error) {
+            console.error('[create-sales-shift-closing] Error:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('get-sales-shift-closings', (event, payload = {}) => {
+        try {
+            const search = String(payload.search || '').trim();
+
+            if (search) {
+                const pattern = `%${search}%`;
+                const closings = db.prepare(`
+                    SELECT
+                        sc.*,
+                        tt.amount AS treasury_amount,
+                        tt.transaction_date AS treasury_transaction_date
+                    FROM sales_shift_closings sc
+                    LEFT JOIN treasury_transactions tt ON tt.id = sc.treasury_transaction_id
+                    WHERE CAST(sc.id AS TEXT) LIKE @pattern
+                       OR COALESCE(sc.notes, '') LIKE @pattern
+                       OR COALESCE(sc.created_by, '') LIKE @pattern
+                       OR COALESCE(sc.period_start_at, '') LIKE @pattern
+                       OR COALESCE(sc.period_end_at, '') LIKE @pattern
+                    ORDER BY sc.id DESC
+                `).all({ pattern });
+
+                return {
+                    success: true,
+                    closings
+                };
+            }
+
+            const closings = db.prepare(`
+                SELECT
+                    sc.*,
+                    tt.amount AS treasury_amount,
+                    tt.transaction_date AS treasury_transaction_date
+                FROM sales_shift_closings sc
+                LEFT JOIN treasury_transactions tt ON tt.id = sc.treasury_transaction_id
+                ORDER BY sc.id DESC
+            `).all();
+
+            return {
+                success: true,
+                closings
+            };
+        } catch (error) {
+            console.error('[get-sales-shift-closings] Error:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('update-sales-shift-closing', (event, payload = {}) => {
+        const id = Number(payload.id);
+        if (!Number.isFinite(id) || id <= 0) {
+            return { success: false, error: 'معرف الإقفال غير صالح.' };
+        }
+
+        const salesPaidRaw = Number(payload.sales_paid_total);
+        if (!Number.isFinite(salesPaidRaw) || salesPaidRaw < 0) {
+            return { success: false, error: 'قيمة إجمالي المدفوع غير صالحة.' };
+        }
+
+        try {
+            const existing = db.prepare('SELECT * FROM sales_shift_closings WHERE id = ? LIMIT 1').get(id);
+            if (!existing) {
+                return { success: false, error: 'سجل الإقفال غير موجود.' };
+            }
+
+            const salesPaidTotal = roundMoney(salesPaidRaw);
+            const drawerAmount = toNullableNonNegativeNumber(payload.drawer_amount);
+            const differenceAmount = drawerAmount === null ? null : roundMoney(drawerAmount - salesPaidTotal);
+            const notes = String(payload.notes || '').trim() || null;
+            const createdBy = String(payload.updated_by || payload.created_by || '').trim() || existing.created_by || null;
+            const updatedAt = new Date().toISOString();
+            const transactionDate = String(existing.period_end_at || updatedAt).slice(0, 10);
+
+            const updateTx = db.transaction(() => {
+                db.prepare(`
+                    UPDATE sales_shift_closings
+                    SET sales_paid_total = @sales_paid_total,
+                        drawer_amount = @drawer_amount,
+                        difference_amount = @difference_amount,
+                        notes = @notes,
+                        created_by = @created_by,
+                        updated_at = @updated_at
+                    WHERE id = @id
+                `).run({
+                    id,
+                    sales_paid_total: salesPaidTotal,
+                    drawer_amount: drawerAmount,
+                    difference_amount: differenceAmount,
+                    notes,
+                    created_by: createdBy,
+                    updated_at: updatedAt
+                });
+
+                const description = buildSalesShiftClosingDescription(id, salesPaidTotal, notes);
+
+                const treasuryTransactionId = Number(existing.treasury_transaction_id) || 0;
+                if (treasuryTransactionId > 0) {
+                    const treasuryRow = db.prepare('SELECT id FROM treasury_transactions WHERE id = ? LIMIT 1').get(treasuryTransactionId);
+                    if (treasuryRow) {
+                        db.prepare(`
+                            UPDATE treasury_transactions
+                            SET amount = @amount,
+                                transaction_date = @transaction_date,
+                                description = @description,
+                                related_invoice_id = @related_invoice_id,
+                                related_type = 'sales_shift_close'
+                            WHERE id = @id
+                        `).run({
+                            id: treasuryTransactionId,
+                            amount: salesPaidTotal,
+                            transaction_date: transactionDate,
+                            description,
+                            related_invoice_id: id
+                        });
+                        return;
+                    }
+                }
+
+                const treasuryInfo = db.prepare(`
+                    INSERT INTO treasury_transactions (
+                        type,
+                        amount,
+                        transaction_date,
+                        description,
+                        related_invoice_id,
+                        related_type
+                    ) VALUES (
+                        'income',
+                        @amount,
+                        @transaction_date,
+                        @description,
+                        @related_invoice_id,
+                        'sales_shift_close'
+                    )
+                `).run({
+                    amount: salesPaidTotal,
+                    transaction_date: transactionDate,
+                    description,
+                    related_invoice_id: id
+                });
+
+                db.prepare('UPDATE sales_shift_closings SET treasury_transaction_id = ? WHERE id = ?')
+                    .run(Number(treasuryInfo.lastInsertRowid), id);
+            });
+
+            updateTx();
+
+            return {
+                success: true,
+                closing: getSalesShiftClosingById(id)
+            };
+        } catch (error) {
+            console.error('[update-sales-shift-closing] Error:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('delete-sales-shift-closing', (event, id) => {
+        const closingId = Number(id);
+        if (!Number.isFinite(closingId) || closingId <= 0) {
+            return { success: false, error: 'معرف الإقفال غير صالح.' };
+        }
+
+        try {
+            const existing = db.prepare('SELECT * FROM sales_shift_closings WHERE id = ? LIMIT 1').get(closingId);
+            if (!existing) {
+                return { success: false, error: 'سجل الإقفال غير موجود.' };
+            }
+
+            const deleteTx = db.transaction(() => {
+                const treasuryTransactionId = Number(existing.treasury_transaction_id) || 0;
+                if (treasuryTransactionId > 0) {
+                    db.prepare('DELETE FROM treasury_transactions WHERE id = ?').run(treasuryTransactionId);
+                } else {
+                    db.prepare("DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = 'sales_shift_close'")
+                        .run(closingId);
+                }
+
+                db.prepare('DELETE FROM sales_shift_closings WHERE id = ?').run(closingId);
+            });
+
+            deleteTx();
+            return { success: true };
+        } catch (error) {
+            console.error('[delete-sales-shift-closing] Error:', error);
+            return { success: false, error: error.message };
         }
     });
 
@@ -120,11 +478,6 @@ function register() {
             WHERE id = @item_id
         `);
 
-        const insertTreasuryTransaction = db.prepare(`
-            INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, customer_id)
-            VALUES ('income', @amount, @date, @description, @invoice_id, 'sales', @customer_id)
-        `);
-
         const updateCustomerBalance = db.prepare(`
             UPDATE customers 
             SET balance = balance + @amount 
@@ -160,16 +513,6 @@ function register() {
                 updateItemStock.run({
                     quantity: item.quantity,
                     item_id: item.item_id
-                });
-            }
-
-            if (financials.paid_amount > 0) {
-                insertTreasuryTransaction.run({
-                    amount: financials.paid_amount,
-                    date: data.invoice_date,
-                    description: `فاتورة بيع رقم ${data.invoice_number || invoiceId} (مدفوع ${financials.paid_amount.toFixed(2)})`,
-                    invoice_id: invoiceId,
-                    customer_id: data.customer_id
                 });
             }
 
@@ -249,11 +592,6 @@ function register() {
                 db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(oldBalanceDelta, oldInvoice.customer_id);
             }
 
-            // Delete old Treasury Transaction
-            if (oldInvoice.paid_amount > 0) {
-                db.prepare("DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = 'sales'").run(id);
-            }
-
             // Delete old Details
             db.prepare('DELETE FROM sales_invoice_details WHERE invoice_id = ?').run(id);
 
@@ -304,19 +642,6 @@ function register() {
                 db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(financials.balance_delta, customer_id);
             }
 
-            // Add Treasury Transaction (Income)
-            if (financials.paid_amount > 0) {
-                db.prepare(`
-                    INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, customer_id)
-                    VALUES ('income', @amount, @date, @description, @invoice_id, 'sales', @customer_id)
-                `).run({
-                    amount: financials.paid_amount,
-                    date: invoice_date,
-                    description: `تعديل فاتورة بيع رقم ${invoice_number || id} (مدفوع ${financials.paid_amount.toFixed(2)})`,
-                    invoice_id: id,
-                    customer_id
-                });
-            }
         });
 
         try {

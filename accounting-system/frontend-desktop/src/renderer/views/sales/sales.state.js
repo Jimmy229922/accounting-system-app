@@ -7,6 +7,9 @@
             originalInvoiceItemTotalsByItemId: {},
             customerAutocomplete: null,
             isSubmitting: false,
+            shiftClosings: [],
+            editingShiftClosingId: null,
+            shiftClosePreview: null,
             ar: {},
             dom: {
                 app: null,
@@ -22,7 +25,19 @@
                 invoiceTotalSpan: null,
                 invoicePaidDisplaySpan: null,
                 invoiceRemainingSpan: null,
-                invoiceForm: null
+                invoiceForm: null,
+                shiftCloseModal: null,
+                shiftClosePeriodStartSpan: null,
+                shiftClosePeriodEndSpan: null,
+                shiftCloseTotalInput: null,
+                shiftCloseDrawerInput: null,
+                shiftCloseDifferenceSpan: null,
+                shiftCloseNotesInput: null,
+                shiftCloseCreatedByInput: null,
+                shiftCloseSearchInput: null,
+                shiftCloseTableBody: null,
+                shiftCloseSubmitBtn: null,
+                shiftCloseSubmitLabel: null
             }
         };
     }
@@ -42,6 +57,18 @@
         state.dom.invoicePaidDisplaySpan = document.getElementById('invoicePaidDisplay');
         state.dom.invoiceRemainingSpan = document.getElementById('invoiceRemaining');
         state.dom.invoiceForm = document.getElementById('invoiceForm');
+        state.dom.shiftCloseModal = document.getElementById('salesShiftCloseModal');
+        state.dom.shiftClosePeriodStartSpan = document.getElementById('shiftClosePeriodStart');
+        state.dom.shiftClosePeriodEndSpan = document.getElementById('shiftClosePeriodEnd');
+        state.dom.shiftCloseTotalInput = document.getElementById('shiftCloseTotal');
+        state.dom.shiftCloseDrawerInput = document.getElementById('shiftCloseDrawer');
+        state.dom.shiftCloseDifferenceSpan = document.getElementById('shiftCloseDifference');
+        state.dom.shiftCloseNotesInput = document.getElementById('shiftCloseNotes');
+        state.dom.shiftCloseCreatedByInput = document.getElementById('shiftCloseCreatedBy');
+        state.dom.shiftCloseSearchInput = document.getElementById('shiftCloseSearch');
+        state.dom.shiftCloseTableBody = document.getElementById('shiftCloseTableBody');
+        state.dom.shiftCloseSubmitBtn = document.getElementById('shiftCloseSubmitBtn');
+        state.dom.shiftCloseSubmitLabel = document.getElementById('shiftCloseSubmitLabel');
         return state.dom;
     }
 

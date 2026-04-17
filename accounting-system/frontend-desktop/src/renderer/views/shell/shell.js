@@ -41,6 +41,16 @@ function normalizePath(value) {
     return String(value || '').replace(/\\/g, '/').toLowerCase();
 }
 
+function isShiftCloseHref(href) {
+    if (!href) return false;
+    try {
+        const url = new URL(href, window.location.href);
+        return url.searchParams.get('openShiftClose') === '1';
+    } catch (_e) {
+        return false;
+    }
+}
+
 function toUrl(rawTarget) {
     return new URL(rawTarget, window.location.href);
 }
@@ -108,6 +118,7 @@ function parseRouteFromHash() {
 }
 
 function isItemActive(href) {
+    if (isShiftCloseHref(href)) return false;
     if (!shellState.currentHref) return false;
 
     try {
@@ -431,6 +442,14 @@ function bindShellNavEvents() {
 
         const href = link.getAttribute('href');
         if (!href || href === '#') return;
+
+        if (isShiftCloseHref(href)) {
+            event.preventDefault();
+            if (window.navManager && typeof window.navManager.openSalesShiftCloseModal === 'function') {
+                window.navManager.openSalesShiftCloseModal();
+                return;
+            }
+        }
 
         event.preventDefault();
         navigateTo(href, { pushHistory: true });

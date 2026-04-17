@@ -686,7 +686,9 @@ async function deleteDamagedEntry(id) {
         return;
     }
 
-    const ok = window.confirm(t('inventory.confirmDeleteDamaged', 'هل أنت متأكد من حذف سجل التالف؟ سيتم إرجاع الكمية للمخزون.'));
+    const ok = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('inventory.confirmDeleteDamaged', 'هل أنت متأكد من حذف سجل التالف؟ سيتم إرجاع الكمية للمخزون.'))
+        : false;
     if (!ok) return;
 
     try {
@@ -720,7 +722,7 @@ function showErrorToast(message) {
         window.toast.error(message);
         return;
     }
-    alert(message);
+    console.error('[inventory]', message);
 }
 
 function showSuccessToast(message) {
@@ -728,7 +730,7 @@ function showSuccessToast(message) {
         window.toast.success(message);
         return;
     }
-    alert(message);
+    console.log('[inventory]', message);
 }
 
 function escapeHtml(value) {

@@ -666,6 +666,224 @@
     }
 }
 
+.sales-shift-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 13, 28, 0.62);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 4000;
+}
+
+.sales-shift-modal-overlay.is-open {
+    display: flex;
+}
+
+.sales-shift-modal {
+    width: min(1180px, 100%);
+    max-height: 92vh;
+    overflow: auto;
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at 88% -10%, rgba(37, 99, 235, 0.14), transparent 40%),
+        var(--card-bg);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35);
+}
+
+.sales-shift-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.sales-shift-modal-title {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 1.04rem;
+}
+
+.sales-shift-modal-subtitle {
+    margin: 4px 0 0;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+}
+
+.sales-shift-close-btn {
+    min-width: 88px;
+}
+
+.sales-shift-modal-body {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+}
+
+.sales-shift-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.sales-shift-summary-item {
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 10px;
+    background: var(--bg-color);
+    display: grid;
+    gap: 4px;
+}
+
+.sales-shift-summary-item span {
+    color: var(--text-muted);
+    font-size: 0.84rem;
+}
+
+.sales-shift-summary-item strong {
+    color: var(--text-color);
+    font-size: 0.96rem;
+    font-weight: 800;
+}
+
+#shiftCloseDifference.diff-positive {
+    color: var(--success-color);
+}
+
+#shiftCloseDifference.diff-negative {
+    color: var(--danger-color);
+}
+
+.sales-shift-form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.sales-shift-notes-group {
+    grid-column: 1 / -1;
+}
+
+.sales-shift-notes-group textarea {
+    resize: vertical;
+}
+
+.sales-shift-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.sales-shift-submit-btn {
+    margin-top: 0;
+    width: auto;
+    min-width: 240px;
+}
+
+.sales-shift-history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.sales-shift-history-title {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 0.96rem;
+    font-weight: 800;
+}
+
+.sales-shift-search {
+    max-width: 320px;
+}
+
+.sales-shift-table-wrap {
+    border: 1px solid var(--table-border);
+    border-radius: 12px;
+    overflow: auto;
+    background: var(--card-bg);
+}
+
+.sales-shift-table {
+    min-width: 1060px;
+}
+
+.sales-shift-table th,
+.sales-shift-table td {
+    font-size: 0.84rem;
+    padding: 10px 8px;
+}
+
+.sales-shift-table tr.sales-shift-status-match td:first-child {
+    border-inline-start: 4px solid var(--success-color);
+}
+
+.sales-shift-table tr.sales-shift-status-mismatch td:first-child {
+    border-inline-start: 4px solid var(--danger-color);
+}
+
+.sales-shift-table tr.sales-shift-status-missing td:first-child {
+    border-inline-start: 4px solid #f59e0b;
+}
+
+.sales-shift-table td {
+    text-align: center;
+}
+
+.sales-shift-note-cell {
+    max-width: 240px;
+    text-align: start;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sales-shift-actions-cell {
+    display: inline-flex;
+    gap: 6px;
+}
+
+.sales-shift-actions-cell .btn {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 0.8rem;
+}
+
+.sales-shift-empty {
+    color: var(--text-muted);
+    font-weight: 700;
+    padding: 20px;
+}
+
+@media (max-width: 980px) {
+    .sales-shift-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sales-shift-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sales-shift-search {
+        max-width: 100%;
+    }
+
+    .sales-shift-history-head {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .sales-shift-submit-btn {
+        width: 100%;
+    }
+}
+
 /* Professional UI consistency layer */
 :where(.invoice-form-container, .form-card, .reports-page, .settings-card, .metric-card, .summary-card, .table-card, .table-section) {
     border-radius: var(--radius-lg);

@@ -947,7 +947,10 @@ function changePurchaseReturnsPage(newPage) {
 async function deleteReturn(id) {
     if (!Number.isFinite(id)) return;
 
-    if (!confirm(t('purchaseReturns.confirmDelete', 'هل أنت متأكد من حذف هذا المرتجع؟'))) {
+    const confirmed = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('purchaseReturns.confirmDelete', 'هل أنت متأكد من حذف هذا المرتجع؟'))
+        : false;
+    if (!confirmed) {
         return;
     }
 

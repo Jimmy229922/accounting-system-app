@@ -104,6 +104,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Sales Invoices API
     getSalesInvoices: () => invokeChannel('get-sales-invoices'),
     saveSalesInvoice: (data) => invokeChannel('save-sales-invoice', data),
+    getSalesShiftClosePreview: () => invokeChannel('get-sales-shift-close-preview'),
+    createSalesShiftClosing: (data) => invokeChannel('create-sales-shift-closing', data),
+    getSalesShiftClosings: (params = {}) => invokeChannel('get-sales-shift-closings', params),
+    updateSalesShiftClosing: (data) => invokeChannel('update-sales-shift-closing', data),
+    deleteSalesShiftClosing: (id) => invokeChannel('delete-sales-shift-closing', id),
 
     // Treasury API
     getTreasuryBalance: () => invokeChannel('get-treasury-balance'),

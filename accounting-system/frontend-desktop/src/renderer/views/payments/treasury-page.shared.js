@@ -401,11 +401,22 @@
         }
 
         function showToast(message, type = 'info') {
+            if (window.toast && typeof window.toast[type] === 'function') {
+                window.toast[type](message);
+                return;
+            }
+
             if (typeof Toast !== 'undefined') {
                 Toast.show(message, type);
-            } else {
-                alert(message);
+                return;
             }
+
+            if (type === 'error') {
+                console.error('[payments]', message);
+                return;
+            }
+
+            console.log('[payments]', message);
         }
 
         async function searchVoucher() {

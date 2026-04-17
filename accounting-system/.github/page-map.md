@@ -65,7 +65,7 @@
 | Items | `../items/items.html` | `items/items.html`, `items.css`, `items.js`, `items.crud.js` | `getItems`, `getUnits`, `addItem`, `updateItem`, `deleteItem`, `addUnit`, `updateUnit`, `deleteUnit` | `handlers/items.js`, `handlers/units.js` | `items` |
 | Units | `../items/units.html` | `items/units.html`, `units.css`, `units.js` | `getUnits`, `addUnit`, `updateUnit`, `deleteUnit` | `handlers/units.js` | `items` |
 | Customers | `../customers/index.html` | `customers/index.html`, `customers.css`, `customers.js`, `customers.bootstrap.js` | `getCustomers`, `addCustomer`, `updateCustomer`, `deleteCustomer` | `handlers/customers.js` | `customers` |
-| Sales | `../sales/index.html` | `sales/index.html`, `sales.css`, `sales.js`, `sales.api.js`, `sales.bootstrap.js`, `sales.events.js`, `sales.render.js`, `sales.state.js` | `getNextInvoiceNumber`, `getInvoiceWithDetails`, `getCustomers`, `getItems`, `getSalesInvoices`, `saveSalesInvoice`, `updateSalesInvoice` | `handlers/sales.js`, `handlers/invoices.js` | `sales` |
+| Sales | `../sales/index.html` | `sales/index.html`, `sales.css`, `sales.js`, `sales.api.js`, `sales.bootstrap.js`, `sales.events.js`, `sales.render.js`, `sales.state.js` | `getNextInvoiceNumber`, `getInvoiceWithDetails`, `getCustomers`, `getItems`, `getSalesInvoices`, `saveSalesInvoice`, `updateSalesInvoice`, `getSalesShiftClosePreview`, `createSalesShiftClosing`, `getSalesShiftClosings`, `updateSalesShiftClosing`, `deleteSalesShiftClosing` | `handlers/sales.js`, `handlers/invoices.js` | `sales` |
 | Sales Returns | `../sales-returns/index.html` | `sales-returns/index.html`, `sales-returns.css`, `sales-returns.js`, `sales-returns.api.js`, `sales-returns.bootstrap.js`, `sales-returns.events.js`, `sales-returns.render.js`, `sales-returns.state.js` | `getNextInvoiceNumber`, `getCustomers`, `getCustomerSalesInvoices`, `getInvoiceItemsForReturn`, `saveSalesReturn`, `updateSalesReturn`, `getSalesReturns`, `getSalesReturnDetails`, `deleteSalesReturn` | `handlers/salesReturns.js`, `handlers/invoices.js` | `sales-returns` |
 | Purchases | `../purchases/index.html` | `purchases/index.html`, `purchases.css`, `purchases.js`, `purchases.api.js`, `purchases.events.js`, `purchases.render.js`, `purchases.state.js` | `getNextInvoiceNumber`, `getInvoiceWithDetails`, `getCustomers`, `getItems`, `getPurchaseInvoices`, `savePurchaseInvoice`, `updatePurchaseInvoice` | `handlers/purchases.js`, `handlers/invoices.js` | `purchases` |
 | Purchase Returns | `../purchase-returns/index.html` | `purchase-returns/index.html`, `purchase-returns.css`, `purchase-returns.js`, `purchase-returns.api.js`, `purchase-returns.bootstrap.js`, `purchase-returns.events.js`, `purchase-returns.render.js`, `purchase-returns.state.js` | `getNextInvoiceNumber`, `getCustomers`, `getSupplierPurchaseInvoices`, `getInvoiceItemsForReturn`, `savePurchaseReturn`, `updatePurchaseReturn`, `getPurchaseReturns`, `getPurchaseReturnDetails`, `deletePurchaseReturn` | `handlers/purchaseReturns.js`, `handlers/invoices.js` | `purchase-returns` |
@@ -215,13 +215,46 @@
 - في بناء ملخص الأصناف داخل `customer-reports.bootstrap.js`: يتم عرض الأربع مجموعات دائمًا في PDF؛ كل مجموعة تبدأ من أول صفحة مستقلة، والمجموعة الفارغة يظهر جدولها برسالة `لا توجد بيانات` بدون صف إجماليات، مع فاصل صفحة بين المجموعات.
 - تم ضبط كسر الصفحات في مجموعات الملخص ليعتمد على بداية كل مجموعة (`page-break-before`) بدون حجز ارتفاع صفحة إجباري؛ لتفادي دمج أول مجموعة مع صفحة الملخص، وتفادي تموضع الجداول الفارغة في منتصف الصفحة، ومنع الصفحة الفارغة الزائدة في النهاية.
 
+### Sales Shift Closing (2026-04-17)
+
+- في قائمة `المبيعات` داخل `navManager.js` خيار `إقفال وردية` أصبح يفتح مودال عام فوق الصفحة الحالية مباشرة (بدون التنقل إلى `views/sales`).
+- تم فصل منطق المودال العام لإقفال الوردية داخل `assets/js/shared/navManager.js` ليعمل من أي شاشة (داخل `shell` أو خارجه).
+- في `views/shell/shell.js` تم اعتراض نفس الرابط (`openShiftClose=1`) لفتح المودال العام بدل تغيير مسار الـ iframe.
+- في `views/sales` تمت إضافة مودال داخلي لإقفال الوردية يشمل:
+   - معاينة إجمالي المقبوض من آخر إقفال حتى اللحظة.
+   - إدخال اختياري للمبلغ الفعلي في الدرج + فرق تلقائي.
+   - ملاحظة + اسم المستخدم.
+   - سجل إقفالات مع بحث + تعديل + حذف.
+- في سجل إقفالات الوردية (المودال العام + مودال `views/sales`) تمت إضافة شريط حالة لوني لكل صف:
+   - أخضر عند تطابق `drawer_amount` مع `sales_paid_total`.
+   - أحمر عند وجود فرق بين القيمتين.
+   - لون ثالث (`#f59e0b`) عند ترك `drawer_amount` فارغًا.
+- في `handlers/sales.js`:
+   - إلغاء ترحيل المدفوع إلى `treasury_transactions` عند حفظ/تحديث فاتورة البيع.
+   - إضافة IPC جديدة لإدارة إقفالات الوردية (`preview/create/list/update/delete`) مع ترحيل مجمع للمالية عند الإقفال.
+- في `preload.js` تمت إضافة APIs العامة لنفس قنوات إقفال الوردية.
+
+### Treasury Guard Rule (2026-04-18)
+
+- في `handlers/treasury.js` (الواجهة + نسخة التوافق): تم إضافة حارس يمنع تسجيل أي حركة `expense` عندما يكون رصيد الخزينة الحالي `<= 0`، مع رسالة خطأ واضحة للمستخدم.
+- نفس الحارس يطبق عند تعديل حركة مالية إلى نوع `expense` (مع احتساب تأثير السجل الحالي قبل التعديل).
+- تمت إضافة حارس إضافي يمنع `expense` إذا كانت قيمة السحب أكبر من الرصيد المتاح فعليًا في الخزينة (في الإضافة والتعديل).
+- في `views/finance/finance.js`: تم استبدال تنبيهات `alert` في مسارات حفظ/تعديل/حذف الحركة بإشعارات `toast` غير حاجبة لتفادي تهنيج واجهة الكتابة بعد ظهور رسالة الخطأ.
+
+### Non-Blocking Notifications (2026-04-18)
+
+- تم إلغاء الاعتماد على `alert` في صفحات الواجهة (`frontend-desktop/src/renderer/views/*`) واستبداله بإشعارات غير حاجبة (`toast`) مع fallback إلى `console` عند غياب نظام التنبيهات.
+- الصفحات التي تم تحديثها ضمن هذا التغيير: `finance`, `inventory`, `settings`, `invite`, `reports/debtor-creditor`, `payments/treasury-page.shared`, `customer-reports`.
+- تم أيضًا استبدال `confirm/window.confirm` في الواجهة بدالة تأكيد غير حاجبة (`window.showConfirmDialog`) داخل `assets/js/toast.js`، مع تحديث مسارات الحذف/التأكيد في: `shared/navManager.js`, `sales/sales.bootstrap.js`, `finance/finance.js`, `inventory/inventory.js`, `reports/reports.bootstrap.js`, `sales-returns/sales-returns.bootstrap.js`, `purchase-returns/purchase-returns.bootstrap.js`, `opening-balance/opening-balance.bootstrap.js`, `items/items.crud.js`, `settings/settings.js`, `customer-reports/customer-reports.bootstrap.js`.
+- لضمان عمل التأكيد غير الحاجب داخل Shell/iframe: `views/shell/index.html` أصبح يحمّل `assets/js/toast.js`، وتم إضافة bridge في `assets/js/shared/navManager.js` لتمرير `showConfirmDialog` من نافذة Shell إلى الصفحات الداخلية التي لا تحمّل toast مباشرة.
+
 ---
 
 ## 7) جداول قاعدة البيانات (الحالي)
 
 ### جداول `db.js`
 
-`units`, `items`, `customers`, `suppliers`, `purchase_invoices`, `purchase_invoice_details`, `sales_invoices`, `sales_invoice_details`, `treasury_transactions`, `settings`, `warehouses`, `opening_balances`, `opening_balance_groups`, `sales_returns`, `sales_return_details`, `purchase_returns`, `purchase_return_details`, `damaged_stock_logs`, `user_permissions`
+`units`, `items`, `customers`, `suppliers`, `purchase_invoices`, `purchase_invoice_details`, `sales_invoices`, `sales_invoice_details`, `treasury_transactions`, `sales_shift_closings`, `settings`, `warehouses`, `opening_balances`, `opening_balance_groups`, `sales_returns`, `sales_return_details`, `purchase_returns`, `purchase_return_details`, `damaged_stock_logs`, `user_permissions`
 
 ### جداول تُنشأ من `handlers/auth.js`
 
@@ -233,6 +266,7 @@
 - `customers`: إضافة `type`, `code`, `opening_balance`.
 - `sales_invoices` و `purchase_invoices`: حقول الخصم + `paid_amount` + `remaining_amount` + `payment_type`.
 - `treasury_transactions`: `customer_id`, `supplier_id`, `voucher_number` + trigger لتوليد رقم السند.
+- `sales_shift_closings`: جدول إقفال ورديات المبيعات (`period_start_at`, `period_end_at`, `sales_paid_total`, `drawer_amount`, `difference_amount`, `notes`, `created_by`, `treasury_transaction_id`, `updated_at`) مع فهارس على `period_end_at` و`created_at`.
 - `opening_balances`: إضافة `group_id`.
 - Data Safety Guard Rails (في `frontend-desktop/src/main/db.js` و `backend/src/desktop-compat/db.js`):
    - Triggers تمنع `stock_quantity` السالب في `items`.
@@ -249,7 +283,7 @@
 - `handlers/items.js`: الأصناف وحركات المخزون + سجل التالف (إضافة/عرض/تعديل/حذف).
 - `handlers/customers.js`: العملاء + تقرير مدين/دائن.
 - `handlers/purchases.js`: فواتير الشراء.
-- `handlers/sales.js`: فواتير البيع.
+- `handlers/sales.js`: فواتير البيع + إقفال الوردية + الترحيل المجمع للمالية.
 - `handlers/salesReturns.js`: مرتجعات البيع.
 - `handlers/purchaseReturns.js`: مرتجعات الشراء.
 - `handlers/treasury.js`: الخزينة + السندات.

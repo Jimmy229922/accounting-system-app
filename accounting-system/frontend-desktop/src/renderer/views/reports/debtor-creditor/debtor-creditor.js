@@ -10,6 +10,27 @@ function buildTopNavHTML() {
     return '';
 }
 
+function showDebtorCreditorToast(message, type = 'info') {
+    if (!message) return;
+
+    if (window.toast && typeof window.toast[type] === 'function') {
+        window.toast[type](message);
+        return;
+    }
+
+    if (typeof Toast !== 'undefined' && typeof Toast.show === 'function') {
+        Toast.show(message, type);
+        return;
+    }
+
+    if (type === 'error') {
+        console.error('[debtor-creditor]', message);
+        return;
+    }
+
+    console.log('[debtor-creditor]', message);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
@@ -135,7 +156,7 @@ async function loadReport() {
         filterAndRender();
     } catch (error) {
         console.error('Error loading report:', error);
-        alert(t('debtorCreditor.loadError', 'حدث خطأ أثناء تحميل البيانات'));
+        showDebtorCreditorToast(t('debtorCreditor.loadError', 'حدث خطأ أثناء تحميل البيانات'), 'error');
     }
 }
 

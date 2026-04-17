@@ -456,20 +456,23 @@ function handleTableAction(event) {
 }
 
 async function deleteInvoice(id, type) {
-    if (confirm(t('reports.deleteConfirm', 'هل أنت متأكد من حذف هذه الفاتورة؟ سيتم عكس جميع التأثيرات المالية والمخزنية.'))) {
-        const result = await window.electronAPI.deleteInvoice(Number(id), type);
-        if (result.success) {
-            if (window.showToast) {
-                window.showToast(t('reports.deleteSuccess', 'تم حذف الفاتورة بنجاح'), 'success');
-            }
-            currentPage = 1;
-            loadReports();
-        } else {
-            const errorMessage = fmt(t('reports.deleteError', 'حدث خطأ أثناء الحذف: {error}'), { error: result.error });
-            if (window.showToast) {
-                window.showToast(errorMessage, 'error');
-            }
-            setStatus(errorMessage, 'error');
+    const confirmed = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('reports.deleteConfirm', 'هل أنت متأكد من حذف هذه الفاتورة؟ سيتم عكس جميع التأثيرات المالية والمخزنية.'))
+        : false;
+    if (!confirmed) return;
+
+    const result = await window.electronAPI.deleteInvoice(Number(id), type);
+    if (result.success) {
+        if (window.showToast) {
+            window.showToast(t('reports.deleteSuccess', 'تم حذف الفاتورة بنجاح'), 'success');
         }
+        currentPage = 1;
+        loadReports();
+    } else {
+        const errorMessage = fmt(t('reports.deleteError', 'حدث خطأ أثناء الحذف: {error}'), { error: result.error });
+        if (window.showToast) {
+            window.showToast(errorMessage, 'error');
+        }
+        setStatus(errorMessage, 'error');
     }
 }

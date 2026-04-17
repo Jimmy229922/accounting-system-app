@@ -148,8 +148,93 @@
                                 <span id="invoiceRemaining" class="customer-due-value">0.00</span>
                             </div>
                             <button class="btn btn-success" type="button" data-action="submit-invoice">
-                                ${t('sales.saveAndPost', 'حفظ وترحيل الفاتورة')}
+                                ${t('sales.saveAndPost', 'حفظ الفاتورة')}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="salesShiftCloseModal" class="sales-shift-modal-overlay" style="display: none;" aria-hidden="true">
+                <div class="sales-shift-modal" role="dialog" aria-modal="true" aria-label="إقفال وردية المبيعات">
+                    <div class="sales-shift-modal-header">
+                        <div>
+                            <h3 class="sales-shift-modal-title">إقفال وردية المبيعات</h3>
+                            <p class="sales-shift-modal-subtitle">إجمالي المقبوض من آخر إقفال حتى الآن للمقارنة مع درج الكاش.</p>
+                        </div>
+                        <button class="btn btn-outline sales-shift-close-btn" type="button" data-action="close-shift-close-modal">إغلاق</button>
+                    </div>
+
+                    <div class="sales-shift-modal-body">
+                        <div class="sales-shift-summary-grid">
+                            <div class="sales-shift-summary-item">
+                                <span>بداية الفترة</span>
+                                <strong id="shiftClosePeriodStart">-</strong>
+                            </div>
+                            <div class="sales-shift-summary-item">
+                                <span>نهاية الفترة</span>
+                                <strong id="shiftClosePeriodEnd">-</strong>
+                            </div>
+                            <div class="sales-shift-summary-item">
+                                <span>الفرق</span>
+                                <strong id="shiftCloseDifference">0.00</strong>
+                            </div>
+                        </div>
+
+                        <div class="sales-shift-form-grid">
+                            <div class="form-group">
+                                <label>إجمالي المقبوض من المبيعات</label>
+                                <input type="number" id="shiftCloseTotal" class="form-control" min="0" step="0.01" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>المبلغ الفعلي في الدرج (اختياري)</label>
+                                <input type="number" id="shiftCloseDrawer" class="form-control" min="0" step="0.01" placeholder="اختياري">
+                            </div>
+                            <div class="form-group">
+                                <label>المستخدم</label>
+                                <input type="text" id="shiftCloseCreatedBy" class="form-control" placeholder="اسم المستخدم الحالي">
+                            </div>
+                            <div class="form-group sales-shift-notes-group">
+                                <label>ملاحظة</label>
+                                <textarea id="shiftCloseNotes" class="form-control" rows="2" placeholder="ملاحظة اختيارية"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="sales-shift-actions-row">
+                            <button class="btn btn-outline" type="button" data-action="refresh-shift-close-preview">تحديث الرقم</button>
+                            <button class="btn btn-outline" type="button" data-action="reset-shift-close-form">تهيئة نموذج الإقفال</button>
+                            <button id="shiftCloseSubmitBtn" class="btn btn-success sales-shift-submit-btn" type="button" data-action="submit-shift-close">
+                                <span id="shiftCloseSubmitLabel">تأكيد الإقفال وترحيل المالية</span>
+                            </button>
+                        </div>
+
+                        <div class="sales-shift-history-head">
+                            <h4 class="sales-shift-history-title">سجل إقفالات الوردية</h4>
+                            <input type="text" id="shiftCloseSearch" class="form-control sales-shift-search" placeholder="بحث في سجل الإقفالات">
+                        </div>
+
+                        <div class="sales-shift-table-wrap">
+                            <table class="items-table sales-shift-table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الإقفال</th>
+                                        <th>من</th>
+                                        <th>إلى</th>
+                                        <th>إجمالي مرحل</th>
+                                        <th>الدرج</th>
+                                        <th>الفرق</th>
+                                        <th>المستخدم</th>
+                                        <th>ملاحظة</th>
+                                        <th>آخر تعديل</th>
+                                        <th>إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shiftCloseTableBody">
+                                    <tr>
+                                        <td colspan="10" class="sales-shift-empty">لا توجد إقفالات مسجلة حتى الآن.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -238,7 +323,7 @@
         }
         const saveBtn = document.querySelector('#invoiceForm .btn-success');
         if (saveBtn) {
-            saveBtn.textContent = t('sales.saveAndPost', 'حفظ وترحيل الفاتورة');
+            saveBtn.textContent = t('sales.saveAndPost', 'حفظ الفاتورة');
             saveBtn.style.opacity = '1';
             saveBtn.style.cursor = 'pointer';
             saveBtn.disabled = false;

@@ -318,7 +318,35 @@ function initDB() {
     runAddColumnMigration("ALTER TABLE treasury_transactions ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id)", 'treasury_transactions', 'supplier_id');
     runAddColumnMigration("ALTER TABLE treasury_transactions ADD COLUMN voucher_number TEXT", 'treasury_transactions', 'voucher_number');
 
-    // 10. Settings Table (جدول الإعدادات)
+    // 10. Sales Shift Closings Table (جدول إقفالات ورديات المبيعات)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS sales_shift_closings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            period_start_at TEXT,
+            period_end_at TEXT NOT NULL,
+            sales_paid_total REAL NOT NULL DEFAULT 0,
+            drawer_amount REAL,
+            difference_amount REAL,
+            notes TEXT,
+            created_by TEXT,
+            treasury_transaction_id INTEGER,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT
+        )
+    `);
+
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN period_start_at TEXT", 'sales_shift_closings', 'period_start_at');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN period_end_at TEXT", 'sales_shift_closings', 'period_end_at');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN sales_paid_total REAL NOT NULL DEFAULT 0", 'sales_shift_closings', 'sales_paid_total');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN drawer_amount REAL", 'sales_shift_closings', 'drawer_amount');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN difference_amount REAL", 'sales_shift_closings', 'difference_amount');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN notes TEXT", 'sales_shift_closings', 'notes');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN created_by TEXT", 'sales_shift_closings', 'created_by');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN treasury_transaction_id INTEGER", 'sales_shift_closings', 'treasury_transaction_id');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP", 'sales_shift_closings', 'created_at');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN updated_at TEXT", 'sales_shift_closings', 'updated_at');
+
+    // 11. Settings Table (جدول الإعدادات)
     db.exec(`
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -327,7 +355,7 @@ function initDB() {
     `);
     applyTreasuryVoucherSchemeMigration();
 
-    // 11. Warehouses Table (جدول المخازن)
+    // 12. Warehouses Table (جدول المخازن)
     db.exec(`
         CREATE TABLE IF NOT EXISTS warehouses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -335,7 +363,7 @@ function initDB() {
         )
     `);
 
-    // 12. Opening Balances Table (أرصدة أول المدة)
+    // 13. Opening Balances Table (أرصدة أول المدة)
     db.exec(`
         CREATE TABLE IF NOT EXISTS opening_balances (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -349,7 +377,7 @@ function initDB() {
         )
     `);
 
-    // 13. Opening Balance Groups (مجموعات أرصدة أول المدة)
+    // 14. Opening Balance Groups (مجموعات أرصدة أول المدة)
     db.exec(`
         CREATE TABLE IF NOT EXISTS opening_balance_groups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -364,7 +392,7 @@ function initDB() {
         // Column likely exists
     }
 
-    // 14. Sales Returns Table (جدول مردودات المبيعات)
+    // 15. Sales Returns Table (جدول مردودات المبيعات)
     db.exec(`
         CREATE TABLE IF NOT EXISTS sales_returns (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -380,7 +408,7 @@ function initDB() {
         )
     `);
 
-    // 15. Sales Return Details Table (جدول تفاصيل مردودات المبيعات)
+    // 16. Sales Return Details Table (جدول تفاصيل مردودات المبيعات)
     db.exec(`
         CREATE TABLE IF NOT EXISTS sales_return_details (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -394,7 +422,7 @@ function initDB() {
         )
     `);
 
-    // 16. Purchase Returns Table (جدول مردودات المشتريات)
+    // 17. Purchase Returns Table (جدول مردودات المشتريات)
     db.exec(`
         CREATE TABLE IF NOT EXISTS purchase_returns (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -410,7 +438,7 @@ function initDB() {
         )
     `);
 
-    // 17. Purchase Return Details Table (جدول تفاصيل مردودات المشتريات)
+    // 18. Purchase Return Details Table (جدول تفاصيل مردودات المشتريات)
     db.exec(`
         CREATE TABLE IF NOT EXISTS purchase_return_details (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -424,7 +452,7 @@ function initDB() {
         )
     `);
 
-    // 18. User Permissions Table (جدول صلاحيات المستخدمين)
+    // 19. User Permissions Table (جدول صلاحيات المستخدمين)
     db.exec(`
         CREATE TABLE IF NOT EXISTS user_permissions (
             user_id INTEGER NOT NULL,
@@ -438,7 +466,7 @@ function initDB() {
         )
     `);
 
-    // 19. Damaged Stock Logs Table (جدول التالف)
+    // 20. Damaged Stock Logs Table (جدول التالف)
     db.exec(`
         CREATE TABLE IF NOT EXISTS damaged_stock_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -478,6 +506,8 @@ function initDB() {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_treasury_transactions_date ON treasury_transactions(transaction_date)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_treasury_transactions_type ON treasury_transactions(type)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_treasury_transactions_customer_id ON treasury_transactions(customer_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_shift_closings_period_end_at ON sales_shift_closings(period_end_at)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_shift_closings_created_at ON sales_shift_closings(created_at)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_returns_customer_id ON sales_returns(customer_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_returns_original_invoice_id ON sales_returns(original_invoice_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_return_details_return_id ON sales_return_details(return_id)`);

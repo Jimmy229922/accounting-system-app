@@ -172,24 +172,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.querySelectorAll('.btn-delete-warehouse').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = btn.dataset.id;
-                if (confirm(t('openingBalance.confirmDeleteWarehouse', 'هل أنت متأكد من حذف هذا المخزن؟'))) {
-                    try {
-                        const result = await window.electronAPI.deleteWarehouse(id);
-                        if (result.success) {
-                            Toast.show(t('openingBalance.toast.warehouseDeleteSuccess', 'تم حذف المخزن بنجاح'), 'success');
-                            const whData = await window.electronAPI.getWarehouses();
-                            warehouses = whData || [];
-                            if (selectedWarehouseId == id) selectedWarehouseId = '';
-                            
-                            populateWarehouseSelect();
-                            renderWarehousesTable();
-                        } else {
-                            Toast.show(t('openingBalance.errorPrefix', 'خطأ: ') + result.error, 'error');
-                        }
-                    } catch (error) {
-                        console.error(error);
-                        Toast.show(t('openingBalance.toast.warehouseDeleteError', 'حدث خطأ أثناء حذف المخزن'), 'error');
+                const confirmed = typeof window.showConfirmDialog === 'function'
+                    ? await window.showConfirmDialog(t('openingBalance.confirmDeleteWarehouse', 'هل أنت متأكد من حذف هذا المخزن؟'))
+                    : false;
+                if (!confirmed) return;
+
+                try {
+                    const result = await window.electronAPI.deleteWarehouse(id);
+                    if (result.success) {
+                        Toast.show(t('openingBalance.toast.warehouseDeleteSuccess', 'تم حذف المخزن بنجاح'), 'success');
+                        const whData = await window.electronAPI.getWarehouses();
+                        warehouses = whData || [];
+                        if (selectedWarehouseId == id) selectedWarehouseId = '';
+                        
+                        populateWarehouseSelect();
+                        renderWarehousesTable();
+                    } else {
+                        Toast.show(t('openingBalance.errorPrefix', 'خطأ: ') + result.error, 'error');
                     }
+                } catch (error) {
+                    console.error(error);
+                    Toast.show(t('openingBalance.toast.warehouseDeleteError', 'حدث خطأ أثناء حذف المخزن'), 'error');
                 }
             });
         });

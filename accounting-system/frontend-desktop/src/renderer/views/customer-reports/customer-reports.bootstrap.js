@@ -31,6 +31,32 @@ function buildTopNavHTML() {
     return '';
 }
 
+function notifyCustomerReports(message, type = 'info') {
+    if (!message) return;
+
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+        return;
+    }
+
+    if (window.toast && typeof window.toast[type] === 'function') {
+        window.toast[type](message);
+        return;
+    }
+
+    if (typeof Toast !== 'undefined' && typeof Toast.show === 'function') {
+        Toast.show(message, type);
+        return;
+    }
+
+    if (type === 'error') {
+        console.error('[customer-reports]', message);
+        return;
+    }
+
+    console.log('[customer-reports]', message);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
     if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
@@ -383,21 +409,23 @@ async function toggleItems(rowId, btn, type, id) {
 }
 
 async function deleteTransaction(id) {
-    if (confirm(t('customerReports.deleteTransactionConfirm', 'هل أنت متأكد من حذف هذه العملية المالية؟'))) {
-        try {
-            const result = await window.electronAPI.deleteTreasuryTransaction(id);
-            if (result.success) {
-                if (window.showToast) window.showToast(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'), 'success');
-                else alert(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'));
-                const customerId = document.getElementById('customerSelect').value;
-                if (customerId) loadCustomerReport(customerId);
-            } else {
-                alert(fmt(t('customerReports.deleteError', 'حدث خطأ: {error}'), { error: result.error }));
-            }
-        } catch (error) {
-            console.error(error);
-            alert(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'));
+    const confirmed = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('customerReports.deleteTransactionConfirm', 'هل أنت متأكد من حذف هذه العملية المالية؟'))
+        : false;
+    if (!confirmed) return;
+
+    try {
+        const result = await window.electronAPI.deleteTreasuryTransaction(id);
+        if (result.success) {
+            notifyCustomerReports(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'), 'success');
+            const customerId = document.getElementById('customerSelect').value;
+            if (customerId) loadCustomerReport(customerId);
+        } else {
+            notifyCustomerReports(fmt(t('customerReports.deleteError', 'حدث خطأ: {error}'), { error: result.error }), 'error');
         }
+    } catch (error) {
+        console.error(error);
+        notifyCustomerReports(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
     }
 }
 
@@ -416,59 +444,65 @@ function editInvoice(id, type) {
 }
 
 async function deleteInvoice(id, type) {
-    if (confirm(t('customerReports.deleteInvoiceConfirm', 'هل أنت متأكد من حذف هذه الفاتورة؟ سيتم إلغاء جميع التأثيرات المالية والمخزنية.'))) {
-        try {
-            const result = await window.electronAPI.deleteInvoice(id, type);
-            if (result.success) {
-                if (window.showToast) window.showToast(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'), 'success');
-                else alert(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'));
-                const customerId = document.getElementById('customerSelect').value;
-                if (customerId) loadCustomerReport(customerId);
-            } else {
-                alert(fmt(t('customerReports.deleteError', 'حدث خطأ: {error}'), { error: result.error }));
-            }
-        } catch (error) {
-            console.error('Error deleting invoice:', error);
-            alert(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'));
+    const confirmed = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('customerReports.deleteInvoiceConfirm', 'هل أنت متأكد من حذف هذه الفاتورة؟ سيتم إلغاء جميع التأثيرات المالية والمخزنية.'))
+        : false;
+    if (!confirmed) return;
+
+    try {
+        const result = await window.electronAPI.deleteInvoice(id, type);
+        if (result.success) {
+            notifyCustomerReports(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'), 'success');
+            const customerId = document.getElementById('customerSelect').value;
+            if (customerId) loadCustomerReport(customerId);
+        } else {
+            notifyCustomerReports(fmt(t('customerReports.deleteError', 'حدث خطأ: {error}'), { error: result.error }), 'error');
         }
+    } catch (error) {
+        console.error('Error deleting invoice:', error);
+        notifyCustomerReports(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
     }
 }
 
 async function deleteSalesReturn(id) {
-    if (confirm(t('customerReports.deleteReturnConfirm', 'هل أنت متأكد من حذف هذا المرتجع؟'))) {
-        try {
-            const result = await window.electronAPI.deleteSalesReturn(id);
-            if (result.success) {
-                if (window.showToast) window.showToast(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'), 'success');
-                else alert(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'));
-                const customerId = document.getElementById('customerSelect').value;
-                if (customerId) loadCustomerReport(customerId);
-            } else {
-                alert(fmt(t('customerReports.deleteError', 'حدث خطأ: {error}'), { error: result.error }));
-            }
-        } catch (error) {
-            console.error(error);
-            alert(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'));
+    const confirmed = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('customerReports.deleteReturnConfirm', 'هل أنت متأكد من حذف هذا المرتجع؟'))
+        : false;
+    if (!confirmed) return;
+
+    try {
+        const result = await window.electronAPI.deleteSalesReturn(id);
+        if (result.success) {
+            notifyCustomerReports(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'), 'success');
+            const customerId = document.getElementById('customerSelect').value;
+            if (customerId) loadCustomerReport(customerId);
+        } else {
+            notifyCustomerReports(fmt(t('customerReports.deleteError', 'حدث خطأ: {error}'), { error: result.error }), 'error');
         }
+    } catch (error) {
+        console.error(error);
+        notifyCustomerReports(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
     }
 }
 
 async function deletePurchaseReturn(id) {
-    if (confirm(t('customerReports.deleteReturnConfirm', 'هل أنت متأكد من حذف هذا المرتجع؟'))) {
-        try {
-            const result = await window.electronAPI.deletePurchaseReturn(id);
-            if (result.success) {
-                if (window.showToast) window.showToast(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'), 'success');
-                else alert(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'));
-                const customerId = document.getElementById('customerSelect').value;
-                if (customerId) loadCustomerReport(customerId);
-            } else {
-                alert(fmt(t('customerReports.deleteError', 'حدث خطأ: {error}'), { error: result.error }));
-            }
-        } catch (error) {
-            console.error(error);
-            alert(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'));
+    const confirmed = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('customerReports.deleteReturnConfirm', 'هل أنت متأكد من حذف هذا المرتجع؟'))
+        : false;
+    if (!confirmed) return;
+
+    try {
+        const result = await window.electronAPI.deletePurchaseReturn(id);
+        if (result.success) {
+            notifyCustomerReports(t('customerReports.deleteSuccess', 'تم الحذف بنجاح'), 'success');
+            const customerId = document.getElementById('customerSelect').value;
+            if (customerId) loadCustomerReport(customerId);
+        } else {
+            notifyCustomerReports(fmt(t('customerReports.deleteError', 'حدث خطأ: {error}'), { error: result.error }), 'error');
         }
+    } catch (error) {
+        console.error(error);
+        notifyCustomerReports(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
     }
 }
 

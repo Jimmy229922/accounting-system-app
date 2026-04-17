@@ -498,7 +498,9 @@ async function handleBackup() {
 }
 
 async function handleRestore() {
-    const confirmRestore = confirm(t('settings.alerts.restoreConfirm'));
+    const confirmRestore = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('settings.alerts.restoreConfirm'))
+        : false;
     if (!confirmRestore) return;
 
     setStatus(restoreStatusEl, t('settings.status.restoring'));
@@ -517,7 +519,11 @@ async function handleRestore() {
         );
 
         if (result.needsRestart) {
-            alert(t('settings.alerts.restoreRestartError'));
+            const restartErrorMessage = t('settings.alerts.restoreRestartError');
+            setStatus(restoreStatusEl, restartErrorMessage, true);
+            if (window.toast && typeof window.toast.error === 'function') {
+                window.toast.error(restartErrorMessage);
+            }
             await window.electronAPI.restartApp();
         }
     }

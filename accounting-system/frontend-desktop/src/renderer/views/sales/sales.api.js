@@ -28,6 +28,26 @@
         return window.electronAPI.updateSalesInvoice(invoiceData);
     }
 
+    async function getShiftClosePreview() {
+        return window.electronAPI.getSalesShiftClosePreview();
+    }
+
+    async function createShiftClosing(data) {
+        return window.electronAPI.createSalesShiftClosing(data);
+    }
+
+    async function getShiftClosings(params = {}) {
+        return window.electronAPI.getSalesShiftClosings(params);
+    }
+
+    async function updateShiftClosing(data) {
+        return window.electronAPI.updateSalesShiftClosing(data);
+    }
+
+    async function deleteShiftClosing(id) {
+        return window.electronAPI.deleteSalesShiftClosing(id);
+    }
+
     window.salesPageApi = {
         getNextInvoiceNumber,
         getInvoiceWithDetails,
@@ -35,7 +55,12 @@
         getSalesInvoices,
         getItems,
         saveInvoice,
-        updateInvoice
+        updateInvoice,
+        getShiftClosePreview,
+        createShiftClosing,
+        getShiftClosings,
+        updateShiftClosing,
+        deleteShiftClosing
     };
 })();
 

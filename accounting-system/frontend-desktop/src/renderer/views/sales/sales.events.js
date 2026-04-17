@@ -4,6 +4,18 @@
             dom.customerSelect.addEventListener('change', handlers.onCustomerChange);
         }
 
+        if (dom.shiftCloseSearchInput) {
+            dom.shiftCloseSearchInput.addEventListener('input', handlers.onShiftCloseSearchInput);
+        }
+
+        if (dom.shiftCloseDrawerInput) {
+            dom.shiftCloseDrawerInput.addEventListener('input', handlers.onShiftCloseAmountsInput);
+        }
+
+        if (dom.shiftCloseTotalInput) {
+            dom.shiftCloseTotalInput.addEventListener('input', handlers.onShiftCloseAmountsInput);
+        }
+
         if (root) {
             root.addEventListener('click', (event) => {
                 const actionEl = event.target.closest('[data-action]');
@@ -27,6 +39,41 @@
 
                 if (action === 'load-next-invoice') {
                     handlers.onLoadNextInvoice();
+                    return;
+                }
+
+                if (action === 'open-shift-close-modal') {
+                    handlers.onOpenShiftCloseModal();
+                    return;
+                }
+
+                if (action === 'close-shift-close-modal') {
+                    handlers.onCloseShiftCloseModal();
+                    return;
+                }
+
+                if (action === 'refresh-shift-close-preview') {
+                    handlers.onRefreshShiftClosePreview();
+                    return;
+                }
+
+                if (action === 'submit-shift-close') {
+                    handlers.onSubmitShiftClose();
+                    return;
+                }
+
+                if (action === 'reset-shift-close-form') {
+                    handlers.onResetShiftCloseForm();
+                    return;
+                }
+
+                if (action === 'edit-shift-close') {
+                    handlers.onEditShiftClose(actionEl);
+                    return;
+                }
+
+                if (action === 'delete-shift-close') {
+                    handlers.onDeleteShiftClose(actionEl);
                     return;
                 }
 
