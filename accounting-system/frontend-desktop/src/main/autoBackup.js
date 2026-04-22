@@ -6,41 +6,32 @@ const { db } = require('./db');
 const AUTO_BACKUP_FOLDER_NAME = 'DATA';
 const AUTO_BACKUP_FILE_NAME = 'accounting-auto-backup.db';
 const QUIT_BACKUP_FALLBACK_FLAG_FILE_NAME = 'quit-backup-fallback-flag.json';
+const PORTABLE_ROOT_FOLDER = 'APP_JS';
+const PORTABLE_MARKER_FILE = 'app_root_path.txt';
 
 function getProgramRootPath() {
     const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
     if (configuredRoot) {
-        const normalizedConfiguredRoot = path.normalize(configuredRoot);
-        if (app.isPackaged && path.basename(normalizedConfiguredRoot).toLowerCase() === 'app_js') {
-            return path.join(normalizedConfiguredRoot, 'برنامج الحسابات');
-        }
-        return configuredRoot;
+        return path.normalize(configuredRoot);
     }
 
     if (app.isPackaged) {
-        const { shell } = require('electron');
-        const preferredPortableRoot = path.join(app.getPath('desktop'), 'APP_JS');
-        const appFolder = path.join(preferredPortableRoot, 'برنامج الحسابات');
-        
-        if (!fs.existsSync(appFolder)) {
-            fs.mkdirSync(appFolder, { recursive: true });
+        try {
+            const markerPath = path.join(path.dirname(process.execPath), PORTABLE_MARKER_FILE);
+            if (fs.existsSync(markerPath)) {
+                const raw = fs.readFileSync(markerPath, 'utf8').trim();
+                if (raw) {
+                    return path.normalize(raw);
+                }
+            }
+        } catch (_) {
         }
-        
-        const shortcutPath = path.join(appFolder, 'تشغيل نظام الحسابات.lnk');
-        shell.writeShortcutLink(shortcutPath, 'create', {
-            target: process.execPath,
-            description: 'برنامج الحسابات'
-        });
 
-        const desktopShortcutPath = path.join(app.getPath('desktop'), 'تشغيل نظام الحسابات.lnk');
-        shell.writeShortcutLink(desktopShortcutPath, 'create', {
-            target: process.execPath,
-            description: 'برنامج الحسابات'
-        });
-        
-        return appFolder;
+        const driveRoot = path.parse(process.execPath).root;
+        return path.join(driveRoot, PORTABLE_ROOT_FOLDER);
     }
-    return path.resolve(__dirname, '../../..');
+
+    return path.resolve(__dirname, '../../..', PORTABLE_ROOT_FOLDER);
 }
 
 function removeFileIfExists(filePath) {
@@ -132,15 +123,7 @@ function getUserDataBackupPath() {
 }
 
 function copyBackupToUserData(sourceBackupPath) {
-    try {
-        const userDataBackup = getUserDataBackupPath();
-        if (userDataBackup && sourceBackupPath !== userDataBackup && fs.existsSync(sourceBackupPath)) {
-            fs.copyFileSync(sourceBackupPath, userDataBackup);
-            console.log(`[auto-backup] Copy saved next to database: ${userDataBackup}`);
-        }
-    } catch (err) {
-        console.error('[auto-backup] Failed to copy backup to userData:', err.message);
-    }
+    return sourceBackupPath;
 }
 
 function cleanupLegacyAutoBackups(backupRootPath) {
@@ -194,7 +177,7 @@ function autoRestoreFromDataBackup() {
     const { backupFilePath } = getBackupPaths();
     const userDataBackup = getUserDataBackupPath();
 
-    // Check both locations: install dir Data/ and next to the database
+    // Check both locations: DATA folder and next to the database
     let sourceBackup = null;
     if (fs.existsSync(backupFilePath)) {
         sourceBackup = backupFilePath;
@@ -203,7 +186,7 @@ function autoRestoreFromDataBackup() {
     }
 
     if (!sourceBackup) {
-        console.error('[db-restore] No auto-backup found in Data/ or userData to restore from');
+        console.error('[db-restore] No auto-backup found in DATA or userData to restore from');
         return false;
     }
 
@@ -239,7 +222,7 @@ function createStartupBackup() {
         removeFileIfExists(`${backupFilePath}-wal`);
         db.backup(backupFilePath)
             .then(() => {
-                console.log('[auto-backup] Startup backup saved to Data/');
+                console.log('[auto-backup] Startup backup saved to DATA');
                 copyBackupToUserData(backupFilePath);
             })
             .catch((err) => console.error('[auto-backup] Startup backup failed:', err.message));
@@ -293,7 +276,7 @@ function runStartupChecks() {
             );
         }
     } else {
-        // Database is healthy — create a startup backup
+        // Database is healthy - create a startup backup
         createStartupBackup();
     }
 

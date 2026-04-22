@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
@@ -15,84 +15,164 @@ if (!gotTheLock) {
     app.quit();
 }
 
-if (app.isPackaged && process.env.ACC_SYSTEM_USE_DEFAULT_USERDATA !== '1') {
+const PORTABLE_ROOT_FOLDER = 'APP_JS';
+const PORTABLE_MARKER_FILE = 'app_root_path.txt';
+const PORTABLE_SHORTCUT_NAME = 'تشغيل نظام الحسابات.lnk';
+const LEGACY_PORTABLE_ROOT_FOLDER = 'APP_JS';
+const LEGACY_PORTABLE_PROGRAM_FOLDER = '\u0628\u0631\u0646\u0627\u0645\u062c \u0627\u0644\u062d\u0633\u0627\u0628\u0627\u062a';
+
+function getPortableMarkerPath() {
+    return path.join(path.dirname(process.execPath), PORTABLE_MARKER_FILE);
+}
+
+function readPortableRootFromMarker() {
     try {
-        const { shell } = require('electron');
-        const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
-        const preferredPortableRoot = path.join(app.getPath('desktop'), 'APP_JS');
-        let programRoot = configuredRoot;
-
-        if (programRoot) {
-            const normalizedConfiguredRoot = path.normalize(programRoot);
-            if (path.basename(normalizedConfiguredRoot).toLowerCase() === 'app_js') {
-                programRoot = path.join(normalizedConfiguredRoot, 'برنامج الحسابات');
-            }
-        }
-        
-        if (!programRoot) {
-            programRoot = path.join(preferredPortableRoot, 'برنامج الحسابات');
+        const markerPath = getPortableMarkerPath();
+        if (!fs.existsSync(markerPath)) {
+            return '';
         }
 
-        if (!fs.existsSync(programRoot)) {
-            fs.mkdirSync(programRoot, { recursive: true });
+        const raw = fs.readFileSync(markerPath, 'utf8').trim();
+        if (!raw) {
+            return '';
         }
 
-        const shortcutPath = path.join(programRoot, 'تشغيل نظام الحسابات.lnk');
-        shell.writeShortcutLink(shortcutPath, 'create', {
-            target: process.execPath,
-            icon: process.execPath,
-            iconIndex: 0,
-            description: 'تشغيل النظام'
-        });
-
-        const desktopShortcutPath = path.join(app.getPath('desktop'), 'تشغيل نظام الحسابات.lnk');
-        shell.writeShortcutLink(desktopShortcutPath, 'create', {
-            target: process.execPath,
-            icon: process.execPath,
-            iconIndex: 0,
-            description: 'تشغيل النظام'
-        });
-
-        const portableUserDataPath = path.join(programRoot, 'DATA', 'userData');
-        fs.mkdirSync(portableUserDataPath, { recursive: true });
-        app.setPath('userData', portableUserDataPath);
-        
-        const picFolder = path.join(programRoot, 'PIC');
-        fs.mkdirSync(picFolder, { recursive: true });
-
-        // Clean up installer files after a small delay to ensure NSIS releases the lock
-        setTimeout(() => {
-            const cleanDir = (dir, depth = 0) => {
-                // limit depth to avoid long scans
-                if (depth > 2) return; 
-                try {
-                    if (!fs.existsSync(dir)) return;
-                    const items = fs.readdirSync(dir, { withFileTypes: true });
-                    for (const item of items) {
-                        if (item.isDirectory()) {
-                            // skip large or system folders
-                            if (!['AppData', 'Windows', 'Program Files', 'Program Files (x86)', 'node_modules'].includes(item.name)) {
-                                cleanDir(path.join(dir, item.name), depth + 1);
-                            }
-                        } else if (item.isFile()) {
-                            const name = item.name.toLowerCase();
-                            if (name.startsWith('accounting system setup') && name.endsWith('.exe')) {
-                                try {
-                                    fs.unlinkSync(path.join(dir, item.name));
-                                    console.log('Deleted installer:', path.join(dir, item.name));
-                                } catch(e) {}
-                            }
-                        }
-                    }
-                } catch(e) {}
-            };
-            cleanDir(app.getPath('downloads'));
-            cleanDir(app.getPath('desktop'));
-        }, 5000);
-
-    } catch (error) {
-        console.error('[startup] failed to set portable userData path:', error.message);
+        return path.normalize(raw);
+    } catch (_) {
+        return '';
     }
+}
+
+function persistPortableRootToMarker(portableRoot) {
+    try {
+        if (!app.isPackaged) {
+            return;
+        }
+
+        const markerPath = getPortableMarkerPath();
+        fs.writeFileSync(markerPath, String(portableRoot || ''), 'utf8');
+    } catch (_) {
+    }
+}
+
+function getPortableRootPath() {
+    const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
+    if (configuredRoot) {
+        return path.normalize(configuredRoot);
+    }
+
+    const markerRoot = readPortableRootFromMarker();
+    if (markerRoot) {
+        return markerRoot;
+    }
+
+    if (app.isPackaged) {
+        const driveRoot = path.parse(process.execPath).root;
+        return path.join(driveRoot, PORTABLE_ROOT_FOLDER);
+    }
+
+    return path.resolve(__dirname, '../../..', PORTABLE_ROOT_FOLDER);
+}
+
+function ensurePortableRootStructure(portableRoot) {
+    if (!portableRoot) {
+        return;
+    }
+
+    fs.mkdirSync(portableRoot, { recursive: true });
+    fs.mkdirSync(path.join(portableRoot, 'PIC'), { recursive: true });
+    fs.mkdirSync(path.join(portableRoot, 'DATA'), { recursive: true });
+
+    if (!app.isPackaged) {
+        return;
+    }
+
+    const shortcutPath = path.join(portableRoot, PORTABLE_SHORTCUT_NAME);
+    shell.writeShortcutLink(shortcutPath, 'create', {
+        target: process.execPath,
+        icon: process.execPath,
+        iconIndex: 0,
+        description: 'تشغيل نظام الحسابات'
+    });
+}
+
+function getLegacyPortableUserDataPath() {
+    const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
+    if (configuredRoot) {
+        const normalizedConfiguredRoot = path.normalize(configuredRoot);
+        const resolvedProgramRoot = path.basename(normalizedConfiguredRoot).toLowerCase() === 'app_js'
+            ? path.join(normalizedConfiguredRoot, LEGACY_PORTABLE_PROGRAM_FOLDER)
+            : normalizedConfiguredRoot;
+        return path.join(resolvedProgramRoot, 'DATA', 'userData');
+    }
+
+    return path.join(
+        app.getPath('desktop'),
+        LEGACY_PORTABLE_ROOT_FOLDER,
+        LEGACY_PORTABLE_PROGRAM_FOLDER,
+        'DATA',
+        'userData'
+    );
+}
+
+function copyDirectoryContents(sourceDir, targetDir) {
+    if (!fs.existsSync(sourceDir)) {
+        return;
+    }
+
+    fs.mkdirSync(targetDir, { recursive: true });
+    const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+    for (const entry of entries) {
+        const sourcePath = path.join(sourceDir, entry.name);
+        const targetPath = path.join(targetDir, entry.name);
+        if (entry.isDirectory()) {
+            copyDirectoryContents(sourcePath, targetPath);
+        } else if (entry.isFile()) {
+            fs.copyFileSync(sourcePath, targetPath);
+        }
+    }
+}
+
+function migrateLegacyPortableUserDataIfNeeded() {
+    if (!app.isPackaged) {
+        return;
+    }
+
+    const currentUserDataPath = app.getPath('userData');
+    fs.mkdirSync(currentUserDataPath, { recursive: true });
+
+    const currentDbPath = path.join(currentUserDataPath, 'accounting.db');
+    if (fs.existsSync(currentDbPath)) {
+        return;
+    }
+
+    const legacyUserDataPath = getLegacyPortableUserDataPath();
+    if (!legacyUserDataPath) {
+        return;
+    }
+
+    if (path.resolve(legacyUserDataPath) === path.resolve(currentUserDataPath)) {
+        return;
+    }
+
+    const legacyDbPath = path.join(legacyUserDataPath, 'accounting.db');
+    if (!fs.existsSync(legacyDbPath)) {
+        return;
+    }
+
+    copyDirectoryContents(legacyUserDataPath, currentUserDataPath);
+    console.log('[startup] migrated legacy portable userData to default userData path');
+}
+
+try {
+    const portableRoot = getPortableRootPath();
+    ensurePortableRootStructure(portableRoot);
+    persistPortableRootToMarker(portableRoot);
+    process.env.ACCOUNTING_SYSTEM_ROOT = portableRoot;
+
+    migrateLegacyPortableUserDataIfNeeded();
+} catch (error) {
+    console.error('[startup] portable root initialization failed:', error.message);
 }
 
 let initDB, setupIPC, db;

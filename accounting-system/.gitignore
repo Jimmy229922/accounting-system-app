@@ -5,6 +5,9 @@ node_modules/
 dist/
 out/
 build/
+!frontend-desktop/build/
+frontend-desktop/build/*
+!frontend-desktop/build/installer.nsh
 
 # System Files
 .DS_Store

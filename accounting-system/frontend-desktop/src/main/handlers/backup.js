@@ -12,41 +12,32 @@ const CLOUD_BACKUP_FILE_TAG = 'cloud';
 const DEFAULT_SUPABASE_BUCKET = 'client-backups';
 const DEFAULT_CLOUD_PREFIX = 'clients';
 const DEFAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const PORTABLE_ROOT_FOLDER = 'APP_JS';
+const PORTABLE_MARKER_FILE = 'app_root_path.txt';
 
 function getProgramRootPath() {
     const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
     if (configuredRoot) {
-        const normalizedConfiguredRoot = path.normalize(configuredRoot);
-        if (app.isPackaged && path.basename(normalizedConfiguredRoot).toLowerCase() === 'app_js') {
-            return path.join(normalizedConfiguredRoot, 'برنامج الحسابات');
-        }
-        return configuredRoot;
+        return path.normalize(configuredRoot);
     }
 
     if (app.isPackaged) {
-        const { shell } = require('electron');
-        const preferredPortableRoot = path.join(app.getPath('desktop'), 'APP_JS');
-        const appFolder = path.join(preferredPortableRoot, 'برنامج الحسابات');
-        
-        if (!fs.existsSync(appFolder)) {
-            fs.mkdirSync(appFolder, { recursive: true });
+        try {
+            const markerPath = path.join(path.dirname(process.execPath), PORTABLE_MARKER_FILE);
+            if (fs.existsSync(markerPath)) {
+                const raw = fs.readFileSync(markerPath, 'utf8').trim();
+                if (raw) {
+                    return path.normalize(raw);
+                }
+            }
+        } catch (_) {
         }
-        
-        const shortcutPath = path.join(appFolder, 'تشغيل نظام الحسابات.lnk');
-        shell.writeShortcutLink(shortcutPath, 'create', {
-            target: process.execPath,
-            description: 'برنامج الحسابات'
-        });
 
-        const desktopShortcutPath = path.join(app.getPath('desktop'), 'تشغيل نظام الحسابات.lnk');
-        shell.writeShortcutLink(desktopShortcutPath, 'create', {
-            target: process.execPath,
-            description: 'برنامج الحسابات'
-        });
-        
-        return appFolder;
+        const driveRoot = path.parse(process.execPath).root;
+        return path.join(driveRoot, PORTABLE_ROOT_FOLDER);
     }
-    return path.resolve(__dirname, '../../../..');
+
+    return path.resolve(__dirname, '../../../..', PORTABLE_ROOT_FOLDER);
 }
 
 function getSharedBackupRootPath() {
@@ -103,8 +94,12 @@ function formatTimestampForFileName(dateValue) {
     const year = String(dateValue.getFullYear());
     const month = String(dateValue.getMonth() + 1).padStart(2, '0');
     const day = String(dateValue.getDate()).padStart(2, '0');
+    const hours = String(dateValue.getHours()).padStart(2, '0');
+    const minutes = String(dateValue.getMinutes()).padStart(2, '0');
+    const seconds = String(dateValue.getSeconds()).padStart(2, '0');
+    const milliseconds = String(dateValue.getMilliseconds()).padStart(3, '0');
 
-    return `${year}-${month}-${day}`;
+    return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}-${milliseconds}`;
 }
 
 function buildBackupFileName(prefix, tag, dateValue = new Date()) {
@@ -174,18 +169,26 @@ function readSupabaseCredentialsFromMarkdown(rawText) {
 function getProgramRootPathForCredentials() {
     const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
     if (configuredRoot) {
-        const normalizedConfiguredRoot = path.normalize(configuredRoot);
-        if (app.isPackaged && path.basename(normalizedConfiguredRoot).toLowerCase() === 'app_js') {
-            return path.join(normalizedConfiguredRoot, 'برنامج الحسابات');
-        }
-        return configuredRoot;
+        return path.normalize(configuredRoot);
     }
 
     if (app.isPackaged) {
-        return path.join(app.getPath('desktop'), 'APP_JS', 'برنامج الحسابات');
+        try {
+            const markerPath = path.join(path.dirname(process.execPath), PORTABLE_MARKER_FILE);
+            if (fs.existsSync(markerPath)) {
+                const raw = fs.readFileSync(markerPath, 'utf8').trim();
+                if (raw) {
+                    return path.normalize(raw);
+                }
+            }
+        } catch (_) {
+        }
+
+        const driveRoot = path.parse(process.execPath).root;
+        return path.join(driveRoot, PORTABLE_ROOT_FOLDER);
     }
 
-    return path.resolve(__dirname, '../../../..');
+    return path.resolve(__dirname, '../../../..', PORTABLE_ROOT_FOLDER);
 }
 
 function loadSupabaseLocalCredentials() {
@@ -196,13 +199,15 @@ function loadSupabaseLocalCredentials() {
         cloudPrefix: '',
         maxUploadBytes: ''
     };
-
     const candidatePaths = [
         path.join(getProgramRootPathForCredentials(), 'SUPABASE_LOCAL_CREDENTIALS.md'),
+        path.join(app.getPath('userData'), 'SUPABASE_LOCAL_CREDENTIALS.md'),
+        path.join(path.resolve(__dirname, '../../..'), 'SUPABASE_LOCAL_CREDENTIALS.md'),
         path.join(path.resolve(__dirname, '../../../..'), 'SUPABASE_LOCAL_CREDENTIALS.md'),
+        path.join(path.dirname(process.execPath), 'SUPABASE_LOCAL_CREDENTIALS.md'),
+        process.resourcesPath ? path.join(process.resourcesPath, 'SUPABASE_LOCAL_CREDENTIALS.md') : '',
         path.join(process.cwd(), 'SUPABASE_LOCAL_CREDENTIALS.md')
-    ];
-
+    ].filter(Boolean);
     for (const candidatePath of candidatePaths) {
         try {
             if (!fs.existsSync(candidatePath)) {
