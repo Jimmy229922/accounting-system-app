@@ -169,7 +169,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     notifyAuthUnlocked: () => ipcRenderer.send('auth-unlocked'),
 
     // Backup & Restore API
-    backupDatabase: () => invokeChannel('backup-database'),
+    backupDatabase: (payload = {}) => invokeChannel('backup-database', payload),
+    backupDatabaseToCloud: (payload = {}) => invokeChannel('backup-database-to-cloud', payload),
+    listCloudBackups: (payload = {}) => invokeChannel('list-cloud-backups', payload),
+    restoreDatabaseFromCloud: (payload) => invokeChannel('restore-database-from-cloud', payload),
     restoreDatabase: () => invokeChannel('restore-database'),
     restartApp: () => invokeChannel('restart-app'),
     

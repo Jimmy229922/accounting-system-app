@@ -5,6 +5,7 @@ const { db } = require('./db');
 
 const AUTO_BACKUP_FOLDER_NAME = 'DATA';
 const AUTO_BACKUP_FILE_NAME = 'accounting-auto-backup.db';
+const QUIT_BACKUP_FALLBACK_FLAG_FILE_NAME = 'quit-backup-fallback-flag.json';
 
 function getProgramRootPath() {
     const configuredRoot = (process.env.ACCOUNTING_SYSTEM_ROOT || '').trim();
@@ -52,7 +53,73 @@ function getBackupPaths() {
     const programRootPath = getProgramRootPath();
     const backupRootPath = path.join(programRootPath, AUTO_BACKUP_FOLDER_NAME);
     const backupFilePath = path.join(backupRootPath, AUTO_BACKUP_FILE_NAME);
-    return { programRootPath, backupRootPath, backupFilePath };
+    const fallbackFlagPath = path.join(backupRootPath, QUIT_BACKUP_FALLBACK_FLAG_FILE_NAME);
+    return { programRootPath, backupRootPath, backupFilePath, fallbackFlagPath };
+}
+
+function writeQuitFallbackFlag(payload = {}) {
+    try {
+        const { backupRootPath, fallbackFlagPath } = getBackupPaths();
+        fs.mkdirSync(backupRootPath, { recursive: true });
+
+        fs.writeFileSync(
+            fallbackFlagPath,
+            JSON.stringify({
+                mode: payload.mode || 'unknown',
+                createdAt: new Date().toISOString(),
+                backupPath: payload.backupPath || '',
+                error: payload.error || ''
+            }),
+            'utf8'
+        );
+    } catch (error) {
+        console.error('[auto-backup] Failed to write quit fallback flag:', error.message);
+    }
+}
+
+function consumeQuitFallbackFlag() {
+    try {
+        const { fallbackFlagPath } = getBackupPaths();
+        if (!fs.existsSync(fallbackFlagPath)) {
+            return null;
+        }
+
+        const raw = fs.readFileSync(fallbackFlagPath, 'utf8');
+        removeFileIfExists(fallbackFlagPath);
+
+        if (!raw) {
+            return { mode: 'unknown' };
+        }
+
+        try {
+            return JSON.parse(raw);
+        } catch (_) {
+            return { mode: 'unknown' };
+        }
+    } catch (error) {
+        console.error('[auto-backup] Failed to read quit fallback flag:', error.message);
+        return null;
+    }
+}
+
+function notifyQuitFallbackOnStartup() {
+    const fallbackState = consumeQuitFallbackFlag();
+    if (!fallbackState) {
+        return;
+    }
+
+    if (fallbackState.mode === 'raw-copy-succeeded') {
+        dialog.showErrorBox(
+            'تنبيه النسخ الاحتياطي',
+            'تم إغلاق البرنامج سابقًا باستخدام نسخة احتياطية بوضع الطوارئ.\nقد لا تشمل آخر التغييرات بالكامل.\nننصح بإنشاء نسخة احتياطية جديدة الآن.'
+        );
+        return;
+    }
+
+    dialog.showErrorBox(
+        'تنبيه النسخ الاحتياطي',
+        'تعذر إنشاء النسخ الاحتياطي المنظم أثناء الإغلاق السابق، ومحاولة الطوارئ لم تكتمل بالشكل المطلوب.\nيرجى إنشاء نسخة احتياطية جديدة فور فتح النظام.'
+    );
 }
 
 function getUserDataBackupPath() {
@@ -206,6 +273,7 @@ function runStartupChecks() {
     const { backupRootPath } = getBackupPaths();
     fs.mkdirSync(backupRootPath, { recursive: true });
     cleanupLegacyAutoBackups(backupRootPath);
+    notifyQuitFallbackOnStartup();
 
     // Check database integrity on startup
     const dbHealthy = checkDatabaseIntegrity();
@@ -256,11 +324,14 @@ function handleQuitBackupFallback() {
             fs.copyFileSync(dbPath, backupFilePath);
             console.log(`[auto-backup] Fallback copy succeeded: ${backupFilePath}`);
             copyBackupToUserData(backupFilePath);
+            writeQuitFallbackFlag({ mode: 'raw-copy-succeeded', backupPath: backupFilePath });
         } else {
             console.error('[auto-backup] Could not locate database file for fallback copy');
+            writeQuitFallbackFlag({ mode: 'raw-copy-db-missing' });
         }
     } catch (fallbackErr) {
         console.error('[auto-backup] Fallback copy also failed:', fallbackErr.message);
+        writeQuitFallbackFlag({ mode: 'raw-copy-failed', error: fallbackErr.message });
     }
 }
 

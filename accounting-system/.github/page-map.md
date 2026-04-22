@@ -1,7 +1,7 @@
 # Page Map — خريطة الصفحات الفعلية (نسخة تشغيلية)
 
 > **الغرض:** مرجع عملي سريع يربط كل صفحة بملفاتها الفعلية وواجهات `electronAPI` والـ handlers المسؤولة.
-> **آخر تحديث:** 2026-04-12
+> **آخر تحديث:** 2026-04-21
 > **مصدر الحقيقة:** الملفات داخل `frontend-desktop/src/main` و `frontend-desktop/src/renderer/views`.
 
 ---
@@ -77,7 +77,7 @@
 | Reports | `../reports/index.html` | `reports/index.html`, `reports.css`, `reports.js`, `reports.bootstrap.js`, `reports.render.js`, `reports.voucher.js` | `getAllReports`, `getCustomers`, `deleteInvoice`, `getTreasuryTransactions` | `handlers/reports.js`, `handlers/invoices.js`, `handlers/treasury.js` | `reports` |
 | Debtor/Creditor | `../reports/debtor-creditor/index.html` | `reports/debtor-creditor/index.html`, `debtor-creditor.css`, `debtor-creditor.js` | `getDebtorCreditorReport` | `handlers/customers.js` | `reports` |
 | Customer Reports | `../customer-reports/index.html` | `customer-reports/index.html`, `customer-reports.css`, `customer-reports.js`, `customer-reports.bootstrap.js`, `customer-reports.render.js`, `customer-reports.utils.js` | `getCustomers`, `getCustomerDetailedStatement`, `getStatementItemDetails`, `deleteTreasuryTransaction`, `deleteInvoice`, `deleteSalesReturn`, `deletePurchaseReturn`, `saveCustomerReportPdf`, `getSettings` | `handlers/reports.js`, `handlers/treasury.js`, `handlers/invoices.js`, `handlers/salesReturns.js`, `handlers/purchaseReturns.js`, `handlers/settings.js` | `customer-reports` |
-| Settings | `../settings/index.html` | `settings/index.html`, `settings.css`, `settings.js` | `getSettings`, `saveSettings`, `backupDatabase`, `restoreDatabase`, `restartApp` | `handlers/settings.js`, `handlers/backup.js` | `settings` |
+| Settings | `../settings/index.html` | `settings/index.html`, `settings.css`, `settings.js` | `getSettings`, `saveSettings`, `backupDatabase`, `backupDatabaseToCloud`, `listCloudBackups`, `restoreDatabase`, `restoreDatabaseFromCloud`, `restartApp` | `handlers/settings.js`, `handlers/backup.js` | `settings` |
 | Auth Users | `../auth-users/index.html` | `auth-users/index.html`, `auth-users.css`, `auth-users.js`, `auth-users.bootstrap.js`, `auth-users.render.js`, `auth-users.utils.js` | `getAuthSessionToken`, `getAuthUsers`, `createAuthUser`, `setAuthUserActive`, `resetAuthUserPassword`, `getUserPermissions`, `updateUserPermissions` | `handlers/auth.js` | `__admin_only__` |
 | Search | `../search/index.html` | `search/index.html`, `search.css`, `search.js` | لا يوجد استهلاك مباشر لـ `electronAPI` في الملف الحالي | يعتمد على `globalSearch.js` | غير مربوط في `SHELL_HREF_TO_PERMISSION` |
 
@@ -317,7 +317,7 @@
 - `handlers/reports.js`: التقارير العامة + كشف حساب العميل + PDF.
 - `handlers/invoices.js`: تفاصيل الفواتير/المرتجعات + الترقيم + الحذف.
 - `handlers/settings.js`: الإعدادات + إحصائيات الداشبورد.
-- `handlers/backup.js`: النسخ الاحتياطي والاسترجاع وإعادة التشغيل.
+- `handlers/backup.js`: النسخ الاحتياطي المحلي + النسخ السحابي (Supabase Storage) + عرض النسخ السحابية + الاسترجاع المحلي/السحابي + إعادة التشغيل.
 
 ---
 

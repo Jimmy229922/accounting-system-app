@@ -485,7 +485,28 @@ async function handleBackup() {
     const result = await window.electronAPI.backupDatabase();
 
     if (result.success) {
-        setStatus(backupStatusEl, fmt(t('settings.status.backupSavedAt'), { path: result.path }));
+        const localBackupMessage = fmt(t('settings.status.backupSavedAt'), { path: result.path });
+        const cloudSuccess = Boolean(result.cloud && result.cloud.success === true);
+
+        if (cloudSuccess) {
+            setStatus(backupStatusEl, `${localBackupMessage} (تم الرفع السحابي بنجاح)`);
+            if (window.showToast && typeof window.showToast === 'function') {
+                window.showToast('تم الحفظ محليًا وعلى السحابة بنجاح.', 'success');
+            } else if (window.toast && typeof window.toast.success === 'function') {
+                window.toast.success('تم الحفظ محليًا وعلى السحابة بنجاح.');
+            }
+            return;
+        }
+
+        const cloudError = result.cloud && result.cloud.error
+            ? result.cloud.error
+            : 'تعذر رفع النسخة للسحابة.';
+        setStatus(backupStatusEl, `${localBackupMessage} (فشل الحفظ السحابي)`);
+        if (window.showToast && typeof window.showToast === 'function') {
+            window.showToast(`تم الحفظ المحلي بنجاح، لكن فشل الحفظ السحابي: ${cloudError}`, 'warning');
+        } else if (window.toast && typeof window.toast.error === 'function') {
+            window.toast.error(`تم الحفظ المحلي بنجاح، لكن فشل الحفظ السحابي: ${cloudError}`);
+        }
     } else if (result.canceled) {
         setStatus(backupStatusEl, t('settings.status.operationCanceled'));
     } else {

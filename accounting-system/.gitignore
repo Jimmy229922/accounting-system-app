@@ -23,6 +23,7 @@ backend-run.log
 .env.development.local
 .env.test.local
 .env.production.local
+SUPABASE_LOCAL_CREDENTIALS.md
 
 # IDEs
 .vscode/

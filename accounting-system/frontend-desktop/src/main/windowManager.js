@@ -190,6 +190,20 @@ function createWindow() {
         // Removed mainWindow.focus() to prevent focus stealing on initial load if the user is typing somewhere else
     });
 
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+        const isOpenDevToolsShortcut = input.type === 'keyDown'
+            && input.control
+            && input.shift
+            && String(input.key || '').toLowerCase() === 'i';
+
+        if (!isOpenDevToolsShortcut) {
+            return;
+        }
+
+        event.preventDefault();
+        mainWindow.webContents.openDevTools({ mode: 'detach' });
+    });
+
     // Open the DevTools (optional, helpful for development)
     // mainWindow.webContents.openDevTools();
 
