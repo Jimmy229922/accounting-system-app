@@ -1,18 +1,15 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Path $PSScriptRoot -Parent
-$launcherPath = Join-Path $root "scripts\launch-desktop-full.vbs"
-$wscriptPath = Join-Path $env:WINDIR "System32\wscript.exe"
+$launcherPath = Join-Path $root "scripts\launch-desktop-full.cmd"
+$powershellPath = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
 $desktopPath = [Environment]::GetFolderPath("Desktop")
-$shortcutPath = Join-Path $desktopPath "Accounting System.lnk"
-$legacyShortcutPath = Join-Path $desktopPath "Accounting System (Dev).lnk"
+$shortcutPath = Join-Path $desktopPath "JS App.lnk"
+$legacyShortcutPath = Join-Path $desktopPath "Accounting System.lnk"
+$legacyDevShortcutPath = Join-Path $desktopPath "Accounting System (Dev).lnk"
 
 if (-not (Test-Path $launcherPath)) {
     throw "Launcher not found at: $launcherPath"
-}
-
-if (-not (Test-Path $wscriptPath)) {
-    throw "wscript.exe not found at: $wscriptPath"
 }
 
 $iconInstalled = Join-Path $env:LOCALAPPDATA "Programs\accounting-system\Accounting System.exe"
@@ -23,10 +20,11 @@ $iconPath = if (Test-Path $iconInstalled) { $iconInstalled } elseif (Test-Path $
 
 $wshShell = New-Object -ComObject WScript.Shell
 $shortcut = $wshShell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = $wscriptPath
-$shortcut.Arguments = "`"$launcherPath`""
+$shortcut.TargetPath = $powershellPath
+$shortcut.Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Start-Process -FilePath '$launcherPath' -WindowStyle Hidden`""
 $shortcut.WorkingDirectory = $root
 $shortcut.Description = "Run Accounting System (auto-updated launcher)"
+$shortcut.WindowStyle = 7 # Start minimized
 
 if ($iconPath) {
     $shortcut.IconLocation = "$iconPath,0"
@@ -35,5 +33,8 @@ if ($iconPath) {
 $shortcut.Save()
 if (Test-Path $legacyShortcutPath) {
     Remove-Item -Path $legacyShortcutPath -Force
+}
+if (Test-Path $legacyDevShortcutPath) {
+    Remove-Item -Path $legacyDevShortcutPath -Force
 }
 Write-Output "Shortcut created: $shortcutPath"

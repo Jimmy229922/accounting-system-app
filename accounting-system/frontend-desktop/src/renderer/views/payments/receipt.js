@@ -4,6 +4,7 @@ window.initializeTreasuryVoucherPage({
     i18nPrefix: 'receipt',
     transactionType: 'income',
     numberPrefix: 'RC',
+    deferCustomerCollectionsToShiftClose: true,
     ids: {
         form: 'receiptForm',
         voucherInput: 'receiptNumber',

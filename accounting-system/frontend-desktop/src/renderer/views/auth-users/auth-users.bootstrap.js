@@ -180,9 +180,9 @@ function renderAuthUsersTable(users, activeUserId) {
                         <i class="fas ${toggleIcon}" aria-hidden="true"></i>
                         <span>${toggleText}</span>
                     </button>
-                    <button type="button" class="btn-secondary btn-sm" data-action="reset-password" data-id="${user.id}">
+                    <button type="button" class="btn-secondary btn-sm" data-action="reset-password" data-id="${user.id}" data-username="${safeUsername}">
                         <i class="fas fa-key" aria-hidden="true"></i>
-                        <span>${t('authUsers.changePassword', 'تغيير كلمة السر')}</span>
+                        <span>${t('authUsers.permissions.edit', 'تعديل')}</span>
                     </button>
                     <button type="button" class="btn-secondary btn-sm btn-permissions" data-action="permissions" data-id="${user.id}" data-username="${safeUsername}" data-is-admin="${user.isAdmin ? 1 : 0}">
                         <i class="fas fa-shield-alt" aria-hidden="true"></i>
@@ -219,7 +219,8 @@ function renderAuthUsersTable(users, activeUserId) {
     authUsersTableWrap.querySelectorAll('button[data-action="reset-password"]').forEach((btn) => {
         btn.addEventListener('click', async () => {
             const userId = Number(btn.dataset.id);
-            await handleResetAuthUserPassword(userId);
+            const username = btn.dataset.username || '';
+            await handleResetAuthUserPassword(userId, username);
         });
     });
 
@@ -322,14 +323,18 @@ async function handleToggleAuthUser(userId, isActive) {
     await refreshAuthUsers();
 }
 
-function handleResetAuthUserPassword(userId) {
+function handleResetAuthUserPassword(userId, username = '') {
     const rpModal = document.getElementById('resetPasswordModal');
     const rpUserId = document.getElementById('rpUserId');
+    const rpCurrentUsername = document.getElementById('rpCurrentUsername');
+    const rpUsername = document.getElementById('rpUsername');
     const rpNewPassword = document.getElementById('rpNewPassword');
     const rpConfirmPassword = document.getElementById('rpConfirmPassword');
 
     if (!rpModal) return;
     rpUserId.value = userId;
+    rpCurrentUsername.value = username;
+    rpUsername.value = username;
     rpNewPassword.value = '';
     rpConfirmPassword.value = '';
     rpModal.classList.add('active');
@@ -344,16 +349,31 @@ function closeResetPasswordModal() {
 async function submitResetPassword(event) {
     event.preventDefault();
     const userId = Number(document.getElementById('rpUserId').value);
+    const currentUsername = (document.getElementById('rpCurrentUsername').value || '').trim();
+    const username = (document.getElementById('rpUsername').value || '').trim();
     const newPassword = document.getElementById('rpNewPassword').value;
     const confirmPassword = document.getElementById('rpConfirmPassword').value;
 
-    if (!newPassword || newPassword.length < 6) {
+    if (!username) {
+        setStatus(authUsersStatusEl, 'اسم المستخدم مطلوب.', 'error');
+        return;
+    }
+
+    const passwordProvided = Boolean(newPassword || confirmPassword);
+
+    if (passwordProvided && (!newPassword || newPassword.length < 6)) {
         setStatus(authUsersStatusEl, t('authUsers.toast.passwordTooShort', 'كلمة المرور يجب أن تكون 6 أحرف أو أكثر.'), 'error');
         return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (passwordProvided && newPassword !== confirmPassword) {
         setStatus(authUsersStatusEl, t('authUsers.toast.passwordMismatch', 'كلمة المرور وتأكيدها غير متطابقين.'), 'error');
+        return;
+    }
+
+    const usernameChanged = username.toLowerCase() !== currentUsername.toLowerCase();
+    if (!usernameChanged && !passwordProvided) {
+        setStatus(authUsersStatusEl, 'يرجى تعديل اسم المستخدم أو إدخال كلمة مرور جديدة.', 'error');
         return;
     }
 
@@ -363,15 +383,20 @@ async function submitResetPassword(event) {
         return;
     }
 
-    setStatus(authUsersStatusEl, t('authUsers.toast.updatingPassword', 'جارٍ تحديث كلمة المرور...'), 'info');
-    const result = await window.electronAPI.resetAuthUserPassword({ sessionToken, userId, newPassword });
+    setStatus(authUsersStatusEl, 'جارٍ حفظ التعديلات...', 'info');
+    const result = await window.electronAPI.resetAuthUserPassword({
+        sessionToken,
+        userId,
+        username,
+        newPassword: passwordProvided ? newPassword : ''
+    });
     if (!result.success) {
         setStatus(authUsersStatusEl, result.error || t('authUsers.toast.passwordUpdateError', 'تعذر تحديث كلمة المرور.'), 'error');
         return;
     }
 
     closeResetPasswordModal();
-    setStatus(authUsersStatusEl, t('authUsers.toast.passwordUpdateSuccess', 'تم تحديث كلمة المرور بنجاح.'), 'success');
+    setStatus(authUsersStatusEl, 'تم تعديل بيانات المستخدم بنجاح.', 'success');
     await refreshAuthUsers();
 }
 

@@ -2,6 +2,9 @@ const { ipcMain } = require('electron');
 const { db } = require('../db');
 const { requirePermission } = require('./auth');
 
+const CUSTOMER_COLLECTION_PENDING_RELATED_TYPE = 'customer_collection_pending';
+const CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE = 'customer_collection_shift_close';
+
 function register() {
     // --- Settings Handlers ---
     ipcMain.handle('get-settings', () => {
@@ -51,29 +54,53 @@ function register() {
             const stockValue = db.prepare("SELECT COALESCE(SUM(cost_price * stock_quantity), 0) as total FROM items WHERE is_deleted = 0").get().total;
 
             // --- Sales & Purchases ---
-            const salesToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date = ?").get(today).total;
-            const salesMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date LIKE ?").get(thisMonth + '%').total;
-            const purchasesToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date = ?").get(today).total;
-            const purchasesMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date LIKE ?").get(thisMonth + '%').total;
+            const salesTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date = ?").get(today).total;
+            const salesReturnsTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE return_date = ?").get(today).total;
+            const salesToday = Math.max(0, salesTotalToday - salesReturnsTotalToday);
+
+            const salesTotalMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date LIKE ?").get(thisMonth + '%').total;
+            const salesReturnsTotalMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE return_date LIKE ?").get(thisMonth + '%').total;
+            const salesMonth = Math.max(0, salesTotalMonth - salesReturnsTotalMonth);
+
+            const purchasesTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date = ?").get(today).total;
+            const purchaseReturnsTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_returns WHERE return_date = ?").get(today).total;
+            const purchasesToday = Math.max(0, purchasesTotalToday - purchaseReturnsTotalToday);
+
+            const purchasesTotalMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date LIKE ?").get(thisMonth + '%').total;
+            const purchaseReturnsTotalMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_returns WHERE return_date LIKE ?").get(thisMonth + '%').total;
+            const purchasesMonth = Math.max(0, purchasesTotalMonth - purchaseReturnsTotalMonth);
 
             // --- Net profit (sales revenue - COGS this month) ---
-            const cogsMonth = db.prepare(`
+            const cogsMonthSales = db.prepare(`
                 SELECT COALESCE(SUM(sid.quantity * i.cost_price), 0) as total
                 FROM sales_invoice_details sid
                 JOIN sales_invoices si ON sid.invoice_id = si.id
                 JOIN items i ON sid.item_id = i.id
                 WHERE si.invoice_date LIKE ?
             `).get(thisMonth + '%').total;
+            const cogsMonthReturns = db.prepare(`
+                SELECT COALESCE(SUM(srd.quantity * i.cost_price), 0) as total
+                FROM sales_return_details srd
+                JOIN sales_returns sr ON srd.return_id = sr.id
+                JOIN items i ON srd.item_id = i.id
+                WHERE sr.return_date LIKE ?
+            `).get(thisMonth + '%').total;
+            const cogsMonth = Math.max(0, cogsMonthSales - cogsMonthReturns);
             const netProfit = salesMonth - cogsMonth;
 
             // --- Treasury balance ---
-            const treasuryIncome = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM treasury_transactions WHERE type = 'income'").get().total;
+            const treasuryIncome = db.prepare(`
+                SELECT COALESCE(SUM(amount), 0) as total
+                FROM treasury_transactions
+                WHERE type = 'income'
+                  AND COALESCE(related_type, '') NOT IN ('${CUSTOMER_COLLECTION_PENDING_RELATED_TYPE}', '${CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE}')
+            `).get().total;
             const treasuryExpense = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM treasury_transactions WHERE type = 'expense'").get().total;
             const treasuryBalance = treasuryIncome - treasuryExpense;
 
-            // --- Receivables & Payables ---
-            const receivables = db.prepare("SELECT COALESCE(SUM(remaining_amount), 0) as total FROM sales_invoices WHERE remaining_amount > 0").get().total;
-            const payables = db.prepare("SELECT COALESCE(SUM(remaining_amount), 0) as total FROM purchase_invoices WHERE remaining_amount > 0").get().total;
+            // --- Receivables & Payables (Using standard balances calculation) ---
+            const receivables = db.prepare("SELECT COALESCE(SUM(balance), 0) as total FROM customers WHERE type IN ('customer', 'both') AND balance > 0").get().total;
+            const payables = db.prepare("SELECT COALESCE(SUM(balance), 0) as total FROM customers WHERE type IN ('supplier', 'both') AND balance > 0").get().total;
 
             // --- Chart data (last 30 days) ---
             const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
@@ -130,7 +157,13 @@ function register() {
             // --- Today summary ---
             const todaySalesCount = db.prepare("SELECT COUNT(*) as count FROM sales_invoices WHERE invoice_date = ?").get(today).count;
             const todayPurchasesCount = db.prepare("SELECT COUNT(*) as count FROM purchase_invoices WHERE invoice_date = ?").get(today).count;
-            const todayCollections = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM treasury_transactions WHERE type = 'income' AND transaction_date = ?").get(today).total;
+            const todayCollections = db.prepare(`
+                SELECT COALESCE(SUM(amount), 0) as total
+                FROM treasury_transactions
+                WHERE type = 'income'
+                  AND transaction_date = ?
+                  AND COALESCE(related_type, '') NOT IN ('${CUSTOMER_COLLECTION_PENDING_RELATED_TYPE}', '${CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE}')
+            `).get(today).total;
             const todayPaymentsTotal = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM treasury_transactions WHERE type = 'expense' AND transaction_date = ?").get(today).total;
 
             // --- Top selling items ---
@@ -142,8 +175,13 @@ function register() {
             `).all();
 
             // --- Trends (current vs previous month) ---
-            const prevSalesMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date LIKE ?").get(prevMonthStr + '%').total;
-            const prevPurchasesMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date LIKE ?").get(prevMonthStr + '%').total;
+            const prevSalesTotal = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date LIKE ?").get(prevMonthStr + '%').total;
+            const prevSalesReturns = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE return_date LIKE ?").get(prevMonthStr + '%').total;
+            const prevSalesMonth = Math.max(0, prevSalesTotal - prevSalesReturns);
+
+            const prevPurchasesTotal = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date LIKE ?").get(prevMonthStr + '%').total;
+            const prevPurchasesReturns = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_returns WHERE return_date LIKE ?").get(prevMonthStr + '%').total;
+            const prevPurchasesMonth = Math.max(0, prevPurchasesTotal - prevPurchasesReturns);
 
             function calcTrend(current, previous) {
                 if (previous === 0) return current > 0 ? 100 : 0;
@@ -156,6 +194,15 @@ function register() {
                 netProfit, treasuryBalance, receivables, payables,
                 chartData: { dailySales, dailyPurchases },
                 recentTransactions,
+                profitDetails: {
+                    salesTotalMonth,
+                    salesReturnsTotalMonth,
+                    salesMonth,
+                    cogsMonthSales,
+                    cogsMonthReturns,
+                    cogsMonth,
+                    netProfit
+                },
                 alerts: { lowStockItems, highReceivables, oldInvoices },
                 todaySummary: {
                     invoiceCount: todaySalesCount + todayPurchasesCount,

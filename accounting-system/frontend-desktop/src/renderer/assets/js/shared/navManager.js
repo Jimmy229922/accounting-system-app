@@ -174,6 +174,7 @@ const salesShiftCloseState = {
         periodStart: null,
         periodEnd: null,
         totalInput: null,
+        collectionsInput: null,
         drawerInput: null,
         difference: null,
         notesInput: null,
@@ -413,7 +414,7 @@ function ensureShiftCloseStyles() {
 
         .gshift-form-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
         }
 
@@ -606,6 +607,7 @@ function assignShiftCloseDomRefs() {
     salesShiftCloseState.dom.periodStart = document.getElementById('globalShiftClosePeriodStart');
     salesShiftCloseState.dom.periodEnd = document.getElementById('globalShiftClosePeriodEnd');
     salesShiftCloseState.dom.totalInput = document.getElementById('globalShiftCloseTotal');
+    salesShiftCloseState.dom.collectionsInput = document.getElementById('globalShiftCloseCollections');
     salesShiftCloseState.dom.drawerInput = document.getElementById('globalShiftCloseDrawer');
     salesShiftCloseState.dom.difference = document.getElementById('globalShiftCloseDifference');
     salesShiftCloseState.dom.notesInput = document.getElementById('globalShiftCloseNotes');
@@ -653,6 +655,10 @@ function ensureShiftCloseModal() {
                             <div class="gshift-group">
                                 <label class="gshift-label">إجمالي المقبوض من المبيعات</label>
                                 <input type="number" id="globalShiftCloseTotal" class="gshift-input" min="0" step="0.01" value="0.00">
+                            </div>
+                            <div class="gshift-group">
+                                <label class="gshift-label">إجمالي تحصيل العملاء</label>
+                                <input type="number" id="globalShiftCloseCollections" class="gshift-input" min="0" step="0.01" value="0.00" readonly>
                             </div>
                             <div class="gshift-group">
                                 <label class="gshift-label">المبلغ الفعلي في الدرج (اختياري)</label>
@@ -746,12 +752,13 @@ function updateShiftCloseDifferenceDisplay() {
     const differenceEl = salesShiftCloseState.dom.difference;
     if (!differenceEl) return;
 
-    const totalValue = parseShiftCloseMoneyInput(salesShiftCloseState.dom.totalInput?.value, { allowEmpty: false });
+    const salesOnlyValue = parseShiftCloseMoneyInput(salesShiftCloseState.dom.totalInput?.value, { allowEmpty: false });
+    const collectionsValue = parseShiftCloseMoneyInput(salesShiftCloseState.dom.collectionsInput?.value, { allowEmpty: false });
     const drawerValue = parseShiftCloseMoneyInput(salesShiftCloseState.dom.drawerInput?.value, { allowEmpty: true });
 
     differenceEl.classList.remove('gshift-positive', 'gshift-negative');
 
-    if (!Number.isFinite(totalValue)) {
+    if (!Number.isFinite(salesOnlyValue) || !Number.isFinite(collectionsValue)) {
         differenceEl.textContent = '0.00';
         return;
     }
@@ -761,7 +768,8 @@ function updateShiftCloseDifferenceDisplay() {
         return;
     }
 
-    const difference = roundShiftCloseMoney(drawerValue - totalValue);
+    const totalTransferred = roundShiftCloseMoney(salesOnlyValue + collectionsValue);
+    const difference = roundShiftCloseMoney(drawerValue - totalTransferred);
     differenceEl.textContent = difference.toFixed(2);
 
     if (difference > 0) {
@@ -778,6 +786,13 @@ function applyShiftClosePreviewToUi(preview) {
 
     if (salesShiftCloseState.dom.periodEnd) {
         salesShiftCloseState.dom.periodEnd.textContent = formatShiftCloseDateTime(preview?.period_end_at);
+    }
+
+    if (salesShiftCloseState.dom.collectionsInput) {
+        const collectionsTotal = Number(preview?.customer_collections_total);
+        salesShiftCloseState.dom.collectionsInput.value = Number.isFinite(collectionsTotal)
+            ? formatShiftCloseMoney(collectionsTotal)
+            : '0.00';
     }
 }
 
@@ -927,9 +942,16 @@ function resetShiftCloseForm({ keepSearch = false } = {}) {
     }
 
     if (salesShiftCloseState.dom.totalInput) {
-        const previewTotal = salesShiftCloseState.preview?.sales_paid_total;
+        const previewTotal = salesShiftCloseState.preview?.sales_only_total;
         salesShiftCloseState.dom.totalInput.value = Number.isFinite(Number(previewTotal))
             ? formatShiftCloseMoney(previewTotal)
+            : '0.00';
+    }
+
+    if (salesShiftCloseState.dom.collectionsInput) {
+        const previewCollections = salesShiftCloseState.preview?.customer_collections_total;
+        salesShiftCloseState.dom.collectionsInput.value = Number.isFinite(Number(previewCollections))
+            ? formatShiftCloseMoney(previewCollections)
             : '0.00';
     }
 
@@ -956,7 +978,10 @@ async function refreshShiftClosePreview({ keepCurrentAmounts = false } = {}) {
     applyShiftClosePreviewToUi(result);
 
     if (!keepCurrentAmounts && !salesShiftCloseState.editingId && salesShiftCloseState.dom.totalInput) {
-        salesShiftCloseState.dom.totalInput.value = formatShiftCloseMoney(result.sales_paid_total);
+        const salesOnlyTotal = Number(result.sales_only_total);
+        salesShiftCloseState.dom.totalInput.value = Number.isFinite(salesOnlyTotal)
+            ? formatShiftCloseMoney(salesOnlyTotal)
+            : formatShiftCloseMoney(result.sales_paid_total);
     }
 
     updateShiftCloseDifferenceDisplay();
@@ -981,7 +1006,21 @@ function editShiftCloseFromRowId(id) {
         salesShiftCloseState.dom.periodEnd.textContent = formatShiftCloseDateTime(row.period_end_at);
     }
 
-    if (salesShiftCloseState.dom.totalInput) {
+    if (salesShiftCloseState.dom.collectionsInput) {
+        const collectionsTotal = Number(row.customer_collections_total);
+        const normalizedCollectionsTotal = Number.isFinite(collectionsTotal)
+            ? roundShiftCloseMoney(Math.max(collectionsTotal, 0))
+            : 0;
+        salesShiftCloseState.dom.collectionsInput.value = formatShiftCloseMoney(normalizedCollectionsTotal);
+
+        const rowTransferredTotal = Number(row.sales_paid_total);
+        const salesOnlyTotal = Number.isFinite(rowTransferredTotal)
+            ? roundShiftCloseMoney(Math.max(rowTransferredTotal - normalizedCollectionsTotal, 0))
+            : 0;
+        if (salesShiftCloseState.dom.totalInput) {
+            salesShiftCloseState.dom.totalInput.value = formatShiftCloseMoney(salesOnlyTotal);
+        }
+    } else if (salesShiftCloseState.dom.totalInput) {
         salesShiftCloseState.dom.totalInput.value = formatShiftCloseMoney(row.sales_paid_total);
     }
 
@@ -1034,12 +1073,19 @@ async function deleteShiftCloseFromRowId(id) {
 }
 
 async function submitShiftClose() {
-    const totalValue = parseShiftCloseMoneyInput(salesShiftCloseState.dom.totalInput?.value, { allowEmpty: false });
-    if (!Number.isFinite(totalValue) || totalValue < 0) {
+    const salesOnlyValue = parseShiftCloseMoneyInput(salesShiftCloseState.dom.totalInput?.value, { allowEmpty: false });
+    if (!Number.isFinite(salesOnlyValue) || salesOnlyValue < 0) {
         notifyShiftClose('يرجى إدخال إجمالي صحيح (صفر أو أكثر)', 'error');
         return;
     }
 
+    const collectionsValue = parseShiftCloseMoneyInput(salesShiftCloseState.dom.collectionsInput?.value, { allowEmpty: false });
+    if (!Number.isFinite(collectionsValue) || collectionsValue < 0) {
+        notifyShiftClose('قيمة إجمالي تحصيل العملاء غير صحيحة', 'error');
+        return;
+    }
+
+    const totalTransferred = roundShiftCloseMoney(salesOnlyValue + collectionsValue);
     const drawerValue = parseShiftCloseMoneyInput(salesShiftCloseState.dom.drawerInput?.value, { allowEmpty: true });
     if (Number.isNaN(drawerValue)) {
         notifyShiftClose('قيمة الدرج الفعلية غير صحيحة', 'error');
@@ -1070,7 +1116,8 @@ async function submitShiftClose() {
         if (isEditMode) {
             result = await api.updateSalesShiftClosing({
                 id: editingId,
-                sales_paid_total: totalValue,
+                sales_paid_total: totalTransferred,
+                customer_collections_total: collectionsValue,
                 drawer_amount: drawerValue,
                 notes,
                 created_by: createdBy,

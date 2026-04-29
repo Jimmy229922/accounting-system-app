@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let warehouses = [];
     let items = [];
     let history = []; // History of items
+    let groups = [];
+    let pendingEntries = [];
     let selectedWarehouseId = '';
     let ar = {};
     const { t } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f };
@@ -42,6 +44,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     openingBalanceUtils.applyI18nToDOM(t);
 
     setupInteractions();
+    renderPendingItems();
+    updateDocumentMeta();
     await loadData();
 
 
@@ -64,14 +68,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadData() {
         try {
-            const [whData, itemsData, historyData] = await Promise.all([
+            const [whData, itemsData, historyData, groupsData] = await Promise.all([
                 window.electronAPI.getWarehouses(),
                 window.electronAPI.getItems(),
-                window.electronAPI.getOpeningBalances()
+                window.electronAPI.getOpeningBalances(),
+                window.electronAPI.getOpeningBalanceGroups()
             ]);
             warehouses = whData || [];
             items = itemsData || [];
             history = historyData || [];
+            groups = groupsData || [];
 
             updateUI();
         } catch (error) {
@@ -82,10 +88,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function updateUI() {
         updateStats();
+        updateDocumentMeta();
         populateWarehouseSelect();
-        populateItemSelect();
         renderWarehousesTable();
         renderHistory();
+        renderPendingItems();
+    }
+
+    function getNextOpeningBalanceDocNumber() {
+        if (!Array.isArray(groups) || groups.length === 0) return 1;
+        const maxId = groups.reduce((maxVal, group) => {
+            const id = Number(group?.id) || 0;
+            return id > maxVal ? id : maxVal;
+        }, 0);
+        return maxId + 1;
+    }
+
+    function updateDocumentMeta() {
+        const docNumberInput = document.getElementById('opening-balance-doc-number');
+        const docDateInput = document.getElementById('opening-balance-doc-date');
+
+        if (docNumberInput) {
+            docNumberInput.value = `OB-${String(getNextOpeningBalanceDocNumber()).padStart(6, '0')}`;
+        }
+
+        if (docDateInput) {
+            docDateInput.value = new Date().toLocaleDateString('en-GB');
+        }
     }
 
     function updateStats() {
@@ -122,24 +151,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             selectedWarehouseId = '';
         }
-    }
-
-    function populateItemSelect() {
-        const select = document.getElementById('item-select');
-        
-        // Check if wrapped and reset
-        const wrapper = select.closest('.autocomplete-wrapper');
-        if (wrapper) {
-            wrapper.parentNode.insertBefore(select, wrapper);
-            wrapper.remove();
-            select.style.display = 'block';
-        }
-        
-        const itemPlaceholder = t('openingBalance.selectItemPlaceholder', 'اختر الصنف...');
-        select.innerHTML = `<option value="">${itemPlaceholder}</option>` +
-            items.map(item => `<option value="${item.id}" data-cost="${item.cost_price || 0}" data-unit="${item.unit_name || ''}" data-qty="${item.stock_quantity || 0}">${item.name} - ${item.barcode || ''} (${t('openingBalance.currentQtyLabel', 'الكمية الحالية')}: ${item.stock_quantity || 0})</option>`).join('');
-            
-        new Autocomplete(select);
     }
 
     function renderWarehousesTable() {
@@ -290,34 +301,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const itemSelect = document.getElementById('item-select');
-
-        itemSelect.addEventListener('change', () => {
-            const selectedOption = itemSelect.options[itemSelect.selectedIndex];
-            if (!selectedOption) return;
-            
-            const cost = selectedOption.dataset.cost;
-            const unit = selectedOption.dataset.unit;
-            
-            if (cost) {
-                document.getElementById('cost-input').value = cost;
-            }
-            document.getElementById('unit-input').value = unit || '';
-            // document.getElementById('quantity-input').focus();
-            calculateTotal();
+        document.getElementById('save-all-items-btn').addEventListener('click', savePendingItems);
+        document.getElementById('clear-pending-items-btn').addEventListener('click', () => {
+            pendingEntries = [createEmptyPendingEntry()];
+            renderPendingItems();
         });
-
-        document.getElementById('add-item-btn').addEventListener('click', handleAddItem);
-
-        document.getElementById('quantity-input').addEventListener('keydown', (e) => {
-            // if (e.key === 'Enter') document.getElementById('cost-input').focus();
-        });
-        document.getElementById('cost-input').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleAddItem();
-        });
-
-        document.getElementById('quantity-input').addEventListener('input', calculateTotal);
-        document.getElementById('cost-input').addEventListener('input', calculateTotal);
 
         // Edit Entry Modal Listeners
         document.getElementById('save-edit-entry-btn').addEventListener('click', saveEditEntry);
@@ -328,54 +316,192 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('apply-filter-btn').addEventListener('click', filterHistory);
     }
 
-    function calculateTotal() {
-        const qty = parseFloat(document.getElementById('quantity-input').value) || 0;
-        const cost = parseFloat(document.getElementById('cost-input').value) || 0;
-        const total = qty * cost;
-        document.getElementById('total-input').value = total.toFixed(2);
+    function createEmptyPendingEntry() {
+        return {
+            item_id: null,
+            warehouse_id: selectedWarehouseId ? Number(selectedWarehouseId) : null,
+            quantity: 1,
+            cost_price: 0,
+            unit_name: ''
+        };
     }
 
-    async function handleAddItem() {
-        const warehouseId = selectedWarehouseId;
-        const itemId = document.getElementById('item-select').value;
-        const quantity = document.getElementById('quantity-input').value;
-        const costPrice = document.getElementById('cost-input').value;
+    function renderPendingItems() {
+        const tbody = document.getElementById('pending-items-tbody');
+        const saveAllBtn = document.getElementById('save-all-items-btn');
+        const clearBtn = document.getElementById('clear-pending-items-btn');
+        const docTotalInput = document.getElementById('opening-balance-doc-total');
 
-        if (!warehouseId) return Toast.show(t('openingBalance.toast.selectWarehouse', 'الرجاء اختيار المخزن من أعلى الصفحة'), 'error');
-        if (!itemId) return Toast.show(t('openingBalance.toast.selectItem', 'الرجاء اختيار الصنف'), 'error');
-        if (!quantity || quantity <= 0) return Toast.show(t('openingBalance.toast.validQuantity', 'الرجاء إدخال كمية صحيحة'), 'error');
+        if (!pendingEntries.length) {
+            pendingEntries.push(createEmptyPendingEntry());
+        }
 
-        const item = {
-            item_id: Number(itemId),
-            warehouse_id: Number(warehouseId),
-            quantity: Number(quantity),
-            cost_price: Number(costPrice) || 0
-        };
+        saveAllBtn.disabled = pendingEntries.every((entry) => !Number(entry.item_id));
+        clearBtn.disabled = pendingEntries.length === 0;
 
-        try {
-            const result = await window.electronAPI.addOpeningBalance(item);
-            if (result.success) {
-                Toast.show(t('openingBalance.toast.saveSuccess', 'تم حفظ الرصيد بنجاح'), 'success');
-                
-                // Clear inputs
-                document.getElementById('quantity-input').value = '';
-                document.getElementById('cost-input').value = '';
-                document.getElementById('total-input').value = '';
-                document.getElementById('unit-input').value = '';
-                
-                const itemSelect = document.getElementById('item-select');
-                itemSelect.value = "";
-                const input = itemSelect.parentElement.querySelector('.autocomplete-input');
-                if (input) {
-                    input.value = '';
-                    // input.focus(); 
+        const invoiceTotal = pendingEntries.reduce((sum, entry) => {
+            return sum + ((Number(entry.quantity) || 0) * (Number(entry.cost_price) || 0));
+        }, 0);
+        if (docTotalInput) {
+            docTotalInput.value = invoiceTotal.toFixed(2);
+        }
+
+        const itemPlaceholder = t('openingBalance.selectItemPlaceholder', 'اختر الصنف...');
+        const warehousePlaceholder = t('openingBalance.selectWarehousePlaceholder', 'اختر المخزن...');
+
+        tbody.innerHTML = pendingEntries.map((entry, index) => {
+            const itemOptions = [`<option value="">${itemPlaceholder}</option>`]
+                .concat(items.map((item) => {
+                    const selected = Number(entry.item_id) === Number(item.id) ? 'selected' : '';
+                    return `<option value="${item.id}" ${selected}>${item.name} - ${item.barcode || ''} (${t('openingBalance.currentQtyLabel', 'الكمية الحالية')}: ${item.stock_quantity || 0})</option>`;
+                }))
+                .join('');
+
+            const warehouseOptions = [`<option value="">${warehousePlaceholder}</option>`]
+                .concat(warehouses.map((warehouse) => {
+                    const selected = Number(entry.warehouse_id) === Number(warehouse.id) ? 'selected' : '';
+                    return `<option value="${warehouse.id}" ${selected}>${normalizePossiblyMojibake(warehouse.name)}</option>`;
+                }))
+                .join('');
+
+            return `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>
+                        <select class="form-control pending-row-control pending-item-select item-select autocomplete-show-all-on-click" data-index="${index}">
+                            ${itemOptions}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="form-control pending-row-control pending-warehouse-select" data-index="${index}">
+                            ${warehouseOptions}
+                        </select>
+                    </td>
+                    <td><span class="pending-row-unit">${entry.unit_name || '-'}</span></td>
+                    <td>
+                        <input type="number" class="form-control pending-row-control pending-qty-input" data-index="${index}" min="0.01" step="0.01" value="${Number(entry.quantity) || 0}">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control pending-row-control pending-cost-input" data-index="${index}" min="0" step="0.01" value="${Number(entry.cost_price) || 0}">
+                    </td>
+                    <td><span class="pending-row-total">${formatCurrency((Number(entry.quantity) || 0) * (Number(entry.cost_price) || 0))}</span></td>
+                    <td>
+                        <button class="btn btn-danger pending-row-remove" data-index="${index}">
+                            <i class="fas fa-trash"></i> حذف
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        tbody.querySelectorAll('.pending-item-select').forEach((select) => {
+            new Autocomplete(select);
+            select.addEventListener('change', () => {
+                const index = Number(select.dataset.index);
+                const item = items.find((entry) => Number(entry.id) === Number(select.value));
+                if (!pendingEntries[index]) return;
+
+                pendingEntries[index].item_id = item ? Number(item.id) : null;
+                pendingEntries[index].unit_name = item?.unit_name || '';
+                if (item && (!Number(pendingEntries[index].cost_price) || Number(pendingEntries[index].cost_price) <= 0)) {
+                    pendingEntries[index].cost_price = Number(item.cost_price) || 0;
                 }
 
-                // Reload data
-                await loadData();
-            } else {
-                Toast.show(t('openingBalance.toast.saveFailed', 'فشل الحفظ: ') + result.error, 'error');
+                if (Number(pendingEntries[index].item_id) && index === pendingEntries.length - 1) {
+                    pendingEntries.push(createEmptyPendingEntry());
+                }
+
+                renderPendingItems();
+            });
+        });
+
+        tbody.querySelectorAll('.pending-warehouse-select').forEach((select) => {
+            select.addEventListener('change', () => {
+                const index = Number(select.dataset.index);
+                if (!pendingEntries[index]) return;
+                pendingEntries[index].warehouse_id = select.value ? Number(select.value) : null;
+            });
+        });
+
+        tbody.querySelectorAll('.pending-qty-input').forEach((input) => {
+            input.addEventListener('change', () => {
+                const index = Number(input.dataset.index);
+                if (!pendingEntries[index]) return;
+                pendingEntries[index].quantity = Number(input.value) || 0;
+                renderPendingItems();
+            });
+        });
+
+        tbody.querySelectorAll('.pending-cost-input').forEach((input) => {
+            input.addEventListener('change', () => {
+                const index = Number(input.dataset.index);
+                if (!pendingEntries[index]) return;
+                pendingEntries[index].cost_price = Number(input.value) || 0;
+                renderPendingItems();
+            });
+        });
+
+        tbody.querySelectorAll('.pending-row-remove').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const index = Number(btn.dataset.index);
+                if (Number.isNaN(index)) return;
+                pendingEntries.splice(index, 1);
+                renderPendingItems();
+            });
+        });
+    }
+
+    async function savePendingItems() {
+        const entriesToSave = pendingEntries.filter((entry, index) => {
+            if (Number(entry.item_id)) return true;
+            return index !== pendingEntries.length - 1;
+        });
+
+        if (!entriesToSave.length) {
+            Toast.show('لا توجد أصناف جاهزة للحفظ', 'error');
+            return;
+        }
+
+        for (let i = 0; i < entriesToSave.length; i += 1) {
+            const entry = entriesToSave[i];
+            if (!Number(entry.item_id)) {
+                Toast.show(`يرجى اختيار الصنف في السطر رقم ${i + 1}`, 'error');
+                return;
             }
+            if (!Number(entry.warehouse_id)) {
+                Toast.show(`يرجى اختيار المخزن في السطر رقم ${i + 1}`, 'error');
+                return;
+            }
+            if (!Number(entry.quantity) || Number(entry.quantity) <= 0) {
+                Toast.show(`يرجى إدخال كمية صحيحة في السطر رقم ${i + 1}`, 'error');
+                return;
+            }
+            if (Number(entry.cost_price) < 0) {
+                Toast.show(`يرجى إدخال سعر شراء صحيح في السطر رقم ${i + 1}`, 'error');
+                return;
+            }
+        }
+
+        try {
+            const result = await window.electronAPI.addOpeningBalanceGroup({
+                notes: '',
+                entries: entriesToSave.map((entry) => ({
+                    item_id: Number(entry.item_id),
+                    warehouse_id: Number(entry.warehouse_id),
+                    quantity: Number(entry.quantity),
+                    cost_price: Number(entry.cost_price) || 0
+                }))
+            });
+
+            if (result && result.success) {
+                pendingEntries = [createEmptyPendingEntry()];
+                renderPendingItems();
+                Toast.show(t('openingBalance.toast.saveSuccess', 'تم حفظ الرصيد بنجاح'), 'success');
+                await loadData();
+                return;
+            }
+
+            Toast.show((t('openingBalance.toast.saveFailed', 'فشل الحفظ: ') || 'فشل الحفظ: ') + (result?.error || ''), 'error');
         } catch (error) {
             console.error(error);
             Toast.show(t('openingBalance.toast.saveError', 'حدث خطأ أثناء الحفظ'), 'error');

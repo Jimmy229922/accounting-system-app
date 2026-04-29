@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeElements();
     loadUnits();
     loadItems();
+    setupArrowNavigation();
     
     // if (itemBarcodeInput) itemBarcodeInput.focus();
     } catch (error) {
@@ -83,6 +84,114 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+function getAutocompleteInputForSelect(selectElement) {
+    const wrapper = selectElement?.parentElement;
+    if (wrapper && wrapper.classList.contains('autocomplete-wrapper')) {
+        return wrapper.querySelector('input.autocomplete-input');
+    }
+    return null;
+}
+
+function closeVisibleAutocompleteLists() {
+    if (typeof Autocomplete !== 'undefined' && typeof Autocomplete.closeAllVisible === 'function') {
+        Autocomplete.closeAllVisible();
+        return;
+    }
+
+    document.querySelectorAll('.autocomplete-list.visible').forEach((listEl) => {
+        listEl.classList.remove('visible');
+    });
+}
+
+function focusAddItemField(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+
+    if (field === itemUnitSelect) {
+        const acInput = getAutocompleteInputForSelect(field);
+        if (acInput) {
+            closeVisibleAutocompleteLists();
+            acInput.focus();
+            if (typeof acInput.select === 'function') acInput.select();
+            if (itemUnitAutocomplete && typeof itemUnitAutocomplete.renderList === 'function') {
+                itemUnitAutocomplete.renderList('');
+            }
+            return;
+        }
+    }
+
+    closeVisibleAutocompleteLists();
+    field.focus();
+    if (typeof field.select === 'function') field.select();
+}
+
+function setupArrowNavigation() {
+    const matrix = [
+        ['itemBarcode', 'itemName', 'itemUnit'],
+        ['costPrice', 'salePrice', 'reorderLevel']
+    ];
+
+    matrix.forEach((row, rowIndex) => {
+        row.forEach((id, colIndex) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            const handleKeydown = (e) => {
+                if (
+                    e.key !== 'ArrowDown' &&
+                    e.key !== 'ArrowUp' &&
+                    e.key !== 'ArrowRight' &&
+                    e.key !== 'ArrowLeft'
+                ) return;
+
+                if (e.target.classList.contains('autocomplete-input')) {
+                    const acList = itemUnitAutocomplete?.list;
+                    if (acList?.classList.contains('visible') && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                        return;
+                    }
+                }
+
+                const isVertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+                let nextRow = rowIndex;
+                let nextCol = colIndex;
+
+                if (e.key === 'ArrowUp') nextRow = Math.max(0, rowIndex - 1);
+                if (e.key === 'ArrowDown') nextRow = Math.min(matrix.length - 1, rowIndex + 1);
+                if (e.key === 'ArrowRight') nextCol = Math.max(0, colIndex - 1);
+                if (e.key === 'ArrowLeft') nextCol = Math.min(row.length - 1, colIndex + 1);
+
+                if (nextRow === rowIndex && nextCol === colIndex) {
+                    if (isVertical) e.preventDefault();
+                    if (e.target.classList.contains('autocomplete-input')) e.stopPropagation();
+                    return;
+                }
+
+                e.preventDefault();
+                e.stopPropagation();
+                focusAddItemField(matrix[nextRow][nextCol]);
+            };
+
+            if (el.tagName === 'SELECT' && el.classList.contains('item-select')) {
+                const checkAndAttach = () => {
+                    const acInput = getAutocompleteInputForSelect(el);
+                    if (!acInput) return false;
+                    if (acInput.dataset.arrowNavBound === '1') return true;
+                    acInput.addEventListener('keydown', handleKeydown, true);
+                    acInput.dataset.arrowNavBound = '1';
+                    return true;
+                };
+
+                checkAndAttach();
+                setTimeout(checkAndAttach, 100);
+                setTimeout(checkAndAttach, 300);
+            } else {
+                if (el.dataset.arrowNavBound === '1') return;
+                el.addEventListener('keydown', handleKeydown);
+                el.dataset.arrowNavBound = '1';
+            }
+        });
+    });
+}
 function initializeElements() {
     // Add Form Inputs
     itemBarcodeInput = document.getElementById('itemBarcode');
@@ -309,6 +418,7 @@ async function loadUnits() {
             } else {
                 itemUnitAutocomplete.refresh();
             }
+            setupArrowNavigation();
         }
         if (editItemUnitSelect) {
             editItemUnitSelect.innerHTML = `<option value="">${t('items.selectUnit', 'اختر الوحدة...')}</option>` + options;

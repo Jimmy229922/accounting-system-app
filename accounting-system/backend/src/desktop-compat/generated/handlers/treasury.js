@@ -2,6 +2,17 @@ const { ipcMain } = require('electron');
 const { db } = require('../db');
 const { requirePermission } = require('./auth');
 
+const CUSTOMER_COLLECTION_PENDING_RELATED_TYPE = 'customer_collection_pending';
+const CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE = 'customer_collection_shift_close';
+
+function shouldDeferCustomerCollection(transaction = {}) {
+    const customerId = Number(transaction.customer_id);
+    return transaction.type === 'income'
+        && Number.isFinite(customerId)
+        && customerId > 0
+        && Boolean(transaction.defer_to_sales_shift_close);
+}
+
 function getTreasuryVoucherPrefix(type) {
     if (type === 'income') return 'RCV';
     if (type === 'expense') return 'PAY';
@@ -27,7 +38,12 @@ function getNextTreasuryVoucherNumberForType(type) {
 }
 
 function getCurrentTreasuryBalance() {
-    const income = Number(db.prepare("SELECT SUM(amount) as total FROM treasury_transactions WHERE type = 'income'").get().total || 0);
+    const income = Number(db.prepare(`
+        SELECT SUM(amount) as total
+        FROM treasury_transactions
+        WHERE type = 'income'
+          AND COALESCE(related_type, '') NOT IN ('${CUSTOMER_COLLECTION_PENDING_RELATED_TYPE}', '${CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE}')
+    `).get().total || 0);
     const expense = Number(db.prepare("SELECT SUM(amount) as total FROM treasury_transactions WHERE type = 'expense'").get().total || 0);
     return income - expense;
 }
@@ -70,6 +86,9 @@ function register() {
         if (denied) return denied;
         try {
             const { type, amount, date, description, customer_id } = transaction;
+            const related_type = shouldDeferCustomerCollection(transaction)
+                ? CUSTOMER_COLLECTION_PENDING_RELATED_TYPE
+                : null;
             const voucher_number = getNextTreasuryVoucherNumberForType(type);
             if (!voucher_number) {
                 return { success: false, error: 'Invalid treasury transaction type' };
@@ -88,8 +107,8 @@ function register() {
             }
             
             const stmt = db.prepare(`
-                INSERT INTO treasury_transactions (type, amount, transaction_date, description, customer_id, voucher_number)
-                VALUES (@type, @amount, @date, @description, @customer_id, @voucher_number)
+                INSERT INTO treasury_transactions (type, amount, transaction_date, description, customer_id, voucher_number, related_type)
+                VALUES (@type, @amount, @date, @description, @customer_id, @voucher_number, @related_type)
             `);
 
             const updateBalance = db.prepare(`
@@ -99,7 +118,7 @@ function register() {
             `);
 
             const tx = db.transaction(() => {
-                stmt.run({ type, amount, date, description, customer_id, voucher_number });
+                stmt.run({ type, amount, date, description, customer_id, voucher_number, related_type });
                 
                 if (customer_id) {
                     updateBalance.run({ amount: -amount, id: customer_id });

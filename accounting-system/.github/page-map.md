@@ -69,7 +69,7 @@
 | Sales Returns | `../sales-returns/index.html` | `sales-returns/index.html`, `sales-returns.css`, `sales-returns.js`, `sales-returns.api.js`, `sales-returns.bootstrap.js`, `sales-returns.events.js`, `sales-returns.render.js`, `sales-returns.state.js` | `getNextInvoiceNumber`, `getCustomers`, `getCustomerSalesInvoices`, `getInvoiceItemsForReturn`, `saveSalesReturn`, `updateSalesReturn`, `getSalesReturns`, `getSalesReturnDetails`, `deleteSalesReturn` | `handlers/salesReturns.js`, `handlers/invoices.js` | `sales-returns` |
 | Purchases | `../purchases/index.html` | `purchases/index.html`, `purchases.css`, `purchases.js`, `purchases.api.js`, `purchases.events.js`, `purchases.render.js`, `purchases.state.js` | `getNextInvoiceNumber`, `getInvoiceWithDetails`, `getCustomers`, `getItems`, `getPurchaseInvoices`, `savePurchaseInvoice`, `updatePurchaseInvoice` | `handlers/purchases.js`, `handlers/invoices.js` | `purchases` |
 | Purchase Returns | `../purchase-returns/index.html` | `purchase-returns/index.html`, `purchase-returns.css`, `purchase-returns.js`, `purchase-returns.api.js`, `purchase-returns.bootstrap.js`, `purchase-returns.events.js`, `purchase-returns.render.js`, `purchase-returns.state.js` | `getNextInvoiceNumber`, `getCustomers`, `getSupplierPurchaseInvoices`, `getInvoiceItemsForReturn`, `savePurchaseReturn`, `updatePurchaseReturn`, `getPurchaseReturns`, `getPurchaseReturnDetails`, `deletePurchaseReturn` | `handlers/purchaseReturns.js`, `handlers/invoices.js` | `purchase-returns` |
-| Opening Balance | `../opening-balance/index.html` | `opening-balance/index.html`, `opening-balance.css`, `opening-balance.js`, `opening-balance.bootstrap.js`, `opening-balance.render.js`, `opening-balance.utils.js` | `getWarehouses`, `getItems`, `getOpeningBalances`, `addOpeningBalance`, `updateOpeningBalance`, `deleteOpeningBalance`, `addWarehouse`, `updateWarehouse`, `deleteWarehouse` | `handlers/openingBalances.js`, `handlers/warehouses.js`, `handlers/items.js` | `opening-balance` |
+| Opening Balance | `../opening-balance/index.html` | `opening-balance/index.html`, `opening-balance.css`, `opening-balance.js`, `opening-balance.bootstrap.js`, `opening-balance.render.js`, `opening-balance.utils.js` | `getWarehouses`, `getItems`, `getOpeningBalances`, `addOpeningBalanceGroup`, `updateOpeningBalance`, `deleteOpeningBalance`, `addWarehouse`, `updateWarehouse`, `deleteWarehouse` | `handlers/openingBalances.js`, `handlers/warehouses.js`, `handlers/items.js` | `opening-balance` |
 | Inventory | `../inventory/index.html` | `inventory/index.html`, `inventory.css`, `inventory.js` | `getItems`, `getItemMovements`, `getWarehouses`, `getDamagedStockEntries`, `addDamagedStockEntry`, `updateDamagedStockEntry`, `deleteDamagedStockEntry`, `getMyPermissions` | `handlers/items.js`, `handlers/warehouses.js`, `handlers/auth.js` | `inventory` |
 | Finance | `../finance/index.html` | `finance/index.html`, `finance.css`, `finance.js` | `getTreasuryBalance`, `getTreasuryTransactions`, `addTreasuryTransaction`, `updateTreasuryTransaction`, `deleteTreasuryTransaction` | `handlers/treasury.js` | `finance` |
 | Receipt | `../payments/receipt.html` | `payments/receipt.html`, `payments.css`, `receipt.js`, `treasury-page.shared.js`, `treasury-page.renderer.js` | `getCustomers`, `getTreasuryTransactions`, `getNextTreasuryVoucherNumber`, `addTreasuryTransaction`, `searchTreasuryByVoucher` | `handlers/treasury.js`, `handlers/customers.js` | `treasury` |
@@ -84,6 +84,39 @@
 > ملاحظة: `search/search.js` فارغ حاليًا.
 
 > ملاحظة Inventory (2026-04-12): إدارة التالف داخل صفحة `inventory` تعمل كمودال داخلي يفتح بزر من شريط التحكم (`data-action="open-damaged-manager"`) وتغلق بزر الإغلاق أو النقر خارج المودال.
+
+### Opening Balance Batch Save (2026-04-27)
+
+- في `views/opening-balance`: شاشة `تسجيل رصيد أول المدة` أصبحت بنمط فاتورة (إضافة أصناف كسطور متتالية داخل نفس النموذج).
+- تمت إضافة بيانات رأس المستند داخل نفس الكارت:
+   - `رقم مستند أول المدة` (تلقائي من `opening_balance_groups`).
+   - `تاريخ المستند`.
+   - `إجمالي الفاتورة` (يُحسب من سطور الأصناف قبل الحفظ).
+- الإجراءات الحالية داخل نفس الكارت:
+   - اختيار `حقل الصنف` في السطر الحالي يضيف سطرًا جديدًا تلقائيًا داخل جدول الأصناف (مثل الفواتير).
+   - `حفظ رصيد أول المدة` (زر نهائي واحد للحفظ الدفعي).
+   - `مسح القائمة` + حذف صف منفرد قبل الحفظ.
+- الحفظ الدفعي يتم عبر IPC `addOpeningBalanceGroup` في `handlers/openingBalances.js`.
+- CSS Classes المضافة في `opening-balance.css`:
+   - `.pending-items-box`
+   - `.pending-row-remove`
+
+### Opening Balance UI Polish (2026-04-30)
+
+- في `views/opening-balance` داخل بطاقة `تسجيل رصيد أول المدة`:
+   - `رقم مستند أول المدة` أصبح بصيغة فريدة ثابتة: `OB-000001` (Prefix + رقم تسلسلي مبني على `opening_balance_groups.id`).
+   - `تاريخ المستند` أصبح بصيغة إنجليزية عبر `toLocaleDateString('en-GB')`.
+- في قسم `الأصناف الجاهزة للحفظ` تم تحسين الشكل البصري (إطار/عمق/هيدر أوضح/فاصل إجراءات) داخل نفس الصفحة بدون أي تغيير في منطق الحفظ.
+- تم توحيد بلوك `تسجيل رصيد أول المدة` بصريًا داخل قسم واحد مدمج (العنوان + زر إضافة صنف + بيانات المستند + جدول الأصناف + زر الحفظ) مع تقليل المسافات والفواصل الداخلية لتقليل الارتفاع المستهلك.
+- إصلاح حقل `الصنف` داخل جدول الأصناف الجاهزة للحفظ:
+   - تم توحيد سلوك قائمة `Autocomplete` مع نمط صفحة `views/sales` (داخل الجدول نفسه) لتفادي انحراف موضع القائمة.
+   - تم إلغاء `autocomplete cache key` في صفوف أول المدة لأن الصف الأول يُرسم قبل تحميل الأصناف؛ وهذا كان يثبت قائمة فارغة ويمنع ظهور الخيارات.
+   - تم تفعيل `autocomplete-show-all-on-click` مع `item-select` في حقل الصنف ليفتح من أول ضغطة وتظهر القائمة كاملة بدون قص.
+   - تم رفع طبقات العرض (`z-index`) وفتح `overflow` داخل خلايا جدول القسم لضمان ظهور القائمة كاملة.
+   - CSS Classes المضافة:
+      - `.opening-balance-doc-meta`
+      - `.pending-items-table-wrap`
+      - `.pending-items-actions`
 
 ### Settings UI Structure (2026-04-12)
 
@@ -186,6 +219,12 @@
    - `.preview-value.negative`
    - `.preview-value.zero`
 - التلوين يُطبّق من `treasury-page.shared.js` عبر تبديل الكلاسات على `#previewCurrentBalance` و `#previewAfterBalance` حسب إشارة الرصيد.
+
+### Inventory Damaged Item Autocomplete (2026-04-30)
+
+- في `views/inventory` شاشة `إدارة التالف`:
+   - حقل `الصنف` (إضافة + تعديل) أصبح يدعم البحث بالكتابة والاختيار من قائمة `Autocomplete` بدل الاكتفاء بقائمة select التقليدية.
+   - تم التفعيل عبر `item-select` + `autocomplete-show-all-on-click` مع `refresh()` عند تحديث خيارات الأصناف.
 
 ### Invoice/Return Previous-Next Navigation (2026-04-16)
 

@@ -2,6 +2,10 @@ const { ipcMain } = require('electron');
 const { db } = require('../db');
 const { requirePermission } = require('./auth');
 
+const SALES_SHIFT_CLOSE_RELATED_TYPE = 'sales_shift_close';
+const CUSTOMER_COLLECTION_PENDING_RELATED_TYPE = 'customer_collection_pending';
+const CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE = 'customer_collection_shift_close';
+
 function toPositiveNumber(value) {
     const n = Number(value);
     return Number.isFinite(n) && n > 0 ? n : 0;
@@ -88,6 +92,96 @@ function getSalesPaidTotalForPeriod(periodStartAt, periodEndAt) {
     };
 }
 
+function getDeferredCustomerCollectionsForPeriod(periodStartAt, periodEndAt) {
+    if (periodStartAt) {
+        const row = db.prepare(`
+            SELECT
+                COALESCE(SUM(amount), 0) AS total_amount,
+                COUNT(*) AS collections_count
+            FROM treasury_transactions
+            WHERE type = 'income'
+              AND related_type = @related_type
+              AND datetime(created_at) > datetime(@periodStartAt)
+              AND datetime(created_at) <= datetime(@periodEndAt)
+        `).get({
+            related_type: CUSTOMER_COLLECTION_PENDING_RELATED_TYPE,
+            periodStartAt,
+            periodEndAt
+        });
+
+        return {
+            totalAmount: roundMoney(Number(row?.total_amount || 0)),
+            collectionsCount: Number(row?.collections_count || 0)
+        };
+    }
+
+    const row = db.prepare(`
+        SELECT
+            COALESCE(SUM(amount), 0) AS total_amount,
+            COUNT(*) AS collections_count
+        FROM treasury_transactions
+        WHERE type = 'income'
+          AND related_type = @related_type
+          AND datetime(created_at) <= datetime(@periodEndAt)
+    `).get({
+        related_type: CUSTOMER_COLLECTION_PENDING_RELATED_TYPE,
+        periodEndAt
+    });
+
+    return {
+        totalAmount: roundMoney(Number(row?.total_amount || 0)),
+        collectionsCount: Number(row?.collections_count || 0)
+    };
+}
+
+function markDeferredCustomerCollectionsAsShiftClosed(periodStartAt, periodEndAt, shiftClosingId) {
+    if (periodStartAt) {
+        return db.prepare(`
+            UPDATE treasury_transactions
+            SET related_type = @next_related_type,
+                related_invoice_id = @related_invoice_id
+            WHERE type = 'income'
+              AND related_type = @current_related_type
+              AND datetime(created_at) > datetime(@period_start_at)
+              AND datetime(created_at) <= datetime(@period_end_at)
+        `).run({
+            next_related_type: CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE,
+            related_invoice_id: shiftClosingId,
+            current_related_type: CUSTOMER_COLLECTION_PENDING_RELATED_TYPE,
+            period_start_at: periodStartAt,
+            period_end_at: periodEndAt
+        });
+    }
+
+    return db.prepare(`
+        UPDATE treasury_transactions
+        SET related_type = @next_related_type,
+            related_invoice_id = @related_invoice_id
+        WHERE type = 'income'
+          AND related_type = @current_related_type
+          AND datetime(created_at) <= datetime(@period_end_at)
+    `).run({
+        next_related_type: CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE,
+        related_invoice_id: shiftClosingId,
+        current_related_type: CUSTOMER_COLLECTION_PENDING_RELATED_TYPE,
+        period_end_at: periodEndAt
+    });
+}
+
+function resetShiftClosedCustomerCollectionsToPending(shiftClosingId) {
+    return db.prepare(`
+        UPDATE treasury_transactions
+        SET related_type = @next_related_type,
+            related_invoice_id = NULL
+        WHERE related_type = @current_related_type
+          AND related_invoice_id = @related_invoice_id
+    `).run({
+        next_related_type: CUSTOMER_COLLECTION_PENDING_RELATED_TYPE,
+        current_related_type: CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE,
+        related_invoice_id: shiftClosingId
+    });
+}
+
 function getSalesShiftClosingById(id) {
     return db.prepare(`
         SELECT
@@ -129,14 +223,19 @@ function register() {
             const periodEndAt = new Date().toISOString();
             const lastClosing = getLastSalesShiftClosing();
             const periodStartAt = lastClosing?.period_end_at || null;
-            const periodTotals = getSalesPaidTotalForPeriod(periodStartAt, periodEndAt);
+            const salesPeriodTotals = getSalesPaidTotalForPeriod(periodStartAt, periodEndAt);
+            const deferredCollectionsTotals = getDeferredCustomerCollectionsForPeriod(periodStartAt, periodEndAt);
+            const totalTransferred = roundMoney(salesPeriodTotals.totalPaid + deferredCollectionsTotals.totalAmount);
 
             return {
                 success: true,
                 period_start_at: periodStartAt,
                 period_end_at: periodEndAt,
-                sales_paid_total: periodTotals.totalPaid,
-                invoices_count: periodTotals.invoicesCount
+                sales_paid_total: totalTransferred,
+                sales_only_total: salesPeriodTotals.totalPaid,
+                customer_collections_total: deferredCollectionsTotals.totalAmount,
+                invoices_count: salesPeriodTotals.invoicesCount,
+                customer_collections_count: deferredCollectionsTotals.collectionsCount
             };
         } catch (error) {
             console.error('[get-sales-shift-close-preview] Error:', error);
@@ -152,9 +251,11 @@ function register() {
 
             const lastClosing = getLastSalesShiftClosing();
             const periodStartAt = lastClosing?.period_end_at || null;
-            const periodTotals = getSalesPaidTotalForPeriod(periodStartAt, periodEndAt);
+            const salesPeriodTotals = getSalesPaidTotalForPeriod(periodStartAt, periodEndAt);
+            const deferredCollectionsTotals = getDeferredCustomerCollectionsForPeriod(periodStartAt, periodEndAt);
+            const totalTransferred = roundMoney(salesPeriodTotals.totalPaid + deferredCollectionsTotals.totalAmount);
             const drawerAmount = toNullableNonNegativeNumber(payload.drawer_amount);
-            const differenceAmount = drawerAmount === null ? null : roundMoney(drawerAmount - periodTotals.totalPaid);
+            const differenceAmount = drawerAmount === null ? null : roundMoney(drawerAmount - totalTransferred);
 
             const createTx = db.transaction(() => {
                 const insertClosingInfo = db.prepare(`
@@ -162,6 +263,7 @@ function register() {
                         period_start_at,
                         period_end_at,
                         sales_paid_total,
+                        customer_collections_total,
                         drawer_amount,
                         difference_amount,
                         notes,
@@ -170,6 +272,7 @@ function register() {
                         @period_start_at,
                         @period_end_at,
                         @sales_paid_total,
+                        @customer_collections_total,
                         @drawer_amount,
                         @difference_amount,
                         @notes,
@@ -178,7 +281,8 @@ function register() {
                 `).run({
                     period_start_at: periodStartAt,
                     period_end_at: periodEndAt,
-                    sales_paid_total: periodTotals.totalPaid,
+                    sales_paid_total: totalTransferred,
+                    customer_collections_total: deferredCollectionsTotals.totalAmount,
                     drawer_amount: drawerAmount,
                     difference_amount: differenceAmount,
                     notes,
@@ -201,17 +305,19 @@ function register() {
                         @transaction_date,
                         @description,
                         @related_invoice_id,
-                        'sales_shift_close'
+                        '${SALES_SHIFT_CLOSE_RELATED_TYPE}'
                     )
                 `).run({
-                    amount: periodTotals.totalPaid,
+                    amount: totalTransferred,
                     transaction_date: String(periodEndAt).slice(0, 10),
-                    description: buildSalesShiftClosingDescription(shiftClosingId, periodTotals.totalPaid, notes),
+                    description: buildSalesShiftClosingDescription(shiftClosingId, totalTransferred, notes),
                     related_invoice_id: shiftClosingId
                 });
 
                 db.prepare('UPDATE sales_shift_closings SET treasury_transaction_id = ? WHERE id = ?')
                     .run(Number(treasuryInfo.lastInsertRowid), shiftClosingId);
+
+                markDeferredCustomerCollectionsAsShiftClosed(periodStartAt, periodEndAt, shiftClosingId);
 
                 return shiftClosingId;
             });
@@ -294,6 +400,11 @@ function register() {
             }
 
             const salesPaidTotal = roundMoney(salesPaidRaw);
+            const existingCollectionsTotal = roundMoney(Number(existing.customer_collections_total) || 0);
+            const payloadCollectionsRaw = Number(payload.customer_collections_total);
+            const customerCollectionsTotal = Number.isFinite(payloadCollectionsRaw) && payloadCollectionsRaw >= 0
+                ? roundMoney(payloadCollectionsRaw)
+                : existingCollectionsTotal;
             const drawerAmount = toNullableNonNegativeNumber(payload.drawer_amount);
             const differenceAmount = drawerAmount === null ? null : roundMoney(drawerAmount - salesPaidTotal);
             const notes = String(payload.notes || '').trim() || null;
@@ -305,6 +416,7 @@ function register() {
                 db.prepare(`
                     UPDATE sales_shift_closings
                     SET sales_paid_total = @sales_paid_total,
+                        customer_collections_total = @customer_collections_total,
                         drawer_amount = @drawer_amount,
                         difference_amount = @difference_amount,
                         notes = @notes,
@@ -314,6 +426,7 @@ function register() {
                 `).run({
                     id,
                     sales_paid_total: salesPaidTotal,
+                    customer_collections_total: customerCollectionsTotal,
                     drawer_amount: drawerAmount,
                     difference_amount: differenceAmount,
                     notes,
@@ -333,7 +446,7 @@ function register() {
                                 transaction_date = @transaction_date,
                                 description = @description,
                                 related_invoice_id = @related_invoice_id,
-                                related_type = 'sales_shift_close'
+                                related_type = '${SALES_SHIFT_CLOSE_RELATED_TYPE}'
                             WHERE id = @id
                         `).run({
                             id: treasuryTransactionId,
@@ -360,7 +473,7 @@ function register() {
                         @transaction_date,
                         @description,
                         @related_invoice_id,
-                        'sales_shift_close'
+                        '${SALES_SHIFT_CLOSE_RELATED_TYPE}'
                     )
                 `).run({
                     amount: salesPaidTotal,
@@ -402,10 +515,11 @@ function register() {
                 if (treasuryTransactionId > 0) {
                     db.prepare('DELETE FROM treasury_transactions WHERE id = ?').run(treasuryTransactionId);
                 } else {
-                    db.prepare("DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = 'sales_shift_close'")
+                    db.prepare(`DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = '${SALES_SHIFT_CLOSE_RELATED_TYPE}'`)
                         .run(closingId);
                 }
 
+                resetShiftClosedCustomerCollectionsToPending(closingId);
                 db.prepare('DELETE FROM sales_shift_closings WHERE id = ?').run(closingId);
             });
 

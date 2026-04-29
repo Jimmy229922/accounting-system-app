@@ -86,7 +86,8 @@
                             <table class="items-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 18%;">${t('items.barcode', 'الباركود')}</th>
+                                        <th style="width: 4%; text-align: center;">#</th>
+                                        <th style="width: 14%;">${t('items.barcode', 'الباركود')}</th>
                                         <th style="width: 24%;">${t('sales.tableHeaders.item', 'الصنف')}</th>
                                         <th style="width: 10%;">${t('sales.tableHeaders.unit', 'الوحدة')}</th>
                                         <th style="width: 14%;">${t('sales.tableHeaders.qty', 'الكمية')}</th>
@@ -187,6 +188,10 @@
                                 <input type="number" id="shiftCloseTotal" class="form-control" min="0" step="0.01" value="0">
                             </div>
                             <div class="form-group">
+                                <label>إجمالي تحصيل العملاء</label>
+                                <input type="number" id="shiftCloseCollections" class="form-control" min="0" step="0.01" value="0" readonly>
+                            </div>
+                            <div class="form-group">
                                 <label>المبلغ الفعلي في الدرج (اختياري)</label>
                                 <input type="number" id="shiftCloseDrawer" class="form-control" min="0" step="0.01" placeholder="اختياري">
                             </div>
@@ -272,13 +277,17 @@
         }
 
         row.innerHTML = `
+        <td class="row-index"></td>
         <td>
             <input type="text" autocomplete="off" class="form-control barcode-input" data-fs-size="sm" value="${barcodeValue}" placeholder="${t('items.barcodePlaceholder', 'امسح الباركود...')}">
         </td>
-        <td>
-            <select class="form-control item-select" data-fs-size="sm" data-autocomplete-cache-key="sales-items">
-                ${itemsOptions}
-            </select>
+        <td style="position:relative;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <select class="form-control item-select" data-fs-size="sm" data-autocomplete-cache-key="sales-items">
+                    ${itemsOptions}
+                </select>
+                <span class="item-stock-badge empty"></span>
+            </div>
         </td>
         <td>
             <span class="unit-label">${unitName}</span>

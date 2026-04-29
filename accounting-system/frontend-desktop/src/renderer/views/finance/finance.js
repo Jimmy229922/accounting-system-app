@@ -6,6 +6,14 @@ let newTransactionBtn;
 let transactionsById = new Map();
 let ar = {};
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
+const CUSTOMER_COLLECTION_PENDING_RELATED_TYPE = 'customer_collection_pending';
+const CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE = 'customer_collection_shift_close';
+
+function isExcludedCustomerCollectionTransaction(transaction) {
+    const relatedType = String(transaction?.related_type || '').trim();
+    return relatedType === CUSTOMER_COLLECTION_PENDING_RELATED_TYPE
+        || relatedType === CUSTOMER_COLLECTION_SHIFT_CLOSE_RELATED_TYPE;
+}
 
 function buildTopNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
@@ -222,6 +230,9 @@ function initializeElements() {
 async function loadFinanceData() {
     const balance = await window.electronAPI.getTreasuryBalance();
     const transactions = await window.electronAPI.getTreasuryTransactions();
+    const financialTransactions = Array.isArray(transactions)
+        ? transactions.filter((tr) => !isExcludedCustomerCollectionTransaction(tr))
+        : [];
     
     treasuryBalanceEl.textContent = balance.toFixed(2);
     if (balance >= 0) {
@@ -237,7 +248,7 @@ async function loadFinanceData() {
     let todayExpense = 0;
     const today = new Date().toISOString().slice(0, 10);
 
-    transactions.forEach(tr => {
+    financialTransactions.forEach(tr => {
         if (tr.type === 'income') {
             totalIncome += tr.amount;
             if (tr.transaction_date === today) todayIncome += tr.amount;
@@ -249,11 +260,11 @@ async function loadFinanceData() {
 
     document.getElementById('totalIncome').textContent = totalIncome.toFixed(2);
     document.getElementById('totalExpense').textContent = totalExpense.toFixed(2);
-    document.getElementById('transCount').textContent = transactions.length;
+    document.getElementById('transCount').textContent = financialTransactions.length;
     document.getElementById('todayIncome').textContent = todayIncome.toFixed(2);
     document.getElementById('todayExpense').textContent = todayExpense.toFixed(2);
 
-    renderTransactions(transactions);
+    renderTransactions(financialTransactions);
 }
 
 function renderTransactions(transactions) {

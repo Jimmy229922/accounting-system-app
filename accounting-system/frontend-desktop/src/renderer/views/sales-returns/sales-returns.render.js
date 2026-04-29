@@ -63,8 +63,9 @@
                             <table class="items-table">
                                 <thead>
                                     <tr>
+                                        <th style="width: 4%; text-align: center;">#</th>
                                         <th style="width: 5%;">${t('salesReturns.returnItem', 'إرجاع')}</th>
-                                        <th style="width: 30%;">${t('salesReturns.item', 'الصنف')}</th>
+                                        <th style="width: 26%;">${t('salesReturns.item', 'الصنف')}</th>
                                         <th style="width: 10%;">${t('salesReturns.unit', 'الوحدة')}</th>
                                         <th style="width: 12%;">${t('salesReturns.soldQty', 'الكمية المباعة')}</th>
                                         <th style="width: 12%;">${t('salesReturns.returnedQty', 'مرتجع سابق')}</th>
@@ -126,8 +127,14 @@
 
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td class="row-index"></td>
             <td style="text-align: center; vertical-align: middle;"><input type="checkbox" class="return-checkbox" data-index="${index}" ${availableToReturn <= 0 ? 'disabled' : ''}></td>
-            <td class="item-name" style="text-align: center; vertical-align: middle;">${item.item_name || t('common.state.deletedItem', 'Deleted Item')}</td>
+            <td class="item-name" style="text-align: center; vertical-align: middle;">
+                <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
+                    ${item.item_name || t('common.state.deletedItem', 'Deleted Item')}
+                    <span class="item-stock-badge empty"></span>
+                </div>
+            </td>
             <td style="text-align: center; vertical-align: middle;"><div class="unit-label" style="margin: 0 auto;">${item.unit_name || '-'}</div></td>
             <td style="text-align: center; vertical-align: middle; font-weight: 600;">${quantity}</td>
             <td class="returned-qty" style="text-align: center; vertical-align: middle;">${returnedQty > 0 ? returnedQty : '-'}</td>

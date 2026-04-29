@@ -325,6 +325,7 @@ function initDB() {
             period_start_at TEXT,
             period_end_at TEXT NOT NULL,
             sales_paid_total REAL NOT NULL DEFAULT 0,
+            customer_collections_total REAL NOT NULL DEFAULT 0,
             drawer_amount REAL,
             difference_amount REAL,
             notes TEXT,
@@ -338,6 +339,7 @@ function initDB() {
     runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN period_start_at TEXT", 'sales_shift_closings', 'period_start_at');
     runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN period_end_at TEXT", 'sales_shift_closings', 'period_end_at');
     runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN sales_paid_total REAL NOT NULL DEFAULT 0", 'sales_shift_closings', 'sales_paid_total');
+    runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN customer_collections_total REAL NOT NULL DEFAULT 0", 'sales_shift_closings', 'customer_collections_total');
     runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN drawer_amount REAL", 'sales_shift_closings', 'drawer_amount');
     runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN difference_amount REAL", 'sales_shift_closings', 'difference_amount');
     runAddColumnMigration("ALTER TABLE sales_shift_closings ADD COLUMN notes TEXT", 'sales_shift_closings', 'notes');

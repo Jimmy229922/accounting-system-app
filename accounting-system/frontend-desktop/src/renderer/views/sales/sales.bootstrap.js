@@ -199,12 +199,13 @@ function updateShiftCloseDifferenceDisplay() {
     const diffEl = salesState.dom.shiftCloseDifferenceSpan;
     if (!diffEl) return;
 
-    const totalValue = parseShiftCloseMoney(salesState.dom.shiftCloseTotalInput?.value, { allowEmpty: false });
+    const salesOnlyValue = parseShiftCloseMoney(salesState.dom.shiftCloseTotalInput?.value, { allowEmpty: false });
+    const collectionsValue = parseShiftCloseMoney(salesState.dom.shiftCloseCollectionsInput?.value, { allowEmpty: false });
     const drawerValue = parseShiftCloseMoney(salesState.dom.shiftCloseDrawerInput?.value, { allowEmpty: true });
 
     diffEl.classList.remove('diff-positive', 'diff-negative');
 
-    if (!Number.isFinite(totalValue)) {
+    if (!Number.isFinite(salesOnlyValue) || !Number.isFinite(collectionsValue)) {
         diffEl.textContent = '0.00';
         return;
     }
@@ -214,7 +215,8 @@ function updateShiftCloseDifferenceDisplay() {
         return;
     }
 
-    const difference = roundMoney(drawerValue - totalValue);
+    const totalTransferred = roundMoney(salesOnlyValue + collectionsValue);
+    const difference = roundMoney(drawerValue - totalTransferred);
     diffEl.textContent = difference.toFixed(2);
 
     if (difference > 0) {
@@ -231,6 +233,13 @@ function applyShiftClosePreviewToUi(preview) {
 
     if (salesState.dom.shiftClosePeriodEndSpan) {
         salesState.dom.shiftClosePeriodEndSpan.textContent = formatShiftCloseDateTime(preview?.period_end_at);
+    }
+
+    if (salesState.dom.shiftCloseCollectionsInput) {
+        const collectionsTotal = Number(preview?.customer_collections_total);
+        salesState.dom.shiftCloseCollectionsInput.value = Number.isFinite(collectionsTotal)
+            ? formatMoneyForUi(collectionsTotal)
+            : '0.00';
     }
 }
 
@@ -387,9 +396,16 @@ function resetShiftCloseForm({ keepSearch = false } = {}) {
     }
 
     if (salesState.dom.shiftCloseTotalInput) {
-        const previewTotal = salesState.shiftClosePreview?.sales_paid_total;
+        const previewTotal = salesState.shiftClosePreview?.sales_only_total;
         salesState.dom.shiftCloseTotalInput.value = Number.isFinite(Number(previewTotal))
             ? formatMoneyForUi(previewTotal)
+            : '0.00';
+    }
+
+    if (salesState.dom.shiftCloseCollectionsInput) {
+        const previewCollections = salesState.shiftClosePreview?.customer_collections_total;
+        salesState.dom.shiftCloseCollectionsInput.value = Number.isFinite(Number(previewCollections))
+            ? formatMoneyForUi(previewCollections)
             : '0.00';
     }
 
@@ -409,7 +425,10 @@ async function refreshShiftClosePreview({ keepCurrentAmounts = false } = {}) {
     applyShiftClosePreviewToUi(result);
 
     if (!keepCurrentAmounts && !salesState.editingShiftClosingId && salesState.dom.shiftCloseTotalInput) {
-        salesState.dom.shiftCloseTotalInput.value = formatMoneyForUi(result.sales_paid_total);
+        const salesOnlyTotal = Number(result.sales_only_total);
+        salesState.dom.shiftCloseTotalInput.value = Number.isFinite(salesOnlyTotal)
+            ? formatMoneyForUi(salesOnlyTotal)
+            : formatMoneyForUi(result.sales_paid_total);
     }
 
     updateShiftCloseDifferenceDisplay();
@@ -456,8 +475,19 @@ function editShiftCloseFromAction(actionEl) {
         salesState.dom.shiftClosePeriodEndSpan.textContent = formatShiftCloseDateTime(row.period_end_at);
     }
 
+    const collectionsTotal = Number(row.customer_collections_total);
+    const normalizedCollectionsTotal = Number.isFinite(collectionsTotal) ? roundMoney(Math.max(collectionsTotal, 0)) : 0;
+    const rowTransferredTotal = Number(row.sales_paid_total);
+    const salesOnlyTotal = Number.isFinite(rowTransferredTotal)
+        ? roundMoney(Math.max(rowTransferredTotal - normalizedCollectionsTotal, 0))
+        : 0;
+
     if (salesState.dom.shiftCloseTotalInput) {
-        salesState.dom.shiftCloseTotalInput.value = formatMoneyForUi(row.sales_paid_total);
+        salesState.dom.shiftCloseTotalInput.value = formatMoneyForUi(salesOnlyTotal);
+    }
+
+    if (salesState.dom.shiftCloseCollectionsInput) {
+        salesState.dom.shiftCloseCollectionsInput.value = formatMoneyForUi(normalizedCollectionsTotal);
     }
 
     if (salesState.dom.shiftCloseDrawerInput) {
@@ -503,12 +533,19 @@ async function deleteShiftCloseFromAction(actionEl) {
 }
 
 async function submitShiftClose() {
-    const totalValue = parseShiftCloseMoney(salesState.dom.shiftCloseTotalInput?.value, { allowEmpty: false });
-    if (!Number.isFinite(totalValue) || totalValue < 0) {
+    const salesOnlyValue = parseShiftCloseMoney(salesState.dom.shiftCloseTotalInput?.value, { allowEmpty: false });
+    if (!Number.isFinite(salesOnlyValue) || salesOnlyValue < 0) {
         if (window.showToast) window.showToast('يرجى إدخال إجمالي صحيح (صفر أو أكثر)', 'error');
         return;
     }
 
+    const collectionsValue = parseShiftCloseMoney(salesState.dom.shiftCloseCollectionsInput?.value, { allowEmpty: false });
+    if (!Number.isFinite(collectionsValue) || collectionsValue < 0) {
+        if (window.showToast) window.showToast('قيمة إجمالي تحصيل العملاء غير صحيحة', 'error');
+        return;
+    }
+
+    const totalTransferred = roundMoney(salesOnlyValue + collectionsValue);
     const drawerValue = parseShiftCloseMoney(salesState.dom.shiftCloseDrawerInput?.value, { allowEmpty: true });
     if (Number.isNaN(drawerValue)) {
         if (window.showToast) window.showToast('قيمة الدرج الفعلية غير صحيحة', 'error');
@@ -533,7 +570,8 @@ async function submitShiftClose() {
         if (isEditMode) {
             result = await salesApi.updateShiftClosing({
                 id: editingShiftId,
-                sales_paid_total: totalValue,
+                sales_paid_total: totalTransferred,
+                customer_collections_total: collectionsValue,
                 drawer_amount: drawerValue,
                 notes,
                 created_by: createdBy,
@@ -1160,22 +1198,41 @@ function updateSelectedItemAvailability(row) {
     const enteredQtyRaw = qtyInput ? parseLocaleFloat(qtyInput.value) : 0;
     const enteredQty = Number.isFinite(enteredQtyRaw) && enteredQtyRaw > 0 ? enteredQtyRaw : 0;
 
+    const badge = row.querySelector('.item-stock-badge');
+
     if (enteredQty > 0) {
         const remainingQty = Math.max(availableQty - enteredQty, 0);
         const overQty = Math.max(enteredQty - availableQty, 0);
+        
+        if (badge) {
+            badge.className = overQty > 0 ? 'item-stock-badge warning' : 'item-stock-badge';
+            badge.textContent = overQty > 0 ? `متبقي: ${formatQty(remainingQty)} | زائد: ${formatQty(overQty)}` : `متبقي: ${formatQty(remainingQty)}`;
+        }
+
         if (overQty > 0) {
-            salesState.dom.selectedItemAvailability.classList.add('has-overage');
-            salesState.dom.selectedItemAvailability.innerHTML = `المتاح: ${formatQty(availableQty)} | المتبقي بعد الإدخال: ${formatQty(remainingQty)} | <span class="selected-item-overage">يوجد ${formatQty(overQty)} زيادة</span>`;
+            if (salesState.dom.selectedItemAvailability) {
+                salesState.dom.selectedItemAvailability.classList.add('has-overage');
+                salesState.dom.selectedItemAvailability.innerHTML = `المتاح: ${formatQty(availableQty)} | المتبقي بعد الإدخال: ${formatQty(remainingQty)} | <span class="selected-item-overage">يوجد ${formatQty(overQty)} زيادة</span>`;
+            }
             return;
         }
 
-        salesState.dom.selectedItemAvailability.classList.remove('has-overage');
-        salesState.dom.selectedItemAvailability.textContent = `المتاح: ${formatQty(availableQty)} | المتبقي بعد الإدخال: ${formatQty(remainingQty)}`;
+        if (salesState.dom.selectedItemAvailability) {
+            salesState.dom.selectedItemAvailability.classList.remove('has-overage');
+            salesState.dom.selectedItemAvailability.textContent = `المتاح: ${formatQty(availableQty)} | المتبقي بعد الإدخال: ${formatQty(remainingQty)}`;
+        }
         return;
     }
 
-    salesState.dom.selectedItemAvailability.classList.remove('has-overage');
-    salesState.dom.selectedItemAvailability.textContent = `المتاح: ${formatQty(availableQty)}`;
+    if (badge) {
+        badge.className = 'item-stock-badge';
+        badge.textContent = `الحالي: ${formatQty(availableQty)}`;
+    }
+
+    if (salesState.dom.selectedItemAvailability) {
+        salesState.dom.selectedItemAvailability.classList.remove('has-overage');
+        salesState.dom.selectedItemAvailability.textContent = `المتاح: ${formatQty(availableQty)}`;
+    }
 }
 
 function addInvoiceRow(existingItem = null) {

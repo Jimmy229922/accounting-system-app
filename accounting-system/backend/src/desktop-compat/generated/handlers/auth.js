@@ -66,6 +66,7 @@ function safeCompareHash(expectedHex, receivedHex) {
 // ── Hardcoded Super Admin (never deleted, never deactivated) ──
 const SUPER_ADMIN_USERNAME = 'Jimmy';
 const SUPER_ADMIN_PASSWORD = 'A7med1221';
+const SUPER_ADMIN_ID_SETTING_KEY = 'auth_super_admin_user_id';
 
 let activeAuthUser = null;
 
@@ -124,31 +125,81 @@ function getAuthUsersCount() {
     return Number(row?.count || 0);
 }
 
+function getStoredSuperAdminId() {
+    const row = db.prepare('SELECT value FROM settings WHERE key = ? LIMIT 1').get(SUPER_ADMIN_ID_SETTING_KEY);
+    const id = Number(row?.value || 0);
+    return Number.isFinite(id) && id > 0 ? id : 0;
+}
+
+function setStoredSuperAdminId(userId) {
+    const id = Number(userId);
+    if (!Number.isFinite(id) || id <= 0) {
+        return;
+    }
+    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(SUPER_ADMIN_ID_SETTING_KEY, String(id));
+}
+
 function ensureSuperAdmin() {
     ensureAuthUsersTable();
+
+    const storedSuperAdminId = getStoredSuperAdminId();
+    if (storedSuperAdminId > 0) {
+        const storedSuperAdmin = getAuthUserById(storedSuperAdminId);
+        if (storedSuperAdmin) {
+            if (!Number(storedSuperAdmin.is_admin) || !Number(storedSuperAdmin.is_active)) {
+                db.prepare('UPDATE auth_users SET is_admin = 1, is_active = 1 WHERE id = ?').run(storedSuperAdmin.id);
+            }
+            return;
+        }
+    }
+
     const existing = getAuthUserByUsername(SUPER_ADMIN_USERNAME);
     if (existing) {
         // Make sure super admin is always admin + active
         if (!Number(existing.is_admin) || !Number(existing.is_active)) {
             db.prepare('UPDATE auth_users SET is_admin = 1, is_active = 1 WHERE id = ?').run(existing.id);
         }
+        setStoredSuperAdminId(existing.id);
         return;
     }
+
+    const existingAdmin = db.prepare(`
+        SELECT id, is_active
+        FROM auth_users
+        WHERE is_admin = 1
+        ORDER BY id ASC
+        LIMIT 1
+    `).get();
+    if (existingAdmin) {
+        if (!Number(existingAdmin.is_active)) {
+            db.prepare('UPDATE auth_users SET is_active = 1 WHERE id = ?').run(existingAdmin.id);
+        }
+        setStoredSuperAdminId(existingAdmin.id);
+        return;
+    }
+
     const salt = crypto.randomBytes(16).toString('hex');
     const passwordHash = hashPassword(SUPER_ADMIN_PASSWORD, salt);
     const now = new Date().toISOString();
-    db.prepare(`
+    const info = db.prepare(`
         INSERT INTO auth_users (
             username, password_salt, password_hash,
             is_admin, is_active, created_at, last_login_at
         ) VALUES (?, ?, ?, 1, 1, ?, ?)
     `).run(SUPER_ADMIN_USERNAME, salt, passwordHash, now, now);
+    setStoredSuperAdminId(Number(info.lastInsertRowid));
 }
 
 function isSuperAdmin(userId) {
+    const storedSuperAdminId = getStoredSuperAdminId();
+    if (storedSuperAdminId > 0) {
+        return Number(storedSuperAdminId) === Number(userId);
+    }
+
     const user = getAuthUserById(userId);
     if (!user) return false;
-    return user.username.toLowerCase() === SUPER_ADMIN_USERNAME.toLowerCase();
+    const username = String(user.username || '').toLowerCase();
+    return username === SUPER_ADMIN_USERNAME.toLowerCase();
 }
 
 function migrateLegacyAuthRecordIfNeeded() {
@@ -210,6 +261,25 @@ function listAuthUsers() {
 
 function getPrimaryAuthUsername() {
     ensureAuthUsersTable();
+    const storedSuperAdminId = getStoredSuperAdminId();
+    if (storedSuperAdminId > 0) {
+        const superAdminById = db.prepare('SELECT username FROM auth_users WHERE id = ? LIMIT 1').get(storedSuperAdminId);
+        if (superAdminById?.username) {
+            return superAdminById.username;
+        }
+    }
+
+    const superAdmin = db.prepare(`
+        SELECT username
+        FROM auth_users
+        WHERE lower(username) = lower(?)
+        LIMIT 1
+    `).get(SUPER_ADMIN_USERNAME);
+
+    if (superAdmin?.username) {
+        return superAdmin.username;
+    }
+
     const preferred = db.prepare(`
         SELECT username
         FROM auth_users
@@ -608,14 +678,11 @@ function register() {
         }
 
         const userId = Number(payload.userId);
+        const username = normalizeUsername(payload.username);
         const newPassword = String(payload.newPassword || '');
 
         if (!userId) {
             return { success: false, error: 'معرف المستخدم غير صالح.' };
-        }
-
-        if (!newPassword || newPassword.length < 6) {
-            return { success: false, error: 'كلمة المرور يجب أن تكون 6 حروف أو أكثر.' };
         }
 
         const targetUser = getAuthUserById(userId);
@@ -623,16 +690,63 @@ function register() {
             return { success: false, error: 'المستخدم غير موجود.' };
         }
 
-        // Allow any admin (including super admin changing their own) to reset passwords, 
-        // effectively unlocking the ability for super admin to change `A7med1221`.
-        
-        const salt = crypto.randomBytes(16).toString('hex');
-        const passwordHash = hashPassword(newPassword, salt);
+        const usernameProvided = Object.prototype.hasOwnProperty.call(payload, 'username');
+        const currentUsername = normalizeUsername(targetUser.username);
+        const shouldUpdateUsername = usernameProvided
+            && username.toLowerCase() !== currentUsername.toLowerCase();
+        const shouldUpdatePassword = Boolean(newPassword);
+
+        if (usernameProvided) {
+            if (!username) {
+                return { success: false, error: 'يرجى إدخال اسم المستخدم.' };
+            }
+
+            if (username.length < 3 || username.length > 32) {
+                return { success: false, error: 'اسم المستخدم يجب أن يكون بين 3 و 32 حرف.' };
+            }
+
+            const existing = getAuthUserByUsername(username);
+            if (existing && Number(existing.id) !== Number(userId)) {
+                return { success: false, error: 'اسم المستخدم موجود بالفعل.' };
+            }
+        }
+
+        if (!shouldUpdateUsername && !shouldUpdatePassword) {
+            return { success: false, error: 'لا يوجد تعديل للحفظ.' };
+        }
+
+        if (shouldUpdatePassword && newPassword.length < 6) {
+            return { success: false, error: 'كلمة المرور يجب أن تكون 6 حروف أو أكثر.' };
+        }
+
+        const updates = [];
+        const params = [];
+
+        if (shouldUpdateUsername) {
+            updates.push('username = ?');
+            params.push(username);
+        }
+
+        if (shouldUpdatePassword) {
+            const salt = crypto.randomBytes(16).toString('hex');
+            const passwordHash = hashPassword(newPassword, salt);
+            updates.push('password_salt = ?', 'password_hash = ?');
+            params.push(salt, passwordHash);
+        }
 
         try {
-            db.prepare('UPDATE auth_users SET password_salt = ?, password_hash = ? WHERE id = ?')
-                .run(salt, passwordHash, userId);
-            return { success: true };
+            db.prepare(`UPDATE auth_users SET ${updates.join(', ')} WHERE id = ?`)
+                .run(...params, userId);
+            const updatedUser = getAuthUserById(userId);
+
+            if (Number(auth.session.id) === Number(userId)) {
+                setActiveAuthUser(updatedUser);
+            }
+
+            return {
+                success: true,
+                user: mapAuthUser(updatedUser)
+            };
         } catch (error) {
             return { success: false, error: error.message };
         }

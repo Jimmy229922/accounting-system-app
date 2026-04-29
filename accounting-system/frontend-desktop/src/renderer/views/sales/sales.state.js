@@ -30,6 +30,7 @@
                 shiftClosePeriodStartSpan: null,
                 shiftClosePeriodEndSpan: null,
                 shiftCloseTotalInput: null,
+                shiftCloseCollectionsInput: null,
                 shiftCloseDrawerInput: null,
                 shiftCloseDifferenceSpan: null,
                 shiftCloseNotesInput: null,
@@ -61,6 +62,7 @@
         state.dom.shiftClosePeriodStartSpan = document.getElementById('shiftClosePeriodStart');
         state.dom.shiftClosePeriodEndSpan = document.getElementById('shiftClosePeriodEnd');
         state.dom.shiftCloseTotalInput = document.getElementById('shiftCloseTotal');
+        state.dom.shiftCloseCollectionsInput = document.getElementById('shiftCloseCollections');
         state.dom.shiftCloseDrawerInput = document.getElementById('shiftCloseDrawer');
         state.dom.shiftCloseDifferenceSpan = document.getElementById('shiftCloseDifference');
         state.dom.shiftCloseNotesInput = document.getElementById('shiftCloseNotes');

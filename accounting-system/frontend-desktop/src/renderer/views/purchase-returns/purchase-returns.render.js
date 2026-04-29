@@ -67,8 +67,9 @@
                             <table class="items-table" style="width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: 8px; overflow: hidden;">
                                 <thead>
                                     <tr style="background: var(--bg-color); border-bottom: 2px solid var(--card-border);">
+                                        <th style="padding: 12px; text-align: center; width: 4%;">#</th>
                                         <th style="padding: 12px; text-align: center; width: 5%;">${t('purchaseReturns.returnItem', 'إرجاع')}</th>
-                                        <th style="padding: 12px; text-align: center; width: 30%;">${t('purchaseReturns.item', 'الصنف')}</th>
+                                        <th style="padding: 12px; text-align: center; width: 26%;">${t('purchaseReturns.item', 'الصنف')}</th>
                                         <th style="padding: 12px; text-align: center; width: 10%;">${t('purchaseReturns.unit', 'الوحدة')}</th>
                                         <th style="padding: 12px; text-align: center; width: 12%;">${t('purchaseReturns.boughtQty', 'الكمية المشتراة')}</th>
                                         <th style="padding: 12px; text-align: center; width: 12%;">${t('purchaseReturns.returnedQty', 'مرتجع سابق')}</th>
@@ -130,8 +131,14 @@
 
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td class="row-index"></td>
             <td style="text-align: center; vertical-align: middle;"><input type="checkbox" class="return-checkbox" data-index="${index}" ${availableToReturn <= 0 ? 'disabled' : ''}></td>
-            <td class="item-name" style="text-align: center; vertical-align: middle;">${item.item_name || t('common.state.deletedItem', 'عنصر محذوف')}</td>
+            <td class="item-name" style="text-align: center; vertical-align: middle;">
+                <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
+                    ${item.item_name || t('common.state.deletedItem', 'Deleted Item')}
+                    <span class="item-stock-badge empty"></span>
+                </div>
+            </td>
             <td style="text-align: center; vertical-align: middle;"><div class="unit-label" style="margin: 0 auto;">${item.unit_name || '-'}</div></td>
             <td style="text-align: center; vertical-align: middle; font-weight: 600;">${quantity}</td>
             <td class="returned-qty" style="text-align: center; vertical-align: middle;">${returnedQty > 0 ? returnedQty : '-'}</td>

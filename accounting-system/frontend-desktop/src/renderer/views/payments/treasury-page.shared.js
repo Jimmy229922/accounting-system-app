@@ -373,6 +373,10 @@
                         fmt(text('defaultDescriptionTemplate'), { number: voucherNumberForDescription })
                 };
 
+                if (config.deferCustomerCollectionsToShiftClose && config.transactionType === 'income') {
+                    data.defer_to_sales_shift_close = true;
+                }
+
                 if (!data.customer_id || !data.amount || data.amount <= 0) {
                     showToast(text('toastFillRequired'), 'error');
                     return;

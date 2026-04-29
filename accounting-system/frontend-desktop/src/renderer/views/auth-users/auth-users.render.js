@@ -132,22 +132,27 @@
             <div id="resetPasswordModal" class="rp-modal-overlay">
                 <div class="rp-modal">
                     <div class="rp-modal-header">
-                        <h3><i class="fas fa-key"></i> ${t('authUsers.changePassword', 'تغيير كلمة السر')}</h3>
+                        <h3><i class="fas fa-user-edit"></i> ${t('authUsers.permissions.edit', 'تعديل')}</h3>
                         <button type="button" class="rp-modal-close" id="rpModalClose">&times;</button>
                     </div>
                     <form id="resetPasswordForm" class="rp-modal-body">
                         <input type="hidden" id="rpUserId" value="">
+                        <input type="hidden" id="rpCurrentUsername" value="">
                         <div class="form-group">
-                            <label for="rpNewPassword">${t('authUsers.newPassword', 'كلمة المرور الجديدة')}</label>
-                            <input id="rpNewPassword" type="password" class="form-control" autocomplete="new-password" minlength="6" required>
+                            <label for="rpUsername">${t('authUsers.username', 'اسم المستخدم')}</label>
+                            <input id="rpUsername" type="text" class="form-control" autocomplete="username" required>
                         </div>
                         <div class="form-group">
-                            <label for="rpConfirmPassword">${t('authUsers.confirmNewPassword', 'تأكيد كلمة المرور الجديدة')}</label>
-                            <input id="rpConfirmPassword" type="password" class="form-control" autocomplete="new-password" minlength="6" required>
+                            <label for="rpNewPassword">${t('authUsers.newPassword', 'كلمة المرور الجديدة')} (اختياري)</label>
+                            <input id="rpNewPassword" type="password" class="form-control" autocomplete="new-password" minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label for="rpConfirmPassword">${t('authUsers.confirmNewPassword', 'تأكيد كلمة المرور الجديدة')} (اختياري)</label>
+                            <input id="rpConfirmPassword" type="password" class="form-control" autocomplete="new-password" minlength="6">
                         </div>
                         <div class="rp-modal-actions">
                             <button type="submit" class="btn-secondary users-submit-btn">
-                                <i class="fas fa-check"></i> ${t('authUsers.savePassword', 'حفظ كلمة المرور')}
+                                <i class="fas fa-check"></i> ${t('authUsers.permissions.edit', 'تعديل')}
                             </button>
                             <button type="button" class="btn-cancel" id="rpModalCancel">${t('common.cancel', 'إلغاء')}</button>
                         </div>

@@ -8,6 +8,8 @@ let allWarehouses = [];
 let damagedEntries = [];
 let currentUserIsAdmin = false;
 let showShortagesOnly = false;
+let damagedItemAutocomplete = null;
+let editDamagedItemAutocomplete = null;
 let ar = {};
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 function buildTopNavHTML() {
@@ -439,6 +441,28 @@ function populateDamagedItemOptions() {
         const selected = editDamagedItemSelect.value;
         editDamagedItemSelect.innerHTML = html;
         editDamagedItemSelect.value = selected && allItems.some(i => String(i.id) === String(selected)) ? selected : '';
+    }
+
+    ensureDamagedItemAutocomplete();
+}
+
+function ensureDamagedItemAutocomplete() {
+    if (damagedItemSelect) {
+        damagedItemSelect.classList.add('item-select', 'autocomplete-show-all-on-click');
+        if (damagedItemAutocomplete) {
+            damagedItemAutocomplete.refresh();
+        } else {
+            damagedItemAutocomplete = new Autocomplete(damagedItemSelect);
+        }
+    }
+
+    if (editDamagedItemSelect) {
+        editDamagedItemSelect.classList.add('item-select', 'autocomplete-show-all-on-click');
+        if (editDamagedItemAutocomplete) {
+            editDamagedItemAutocomplete.refresh();
+        } else {
+            editDamagedItemAutocomplete = new Autocomplete(editDamagedItemSelect);
+        }
     }
 }
 

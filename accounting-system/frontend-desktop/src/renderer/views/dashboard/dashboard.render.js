@@ -101,7 +101,7 @@
                     <p class="metric-label">${t('dashboard.purchasesMonth', 'مشتريات الشهر')}</p>
                     <div class="metric-trend" id="purchasesMonthTrend"></div>
                 </div>
-                <div class="metric-card">
+                  <div class="metric-card interactive-card" id="netProfitCard" style="cursor: pointer; position: relative" onclick="window.showNetProfitDetails()">
                     <div class="metric-header">
                         <div class="metric-icon"><i class="fas fa-coins"></i></div>
                     </div>

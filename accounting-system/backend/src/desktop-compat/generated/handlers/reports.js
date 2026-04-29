@@ -512,6 +512,191 @@ function register() {
         }
     });
 
+    // كشف حساب مجمع للعميل - يجمع كل الأصناف من كل الفواتير في جدول واحد
+    ipcMain.handle('get-customer-summary-statement', (event, { customerId, startDate, endDate }) => {
+        try {
+            const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
+            if (!customer) {
+                return { success: false, error: 'العميل غير موجود' };
+            }
+
+            const custId = Number(customerId);
+
+            // --- جلب أصناف المبيعات ---
+            let salesItemsQuery = `
+                SELECT i.name as item_name, u.name as unit_name,
+                       SUM(sid.quantity) as total_qty,
+                       ROUND(SUM(sid.total_price) * 1.0 / SUM(sid.quantity), 2) as avg_price,
+                       SUM(sid.total_price) as total_amount
+                FROM sales_invoice_details sid
+                JOIN sales_invoices si ON sid.invoice_id = si.id
+                JOIN items i ON sid.item_id = i.id
+                LEFT JOIN units u ON i.unit_id = u.id
+                WHERE si.customer_id = ?`;
+            const salesParams = [custId];
+            if (startDate) { salesItemsQuery += ' AND si.invoice_date >= ?'; salesParams.push(startDate); }
+            if (endDate) { salesItemsQuery += ' AND si.invoice_date <= ?'; salesParams.push(endDate); }
+            salesItemsQuery += ' GROUP BY i.id ORDER BY i.name ASC';
+
+            // --- جلب أصناف المشتريات ---
+            let purchaseItemsQuery = `
+                SELECT i.name as item_name, u.name as unit_name,
+                       SUM(pid.quantity) as total_qty,
+                       ROUND(SUM(pid.total_price) * 1.0 / SUM(pid.quantity), 2) as avg_price,
+                       SUM(pid.total_price) as total_amount
+                FROM purchase_invoice_details pid
+                JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+                JOIN items i ON pid.item_id = i.id
+                LEFT JOIN units u ON i.unit_id = u.id
+                WHERE pi.supplier_id = ?`;
+            const purchaseParams = [custId];
+            if (startDate) { purchaseItemsQuery += ' AND pi.invoice_date >= ?'; purchaseParams.push(startDate); }
+            if (endDate) { purchaseItemsQuery += ' AND pi.invoice_date <= ?'; purchaseParams.push(endDate); }
+            purchaseItemsQuery += ' GROUP BY i.id ORDER BY i.name ASC';
+
+            // --- جلب أصناف مردودات المبيعات ---
+            let salesReturnItemsQuery = `
+                SELECT i.name as item_name, u.name as unit_name,
+                       SUM(srd.quantity) as total_qty,
+                       ROUND(SUM(srd.total_price) * 1.0 / SUM(srd.quantity), 2) as avg_price,
+                       SUM(srd.total_price) as total_amount
+                FROM sales_return_details srd
+                JOIN sales_returns sr ON srd.return_id = sr.id
+                JOIN items i ON srd.item_id = i.id
+                LEFT JOIN units u ON i.unit_id = u.id
+                WHERE sr.customer_id = ?`;
+            const salesReturnParams = [custId];
+            if (startDate) { salesReturnItemsQuery += ' AND sr.return_date >= ?'; salesReturnParams.push(startDate); }
+            if (endDate) { salesReturnItemsQuery += ' AND sr.return_date <= ?'; salesReturnParams.push(endDate); }
+            salesReturnItemsQuery += ' GROUP BY i.id ORDER BY i.name ASC';
+
+            // --- جلب أصناف مردودات المشتريات ---
+            let purchaseReturnItemsQuery = `
+                SELECT i.name as item_name, u.name as unit_name,
+                       SUM(prd.quantity) as total_qty,
+                       ROUND(SUM(prd.total_price) * 1.0 / SUM(prd.quantity), 2) as avg_price,
+                       SUM(prd.total_price) as total_amount
+                FROM purchase_return_details prd
+                JOIN purchase_returns pr ON prd.return_id = pr.id
+                JOIN items i ON prd.item_id = i.id
+                LEFT JOIN units u ON i.unit_id = u.id
+                WHERE pr.supplier_id = ?`;
+            const purchaseReturnParams = [custId];
+            if (startDate) { purchaseReturnItemsQuery += ' AND pr.return_date >= ?'; purchaseReturnParams.push(startDate); }
+            if (endDate) { purchaseReturnItemsQuery += ' AND pr.return_date <= ?'; purchaseReturnParams.push(endDate); }
+            purchaseReturnItemsQuery += ' GROUP BY i.id ORDER BY i.name ASC';
+
+            const salesItems = db.prepare(salesItemsQuery).all(...salesParams);
+            const purchaseItems = db.prepare(purchaseItemsQuery).all(...purchaseParams);
+            const salesReturnItems = db.prepare(salesReturnItemsQuery).all(...salesReturnParams);
+            const purchaseReturnItems = db.prepare(purchaseReturnItemsQuery).all(...purchaseReturnParams);
+
+            // --- إجماليات التحصيلات والسداد ---
+            let paymentsQuery = `
+                SELECT type, SUM(amount) as total_amount
+                FROM treasury_transactions
+                WHERE (customer_id = ?
+                   OR (related_type = 'sales' AND related_invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id = ?))
+                   OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?)))
+                AND COALESCE(related_type, '') NOT IN ('sales_return', 'purchase_return')`;
+            const paymentParams = [custId, custId, custId];
+            if (startDate) { paymentsQuery += ' AND transaction_date >= ?'; paymentParams.push(startDate); }
+            if (endDate) { paymentsQuery += ' AND transaction_date <= ?'; paymentParams.push(endDate); }
+            paymentsQuery += ' GROUP BY type';
+
+            const paymentRows = db.prepare(paymentsQuery).all(...paymentParams);
+            let totalPaymentsIn = 0;
+            let totalPaymentsOut = 0;
+            for (const row of paymentRows) {
+                if (row.type === 'income') totalPaymentsIn = row.total_amount;
+                else totalPaymentsOut = row.total_amount;
+            }
+
+            // --- حساب الرصيد الافتتاحي ---
+            let openingBalance = customer.opening_balance || 0;
+            if (startDate) {
+                const obResult = db.prepare(`
+                    SELECT COALESCE(SUM(
+                        CASE
+                            WHEN sub_type = 'sales' THEN amount
+                            WHEN sub_type = 'purchase' THEN -amount
+                            WHEN sub_type = 'payment_in' THEN -amount
+                            WHEN sub_type = 'payment_out' THEN amount
+                            WHEN sub_type = 'sales_return' THEN -amount
+                            WHEN sub_type = 'purchase_return' THEN amount
+                            ELSE 0
+                        END
+                    ), 0) as net
+                    FROM (
+                        SELECT 'sales' as sub_type, total_amount as amount
+                        FROM sales_invoices WHERE customer_id = ? AND invoice_date < ?
+
+                        UNION ALL
+                        SELECT 'purchase' as sub_type, total_amount as amount
+                        FROM purchase_invoices WHERE supplier_id = ? AND invoice_date < ?
+
+                        UNION ALL
+                        SELECT CASE WHEN type = 'income' THEN 'payment_in' ELSE 'payment_out' END as sub_type,
+                               amount
+                        FROM treasury_transactions
+                        WHERE (customer_id = ?
+                           OR (related_type = 'sales' AND related_invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id = ?))
+                           OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?)))
+                        AND COALESCE(related_type, '') NOT IN ('sales_return', 'purchase_return')
+                        AND transaction_date < ?
+
+                        UNION ALL
+                        SELECT 'sales_return' as sub_type, total_amount as amount
+                        FROM sales_returns WHERE customer_id = ? AND return_date < ?
+
+                        UNION ALL
+                        SELECT 'purchase_return' as sub_type, total_amount as amount
+                        FROM purchase_returns WHERE supplier_id = ? AND return_date < ?
+                    ) sub
+                `).get(
+                    custId, startDate,
+                    custId, startDate,
+                    custId, custId, custId, startDate,
+                    custId, startDate,
+                    custId, startDate
+                );
+                openingBalance += obResult.net;
+            }
+
+            const totalSales = salesItems.reduce((s, i) => s + i.total_amount, 0);
+            const totalPurchases = purchaseItems.reduce((s, i) => s + i.total_amount, 0);
+            const totalSalesReturns = salesReturnItems.reduce((s, i) => s + i.total_amount, 0);
+            const totalPurchaseReturns = purchaseReturnItems.reduce((s, i) => s + i.total_amount, 0);
+
+            const totalDebit = totalSales + totalPaymentsOut + totalPurchaseReturns;
+            const totalCredit = totalPurchases + totalPaymentsIn + totalSalesReturns;
+            const closingBalance = openingBalance + totalDebit - totalCredit;
+
+            return {
+                success: true,
+                customer,
+                salesItems,
+                purchaseItems,
+                salesReturnItems,
+                purchaseReturnItems,
+                totals: {
+                    totalSales,
+                    totalPurchases,
+                    totalPaymentsIn,
+                    totalPaymentsOut,
+                    totalSalesReturns,
+                    totalPurchaseReturns,
+                    openingBalance,
+                    closingBalance
+                },
+                period: { startDate, endDate }
+            };
+        } catch (error) {
+            console.error('Error getting customer summary statement:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // --- PDF Export Handlers ---
 
     ipcMain.handle('save-debtor-creditor-pdf', async (event, payload) => {
@@ -661,7 +846,7 @@ function register() {
                 pageSize: 'A4',
                 landscape: false,
                 marginsType: 0,
-                preferCSSPageSize: true
+                preferCSSPageSize: false
             });
 
             const title = path.basename(filePath, path.extname(filePath));
