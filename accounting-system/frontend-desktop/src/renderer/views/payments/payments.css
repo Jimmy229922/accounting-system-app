@@ -321,24 +321,24 @@
 }
 
 .balance-amount.positive {
-    color: var(--danger-color);
+    color: var(--success-color);
 }
 
 .balance-amount.negative {
-    color: var(--success-color);
+    color: var(--danger-color);
 }
 
 .balance-amount.zero {
     color: var(--text-muted);
 }
 
-/* Supplier payment page: keep word-based colors (payable=green, receivable=red) */
+/* Supplier payment page: keep unified app colors */
 #paymentForm .balance-amount.positive {
-    color: var(--success-color);
+    color: var(--danger-color);
 }
 
 #paymentForm .balance-amount.negative {
-    color: var(--danger-color);
+    color: var(--success-color);
 }
 
 .balance-hint {
@@ -564,11 +564,11 @@
 }
 
 .preview-value.positive {
-    color: var(--danger-color);
+    color: var(--success-color);
 }
 
 .preview-value.negative {
-    color: var(--success-color);
+    color: var(--danger-color);
 }
 
 .preview-value.zero {
@@ -576,11 +576,11 @@
 }
 
 #paymentForm .preview-value.positive {
-    color: var(--success-color);
+    color: var(--danger-color);
 }
 
 #paymentForm .preview-value.negative {
-    color: var(--danger-color);
+    color: var(--success-color);
 }
 
 .preview-divider {

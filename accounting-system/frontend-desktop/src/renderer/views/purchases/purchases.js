@@ -608,10 +608,10 @@ async function displaySupplierBalance() {
     balanceDiv.className = 'customer-balance';
     if (balance > 0) {
         balanceDiv.classList.add('balance-positive');
-        balanceDiv.textContent = fmt(t('purchases.balanceCurrentOwedToSupplier', 'الرصيد الحالي: علينا (دائن) {amount} جنيه'), { amount: balance.toLocaleString() });
+        balanceDiv.textContent = fmt(t('purchases.balanceCurrentDueFromSupplier', 'الرصيد الحالي: لينا (مدين) {amount} جنيه'), { amount: balance.toLocaleString() });
     } else if (balance < 0) {
         balanceDiv.classList.add('balance-negative');
-        balanceDiv.textContent = fmt(t('purchases.balanceCurrentDueFromSupplier', 'الرصيد الحالي: لينا (مدين) {amount} جنيه'), { amount: Math.abs(balance).toLocaleString() });
+        balanceDiv.textContent = fmt(t('purchases.balanceCurrentOwedToSupplier', 'الرصيد الحالي: علينا (دائن) {amount} جنيه'), { amount: Math.abs(balance).toLocaleString() });
     } else {
         balanceDiv.classList.add('balance-zero');
         balanceDiv.textContent = t('purchases.balanceCurrentSettled', 'الرصيد الحالي: متزن');

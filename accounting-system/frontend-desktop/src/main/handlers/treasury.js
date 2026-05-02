@@ -121,7 +121,7 @@ function register() {
                 stmt.run({ type, amount, date, description, customer_id, voucher_number, related_type });
                 
                 if (customer_id) {
-                    updateBalance.run({ amount: -amount, id: customer_id });
+                    updateBalance.run({ amount: type === 'expense' ? amount : -amount, id: customer_id });
                 }
             });
 
@@ -195,7 +195,7 @@ function register() {
             if (trans.customer_id) {
                 // When payment was added, we subtracted amount from balance.
                 // Now we add it back.
-                updateCustomer.run({ amount: trans.amount, id: trans.customer_id });
+                updateCustomer.run({ amount: trans.type === 'expense' ? -trans.amount : trans.amount, id: trans.customer_id });
             }
 
             if (trans.related_invoice_id) {
@@ -205,7 +205,7 @@ function register() {
                     
                     const invoice = getSalesInvoice.get(trans.related_invoice_id);
                     if (invoice && invoice.customer_id) {
-                        updateCustomer.run({ amount: trans.amount, id: invoice.customer_id });
+                        updateCustomer.run({ amount: trans.type === 'expense' ? -trans.amount : trans.amount, id: invoice.customer_id });
                     }
                 } else if (trans.related_type === 'purchase') {
                     // Revert Purchase Payment
@@ -213,7 +213,7 @@ function register() {
                     
                     const invoice = getPurchaseInvoice.get(trans.related_invoice_id);
                     if (invoice && invoice.supplier_id) {
-                        updateCustomer.run({ amount: trans.amount, id: invoice.supplier_id });
+                        updateCustomer.run({ amount: trans.type === 'expense' ? -trans.amount : trans.amount, id: invoice.supplier_id });
                     }
                 }
             }

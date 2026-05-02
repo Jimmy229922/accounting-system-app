@@ -186,13 +186,8 @@ function filterAndRender() {
         const balance = customer.closingBalance || 0;
         let status = 'balanced';
         
-        if (customer.type === 'customer' || customer.type === 'both') {
-            if (balance > 0) status = 'debtor'; // They owe us
-            else if (balance < 0) status = 'creditor'; // We owe them
-        } else { // supplier
-            if (balance > 0) status = 'creditor'; // We owe them
-            else if (balance < 0) status = 'debtor'; // They owe us
-        }
+        if (balance > 0) status = 'debtor'; // They owe us
+        else if (balance < 0) status = 'creditor'; // We owe them
 
         if (balanceStatusFilter !== 'all' && status !== balanceStatusFilter) return false;
 
@@ -221,22 +216,12 @@ function renderTable() {
         let statusClass = 'dc-badge-balanced';
         let displayBalance = Math.abs(balance).toFixed(2);
 
-        if (customer.type === 'customer' || customer.type === 'both') {
-            if (balance > 0) {
-                statusText = t('debtorCreditor.debtorLabel', 'لينا (مدين)');
-                statusClass = 'dc-badge-debtor';
-            } else if (balance < 0) {
-                statusText = t('debtorCreditor.creditorLabel', 'علينا (دائن)');
-                statusClass = 'dc-badge-creditor';
-            }
-        } else {
-            if (balance > 0) {
-                statusText = t('debtorCreditor.creditorLabel', 'علينا (دائن)');
-                statusClass = 'dc-badge-creditor';
-            } else if (balance < 0) {
-                statusText = t('debtorCreditor.debtorLabel', 'لينا (مدين)');
-                statusClass = 'dc-badge-debtor';
-            }
+        if (balance > 0) {
+            statusText = t('debtorCreditor.debtorLabel', 'لينا (مدين)');
+            statusClass = 'dc-badge-debtor';
+        } else if (balance < 0) {
+            statusText = t('debtorCreditor.creditorLabel', 'علينا (دائن)');
+            statusClass = 'dc-badge-creditor';
         }
 
         let typeText = t('debtorCreditor.customerType', 'عميل');
@@ -263,13 +248,8 @@ function updateSummary() {
 
     filteredCustomers.forEach(customer => {
         const balance = customer.closingBalance || 0;
-        if (customer.type === 'customer' || customer.type === 'both') {
-            if (balance > 0) totalDebtor += balance;
-            else if (balance < 0) totalCreditor += Math.abs(balance);
-        } else {
-            if (balance > 0) totalCreditor += balance;
-            else if (balance < 0) totalDebtor += Math.abs(balance);
-        }
+        if (balance > 0) totalDebtor += balance;
+        else if (balance < 0) totalCreditor += Math.abs(balance);
     });
 
     document.getElementById('totalDebtor').textContent = totalDebtor.toFixed(2);

@@ -132,15 +132,15 @@
 }
 
 .supplier-balance.balance-positive {
-    color: var(--danger-color);
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.35);
-}
-
-.supplier-balance.balance-negative {
     color: var(--success-color);
     background: rgba(16, 185, 129, 0.12);
     border-color: rgba(16, 185, 129, 0.35);
+}
+
+.supplier-balance.balance-negative {
+    color: var(--danger-color);
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
 }
 
 .supplier-balance.balance-zero {

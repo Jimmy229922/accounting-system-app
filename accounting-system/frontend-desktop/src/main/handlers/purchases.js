@@ -99,8 +99,8 @@ function register() {
         `);
 
         const updateSupplierBalance = db.prepare(`
-            UPDATE customers 
-            SET balance = balance + @amount 
+            UPDATE customers
+            SET balance = balance - @amount
             WHERE id = @id
         `);
 
