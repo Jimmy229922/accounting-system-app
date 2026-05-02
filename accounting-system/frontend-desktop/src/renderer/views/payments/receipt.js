@@ -17,7 +17,7 @@ window.initializeTreasuryVoucherPage({
     },
     entity: {
         filterTypes: ['customer', 'both'],
-        useStatementBalance: true,
+        useStatementBalance: false,
         icon: 'fa-user',
         placeholderIcon: 'fa-user-circle',
         fieldShellClass: 'customer-field-shell',
@@ -96,17 +96,17 @@ window.initializeTreasuryVoucherPage({
         recentTransactionsTitle: { key: 'recentTransactionsTitle', fallback: 'آخر عمليات التحصيل' },
         noRecentTransactions: { key: 'noRecentTransactions', fallback: 'لا توجد عمليات تحصيل حديثة' },
         todayStatLabel: { key: 'stats.todayReceipts', fallback: 'تحصيلات اليوم' },
-        countStatLabel: { key: 'stats.debtorsCount', fallback: 'عملاء لنا رصيد' },
+        countStatLabel: { key: 'stats.debtorsCount', fallback: 'عملاء لينا (مدين) رصيد' },
         totalStatLabel: { key: 'stats.totalDebts', fallback: 'إجمالي الأرصدة المستحقة' },
         owedSuffix: { key: 'owedSuffix', fallback: '(لنا - مدين: {amount})' },
         toastLoadError: { key: 'toast.loadError', fallback: 'حدث خطأ في تحميل البيانات' },
-        balanceHintDebit: { key: 'balanceHintDebit', fallback: 'لنا رصيد مستحق التحصيل' },
-        balanceHintCredit: { key: 'balanceHintCredit', fallback: 'علينا رصيد مستحق السداد' },
+        balanceHintDebit: { key: 'balanceHintDebit', fallback: 'لينا (مدين) رصيد مستحق التحصيل' },
+        balanceHintCredit: { key: 'balanceHintCredit', fallback: 'علينا (دائن) رصيد مستحق السداد' },
         balanceHintZero: { key: 'balanceHintZero', fallback: 'لا يوجد رصيد' },
         entityType: { key: 'entityType', fallback: 'عميل' },
         accountStatement: { key: 'accountStatement', fallback: 'كشف حساب' },
         newInvoiceAction: { key: 'newInvoice', fallback: 'فاتورة جديدة' },
-        balanceOwed: { key: 'balanceOwed', fallback: 'لنا (مدين)' },
+        balanceOwed: { key: 'balanceOwed', fallback: 'لينا (مدين)' },
         balanceCredit: { key: 'balanceCredit', fallback: 'علينا (دائن)' },
         balanceBalanced: { key: 'balanceBalanced', fallback: 'متزن' },
         unknownEntity: { key: 'unknownCustomer', fallback: 'عميل غير معروف' },
@@ -114,7 +114,7 @@ window.initializeTreasuryVoucherPage({
         fullBalanceDescription: { key: 'fullBalanceDescription', fallback: 'سداد كامل الرصيد' },
         toastSelectEntityWithBalance: {
             key: 'toast.selectCustomerWithBalance',
-            fallback: 'اختر عميل لنا رصيد مستحق التحصيل'
+            fallback: 'اختر عميل لينا (مدين) رصيد مستحق التحصيل'
         },
         toastSaving: { key: 'toast.saving', fallback: 'جاري الحفظ...' },
         defaultDescriptionTemplate: {
@@ -138,6 +138,6 @@ window.initializeTreasuryVoucherPage({
         }
     },
     quickNote1(tx) {
-        return tx('quickNote1', 'الرصيد الموجب يعني: <strong>لنا (مدين)</strong> رصيد مستحق التحصيل.');
+        return tx('quickNote1', 'الرصيد الموجب يعني: <strong>لينا (مدين)</strong> رصيد مستحق التحصيل.');
     }
 });
