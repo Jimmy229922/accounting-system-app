@@ -127,7 +127,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteDamagedStockEntry: (id) => invokeChannel('delete-damaged-stock-entry', id),
 
     // Dashboard API
-    getDashboardStats: () => invokeChannel('get-dashboard-stats'),
+    getDashboardStats: (filters = {}) => invokeChannel('get-dashboard-stats', filters),
 
     // Helper API
     getNextInvoiceNumber: (type) => invokeChannel('get-next-invoice-number', type),

@@ -1,8 +1,14 @@
 ﻿let refreshBtn;
 let lastUpdatedEl;
+let startDateInput;
+let endDateInput;
+let applyFilterBtn;
+let clearFilterBtn;
+let periodLabelEl;
 let lastStats = null;
 let chartPeriod = '7';
 let ar = {};
+let currentFilters = { startDate: '', endDate: '' };
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 const dashboardRender = window.dashboardPageRender;
 
@@ -46,13 +52,70 @@ function formatNum(n) {
     return Math.round(n).toString();
 }
 
+function formatDateForUi(value) {
+    if (!value) return '';
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('ar-EG');
+}
+
+function getPeriodText(filters = currentFilters) {
+    const startDate = filters.startDate || '';
+    const endDate = filters.endDate || '';
+    if (!startDate && !endDate) return t('dashboard.allPeriods', 'كل الفترات');
+    const startText = startDate ? formatDateForUi(startDate) : '';
+    const endText = endDate ? formatDateForUi(endDate) : '';
+    if (startDate && endDate) return `من ${startText} إلى ${endText}`;
+    if (startDate) return `من ${startText}`;
+    return `حتى ${endText}`;
+}
+
+function updatePeriodLabel(filters = currentFilters) {
+    if (!periodLabelEl) return;
+    periodLabelEl.textContent = getPeriodText(filters);
+}
+
+function getFilterValues() {
+    return {
+        startDate: startDateInput && startDateInput.value ? startDateInput.value : '',
+        endDate: endDateInput && endDateInput.value ? endDateInput.value : ''
+    };
+}
+
+function applyDashboardFilters() {
+    currentFilters = getFilterValues();
+    loadDashboardStats(currentFilters);
+}
+
+function clearDashboardFilters() {
+    if (startDateInput) startDateInput.value = '';
+    if (endDateInput) endDateInput.value = '';
+    currentFilters = { startDate: '', endDate: '' };
+    loadDashboardStats(currentFilters);
+}
+
 function bindEvents() {
     refreshBtn = document.getElementById('refreshBtn');
     lastUpdatedEl = document.getElementById('lastUpdated');
+    startDateInput = document.getElementById('dashboardFromDate');
+    endDateInput = document.getElementById('dashboardToDate');
+    applyFilterBtn = document.getElementById('dashboardApplyBtn');
+    clearFilterBtn = document.getElementById('dashboardClearBtn');
+    periodLabelEl = document.getElementById('dashboardPeriod');
 
     if (refreshBtn) {
-        refreshBtn.addEventListener('click', loadDashboardStats);
+        refreshBtn.addEventListener('click', () => loadDashboardStats(currentFilters));
     }
+
+    if (applyFilterBtn) {
+        applyFilterBtn.addEventListener('click', applyDashboardFilters);
+    }
+
+    if (clearFilterBtn) {
+        clearFilterBtn.addEventListener('click', clearDashboardFilters);
+    }
+
+    updatePeriodLabel();
 
     startRealTimeClock();
 
@@ -202,7 +265,7 @@ function drawRoundRect(ctx, x, y, w, h, r) {
     ctx.fill();
 }
 
-async function loadDashboardStats() {
+async function loadDashboardStats(filters = currentFilters) {
     let icon;
     try {
         if (refreshBtn) {
@@ -211,7 +274,8 @@ async function loadDashboardStats() {
             if (icon) icon.classList.add('refresh-spin');
         }
 
-        const stats = await window.electronAPI.getDashboardStats();
+        updatePeriodLabel(filters);
+        const stats = await window.electronAPI.getDashboardStats(filters);
         lastStats = stats;
 
         const ts = stats.todaySummary || {};
@@ -268,6 +332,7 @@ window.showNetProfitDetails = function() {
     if (modal) modal.remove();
 
     const p = lastStats.profitDetails;
+    const periodText = getPeriodText();
     const m = (val) => Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج.م';
 
     modal = document.createElement('div');
@@ -282,9 +347,12 @@ window.showNetProfitDetails = function() {
                 <button onclick="document.getElementById('profitDetailsModal').remove()" style="background: none; border: none; color: var(--text-muted, #94a3b8); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
             </div>
             <div class="confirm-dialog-message" style="padding: 20px; font-size: 0.95rem; line-height: 1.8; color: var(--text-color, #fff);">
+                <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color, rgba(255,255,255,0.08)); border-radius: 8px; padding: 10px 12px; margin-bottom: 15px; font-size: 0.9rem;">
+                    <i class="fas fa-calendar-alt" style="margin-inline-end: 6px; color: #38bdf8;"></i> ${t('dashboard.periodLabel', 'الفترة')}: ${periodText}
+                </div>
                 
                 <div style="background: var(--secondary-bg, rgba(15,23,42,0.6)); border: 1px solid var(--border-color, rgba(255,255,255,0.05)); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #10b981; font-size: 1rem;"><i class="fas fa-shopping-cart" style="margin-inline-end:5px;"></i> أولاً: المبيعات الفعّالة (الشهر الحالي)</h4>
+                    <h4 style="margin: 0 0 10px 0; color: #10b981; font-size: 1rem;"><i class="fas fa-shopping-cart" style="margin-inline-end:5px;"></i> أولاً: المبيعات الفعّالة (الفترة المحددة)</h4>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span style="color: var(--text-muted, #cbd5e1)">إجمالي الفواتير:</span>
                         <strong style="color: var(--text-color, #fff)">${m(p.salesTotalMonth)}</strong>

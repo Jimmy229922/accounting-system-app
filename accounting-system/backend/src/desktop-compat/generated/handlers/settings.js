@@ -39,13 +39,41 @@ function register() {
     });
 
     // --- Dashboard Handlers ---
-    ipcMain.handle('get-dashboard-stats', () => {
+    ipcMain.handle('get-dashboard-stats', (event, filters = {}) => {
         try {
             const now = new Date();
             const today = now.toISOString().slice(0, 10);
             const thisMonth = today.slice(0, 7);
             const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             const prevMonthStr = prevMonthDate.toISOString().slice(0, 7);
+            const startDate = filters && filters.startDate ? String(filters.startDate) : '';
+            const endDate = filters && filters.endDate ? String(filters.endDate) : '';
+
+            function formatDateOnly(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function buildRangeClause(column, start, end) {
+                let clause = '';
+                const params = [];
+                if (start) {
+                    clause += ` AND ${column} >= ?`;
+                    params.push(start);
+                }
+                if (end) {
+                    clause += ` AND ${column} <= ?`;
+                    params.push(end);
+                }
+                return { clause, params };
+            }
+
+            const invoiceRange = buildRangeClause('invoice_date', startDate, endDate);
+            const returnRange = buildRangeClause('return_date', startDate, endDate);
+            const salesInvoiceRange = buildRangeClause('si.invoice_date', startDate, endDate);
+            const salesReturnRange = buildRangeClause('sr.return_date', startDate, endDate);
 
             // --- Basic counts ---
             const customersCount = db.prepare("SELECT COUNT(*) as count FROM customers WHERE type IN ('customer', 'both')").get().count;
@@ -58,16 +86,28 @@ function register() {
             const salesReturnsTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE return_date = ?").get(today).total;
             const salesToday = Math.max(0, salesTotalToday - salesReturnsTotalToday);
 
-            const salesTotalMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date LIKE ?").get(thisMonth + '%').total;
-            const salesReturnsTotalMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE return_date LIKE ?").get(thisMonth + '%').total;
+            const salesTotalMonth = db.prepare(`
+                SELECT COALESCE(SUM(total_amount), 0) as total
+                FROM sales_invoices WHERE 1=1${invoiceRange.clause}
+            `).get(...invoiceRange.params).total;
+            const salesReturnsTotalMonth = db.prepare(`
+                SELECT COALESCE(SUM(total_amount), 0) as total
+                FROM sales_returns WHERE 1=1${returnRange.clause}
+            `).get(...returnRange.params).total;
             const salesMonth = Math.max(0, salesTotalMonth - salesReturnsTotalMonth);
 
             const purchasesTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date = ?").get(today).total;
             const purchaseReturnsTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_returns WHERE return_date = ?").get(today).total;
             const purchasesToday = Math.max(0, purchasesTotalToday - purchaseReturnsTotalToday);
 
-            const purchasesTotalMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date LIKE ?").get(thisMonth + '%').total;
-            const purchaseReturnsTotalMonth = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_returns WHERE return_date LIKE ?").get(thisMonth + '%').total;
+            const purchasesTotalMonth = db.prepare(`
+                SELECT COALESCE(SUM(total_amount), 0) as total
+                FROM purchase_invoices WHERE 1=1${invoiceRange.clause}
+            `).get(...invoiceRange.params).total;
+            const purchaseReturnsTotalMonth = db.prepare(`
+                SELECT COALESCE(SUM(total_amount), 0) as total
+                FROM purchase_returns WHERE 1=1${returnRange.clause}
+            `).get(...returnRange.params).total;
             const purchasesMonth = Math.max(0, purchasesTotalMonth - purchaseReturnsTotalMonth);
 
             // --- Net profit (sales revenue - COGS this month) ---
@@ -76,15 +116,15 @@ function register() {
                 FROM sales_invoice_details sid
                 JOIN sales_invoices si ON sid.invoice_id = si.id
                 JOIN items i ON sid.item_id = i.id
-                WHERE si.invoice_date LIKE ?
-            `).get(thisMonth + '%').total;
+                WHERE 1=1${salesInvoiceRange.clause}
+            `).get(...salesInvoiceRange.params).total;
             const cogsMonthReturns = db.prepare(`
                 SELECT COALESCE(SUM(srd.quantity * i.cost_price), 0) as total
                 FROM sales_return_details srd
                 JOIN sales_returns sr ON srd.return_id = sr.id
                 JOIN items i ON srd.item_id = i.id
-                WHERE sr.return_date LIKE ?
-            `).get(thisMonth + '%').total;
+                WHERE 1=1${salesReturnRange.clause}
+            `).get(...salesReturnRange.params).total;
             const cogsMonth = Math.max(0, cogsMonthSales - cogsMonthReturns);
             const netProfit = salesMonth - cogsMonth;
 
@@ -174,14 +214,44 @@ function register() {
                 GROUP BY sid.item_id ORDER BY total_qty DESC LIMIT 5
             `).all();
 
-            // --- Trends (current vs previous month) ---
-            const prevSalesTotal = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date LIKE ?").get(prevMonthStr + '%').total;
-            const prevSalesReturns = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE return_date LIKE ?").get(prevMonthStr + '%').total;
-            const prevSalesMonth = Math.max(0, prevSalesTotal - prevSalesReturns);
+            // --- Trends (current vs previous period) ---
+            let prevSalesMonth = salesMonth;
+            let prevPurchasesMonth = purchasesMonth;
 
-            const prevPurchasesTotal = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date LIKE ?").get(prevMonthStr + '%').total;
-            const prevPurchasesReturns = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_returns WHERE return_date LIKE ?").get(prevMonthStr + '%').total;
-            const prevPurchasesMonth = Math.max(0, prevPurchasesTotal - prevPurchasesReturns);
+            if (startDate && endDate) {
+                const rangeStart = new Date(`${startDate}T00:00:00`);
+                const rangeEnd = new Date(`${endDate}T00:00:00`);
+
+                if (!Number.isNaN(rangeStart.getTime()) && !Number.isNaN(rangeEnd.getTime()) && rangeEnd >= rangeStart) {
+                    const rangeDays = Math.floor((rangeEnd - rangeStart) / 86400000) + 1;
+                    const prevEnd = new Date(rangeStart.getTime() - 86400000);
+                    const prevStart = new Date(prevEnd.getTime() - (rangeDays - 1) * 86400000);
+                    const prevStartStr = formatDateOnly(prevStart);
+                    const prevEndStr = formatDateOnly(prevEnd);
+                    const prevInvoiceRange = buildRangeClause('invoice_date', prevStartStr, prevEndStr);
+                    const prevReturnRange = buildRangeClause('return_date', prevStartStr, prevEndStr);
+
+                    const prevSalesTotal = db.prepare(`
+                        SELECT COALESCE(SUM(total_amount), 0) as total
+                        FROM sales_invoices WHERE 1=1${prevInvoiceRange.clause}
+                    `).get(...prevInvoiceRange.params).total;
+                    const prevSalesReturns = db.prepare(`
+                        SELECT COALESCE(SUM(total_amount), 0) as total
+                        FROM sales_returns WHERE 1=1${prevReturnRange.clause}
+                    `).get(...prevReturnRange.params).total;
+                    prevSalesMonth = Math.max(0, prevSalesTotal - prevSalesReturns);
+
+                    const prevPurchasesTotal = db.prepare(`
+                        SELECT COALESCE(SUM(total_amount), 0) as total
+                        FROM purchase_invoices WHERE 1=1${prevInvoiceRange.clause}
+                    `).get(...prevInvoiceRange.params).total;
+                    const prevPurchasesReturns = db.prepare(`
+                        SELECT COALESCE(SUM(total_amount), 0) as total
+                        FROM purchase_returns WHERE 1=1${prevReturnRange.clause}
+                    `).get(...prevReturnRange.params).total;
+                    prevPurchasesMonth = Math.max(0, prevPurchasesTotal - prevPurchasesReturns);
+                }
+            }
 
             function calcTrend(current, previous) {
                 if (previous === 0) return current > 0 ? 100 : 0;

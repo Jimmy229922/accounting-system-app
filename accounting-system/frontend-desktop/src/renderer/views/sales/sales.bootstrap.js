@@ -1038,10 +1038,10 @@ async function displayCustomerBalance() {
     balanceDiv.className = 'customer-balance';
     if (balance > 0) {
         balanceDiv.classList.add('balance-positive');
-        balanceDiv.textContent = fmt(t('sales.balanceCurrentOwes', 'الرصيد الحالي: عليه {amount} جنيه'), { amount: balance.toLocaleString() });
+        balanceDiv.textContent = fmt(t('sales.balanceCurrentOwes', 'الرصيد الحالي: لينا (مدين) {amount} جنيه'), { amount: balance.toLocaleString() });
     } else if (balance < 0) {
         balanceDiv.classList.add('balance-negative');
-        balanceDiv.textContent = fmt(t('sales.balanceCurrentOwed', 'الرصيد الحالي: له {amount} جنيه'), { amount: Math.abs(balance).toLocaleString() });
+        balanceDiv.textContent = fmt(t('sales.balanceCurrentOwed', 'الرصيد الحالي: علينا (دائن) {amount} جنيه'), { amount: Math.abs(balance).toLocaleString() });
     } else {
         balanceDiv.classList.add('balance-zero');
         balanceDiv.textContent = t('sales.balanceCurrentSettled', 'الرصيد الحالي: متزن');
@@ -1589,10 +1589,10 @@ function calculateInvoiceTotal() {
 
     if (salesState.dom.invoiceRemainingSpan) {
         if (financials.customerRemaining > 0) {
-            salesState.dom.invoiceRemainingSpan.textContent = fmt(t('sales.customerDuePositive', 'عليه {amount}'), { amount: financials.customerRemaining.toFixed(2) });
+            salesState.dom.invoiceRemainingSpan.textContent = fmt(t('sales.customerDuePositive', 'لينا (مدين) {amount}'), { amount: financials.customerRemaining.toFixed(2) });
             salesState.dom.invoiceRemainingSpan.className = 'customer-due-value due-positive';
         } else if (financials.customerRemaining < 0) {
-            salesState.dom.invoiceRemainingSpan.textContent = fmt(t('sales.customerDueNegative', 'له {amount}'), { amount: Math.abs(financials.customerRemaining).toFixed(2) });
+            salesState.dom.invoiceRemainingSpan.textContent = fmt(t('sales.customerDueNegative', 'علينا (دائن) {amount}'), { amount: Math.abs(financials.customerRemaining).toFixed(2) });
             salesState.dom.invoiceRemainingSpan.className = 'customer-due-value due-negative';
         } else {
             salesState.dom.invoiceRemainingSpan.textContent = '0.00';

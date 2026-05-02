@@ -234,8 +234,8 @@ async function loadCustomerReport(customerId) {
         obRow.className = 'opening-row';
         const obClass = totals.openingBalance > 0 ? 'positive' : 'negative';
         const obLabel = totals.openingBalance > 0
-            ? t('customerReports.balanceForUs', '(لنا)')
-            : t('customerReports.balanceAgainstUs', '(علينا)');
+            ? t('customerReports.balanceForUs', 'لينا (مدين)')
+            : t('customerReports.balanceAgainstUs', 'علينا (دائن)');
 
         obRow.innerHTML = `
             <td colspan="5" class="ob-label">
@@ -289,7 +289,7 @@ async function loadCustomerReport(customerId) {
 
             const rb = item.running_balance;
             const rbClass = rb > 0 ? 'positive' : rb < 0 ? 'negative' : '';
-            const rbLabel = rb > 0 ? t('customerReports.balanceForUs', '(لنا)') : rb < 0 ? t('customerReports.balanceAgainstUs', '(علينا)') : '';
+            const rbLabel = rb > 0 ? t('customerReports.balanceForUs', 'لينا (مدين)') : rb < 0 ? t('customerReports.balanceAgainstUs', 'علينا (دائن)') : '';
             const rbText = `${formatCurrency(Math.abs(rb))} ${rbLabel}`;
 
             const toggleBtn = hasDetails
@@ -330,11 +330,11 @@ async function loadCustomerReport(customerId) {
     let balLabel = '';
     if (balance > 0) {
         balClass = 'positive';
-        balLabel = t('customerReports.balanceForUs', '(لنا)');
+        balLabel = t('customerReports.balanceForUs', 'لينا (مدين)');
     } else if (balance < 0) {
         balClass = 'negative';
         balText = formatCurrency(Math.abs(balance));
-        balLabel = t('customerReports.balanceAgainstUs', '(علينا)');
+        balLabel = t('customerReports.balanceAgainstUs', 'علينا (دائن)');
     }
 
     balanceFooterEl.innerHTML = `
@@ -349,11 +349,11 @@ async function loadCustomerReport(customerId) {
     document.getElementById('summaryCredit').textContent = formatCurrency(totalCredit);
 
     const netEl = document.getElementById('summaryNet');
-    const netLabel = netMovement > 0 ? t('customerReports.balanceForUs', '(لنا)') : netMovement < 0 ? t('customerReports.balanceAgainstUs', '(علينا)') : '';
+    const netLabel = netMovement > 0 ? t('customerReports.balanceForUs', 'لينا (مدين)') : netMovement < 0 ? t('customerReports.balanceAgainstUs', 'علينا (دائن)') : '';
     netEl.textContent = `${formatCurrency(Math.abs(netMovement))} ${netLabel}`;
     netEl.className = netMovement > 0 ? 'net-positive' : netMovement < 0 ? 'net-negative' : '';
 
-    document.getElementById('summaryOpening').textContent = `${formatCurrency(Math.abs(totals.openingBalance))} ${totals.openingBalance > 0 ? t('customerReports.balanceForUs', '(لنا)') : totals.openingBalance < 0 ? t('customerReports.balanceAgainstUs', '(علينا)') : ''}`;
+    document.getElementById('summaryOpening').textContent = `${formatCurrency(Math.abs(totals.openingBalance))} ${totals.openingBalance > 0 ? t('customerReports.balanceForUs', 'لينا (مدين)') : totals.openingBalance < 0 ? t('customerReports.balanceAgainstUs', 'علينا (دائن)') : ''}`;
     document.getElementById('summaryClosing').textContent = `${balText} ${balLabel}`;
 }
 
@@ -638,8 +638,8 @@ window.saveSummaryPDF = async () => {
 
     if (totals.openingBalance !== 0) {
         const obLabel = totals.openingBalance > 0
-            ? t('customerReports.balanceForUs', '(لنا)')
-            : t('customerReports.balanceAgainstUs', '(علينا)');
+            ? t('customerReports.balanceForUs', 'لينا (مدين)')
+            : t('customerReports.balanceAgainstUs', 'علينا (دائن)');
         const openingBalanceClass = totals.openingBalance > 0
             ? 'summary-cell-balance-positive'
             : 'summary-cell-balance-negative';
@@ -665,7 +665,7 @@ window.saveSummaryPDF = async () => {
             : '';
 
         const rb = trans.running_balance;
-        const rbLabel = rb > 0 ? t('customerReports.balanceForUs', '(لنا)') : rb < 0 ? t('customerReports.balanceAgainstUs', '(علينا)') : '';
+        const rbLabel = rb > 0 ? t('customerReports.balanceForUs', 'لينا (مدين)') : rb < 0 ? t('customerReports.balanceAgainstUs', 'علينا (دائن)') : '';
         const rbClass = rb > 0 ? 'color:#047857;' : rb < 0 ? 'color:#b91c1c;' : '';
         const rbBalanceClass = rb > 0
             ? 'summary-cell-balance-positive'
@@ -684,7 +684,7 @@ window.saveSummaryPDF = async () => {
 
     // Closing balance
     const closingBal = totals.closingBalance;
-    const closingLabel = closingBal > 0 ? t('customerReports.balanceForUs', '(لنا)') : closingBal < 0 ? t('customerReports.balanceAgainstUs', '(علينا)') : '';
+    const closingLabel = closingBal > 0 ? t('customerReports.balanceForUs', 'لينا (مدين)') : closingBal < 0 ? t('customerReports.balanceAgainstUs', 'علينا (دائن)') : '';
     const closingColor = closingBal > 0 ? '#047857' : closingBal < 0 ? '#b91c1c' : '#333';
     const closingBalanceClass = closingBal > 0
         ? 'summary-cell-balance-positive'
@@ -734,10 +734,10 @@ window.saveSummaryPDF = async () => {
                             ${t('customerReports.summaryColDate', 'التاريخ / نوع الحركة')}
                         </th>
                         <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
-                            ${t('customerReports.summaryColDebit', 'مدين (لنا)')}
+                            ${t('customerReports.summaryColDebit', 'لينا (مدين)')}
                         </th>
                         <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
-                            ${t('customerReports.summaryColCredit', 'دائن (علينا)')}
+                            ${t('customerReports.summaryColCredit', 'علينا (دائن)')}
                         </th>
                         <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
                             ${t('customerReports.summaryColBalance', 'الرصيد')}

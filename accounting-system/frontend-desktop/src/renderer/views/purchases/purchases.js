@@ -608,10 +608,10 @@ async function displaySupplierBalance() {
     balanceDiv.className = 'customer-balance';
     if (balance > 0) {
         balanceDiv.classList.add('balance-positive');
-        balanceDiv.textContent = fmt(t('purchases.balanceCurrentOwedToSupplier', 'الرصيد الحالي: له {amount} جنيه'), { amount: balance.toLocaleString() });
+        balanceDiv.textContent = fmt(t('purchases.balanceCurrentOwedToSupplier', 'الرصيد الحالي: علينا (دائن) {amount} جنيه'), { amount: balance.toLocaleString() });
     } else if (balance < 0) {
         balanceDiv.classList.add('balance-negative');
-        balanceDiv.textContent = fmt(t('purchases.balanceCurrentDueFromSupplier', 'الرصيد الحالي: عليه {amount} جنيه'), { amount: Math.abs(balance).toLocaleString() });
+        balanceDiv.textContent = fmt(t('purchases.balanceCurrentDueFromSupplier', 'الرصيد الحالي: لينا (مدين) {amount} جنيه'), { amount: Math.abs(balance).toLocaleString() });
     } else {
         balanceDiv.classList.add('balance-zero');
         balanceDiv.textContent = t('purchases.balanceCurrentSettled', 'الرصيد الحالي: متزن');
@@ -1011,10 +1011,10 @@ function calculateInvoiceTotal() {
 
     if (purchasesState.dom.invoiceRemainingSpan) {
         if (financials.supplierRemaining > 0) {
-            purchasesState.dom.invoiceRemainingSpan.textContent = fmt(t('purchases.supplierDuePositive', 'له {amount}'), { amount: financials.supplierRemaining.toFixed(2) });
+            purchasesState.dom.invoiceRemainingSpan.textContent = fmt(t('purchases.supplierDuePositive', 'علينا (دائن) {amount}'), { amount: financials.supplierRemaining.toFixed(2) });
             purchasesState.dom.invoiceRemainingSpan.className = 'customer-due-value due-positive';
         } else if (financials.supplierRemaining < 0) {
-            purchasesState.dom.invoiceRemainingSpan.textContent = fmt(t('purchases.supplierDueNegative', 'عليه {amount}'), { amount: Math.abs(financials.supplierRemaining).toFixed(2) });
+            purchasesState.dom.invoiceRemainingSpan.textContent = fmt(t('purchases.supplierDueNegative', 'لينا (مدين) {amount}'), { amount: Math.abs(financials.supplierRemaining).toFixed(2) });
             purchasesState.dom.invoiceRemainingSpan.className = 'customer-due-value due-negative';
         } else {
             purchasesState.dom.invoiceRemainingSpan.textContent = '0.00';

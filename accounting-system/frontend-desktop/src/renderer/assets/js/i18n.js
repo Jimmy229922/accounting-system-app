@@ -1,12 +1,34 @@
 let arDictionaryCache = null;
 
 function resolvePathCandidates() {
-    return [
+    const path = window.location.pathname;
+    let depth = 0;
+    
+    // Count how many directories we are deep inside "renderer"
+    // e.g. /D:/JS/accounting-system/frontend-desktop/src/renderer/views/reports/debtor-creditor/index.html
+    const match = path.match(/renderer\/(.*\/)index\.html$/i);
+    if (match && match[1]) {
+        depth = match[1].split('/').filter(Boolean).length;
+    } else {
+        // Fallback generic depth calculation
+        depth = path.split('/').length - path.indexOf('renderer/') - 2;
+    }
+    
+    // Safety bound
+    if (depth < 0) depth = 0;
+    if (depth > 5) depth = 5;
+
+    const prefix = depth > 0 ? '../'.repeat(depth) : './';
+    const computedPath = prefix + 'assets/i18n/ar.json';
+
+    // Return the computed path first, then the fallbacks just in case
+    return Array.from(new Set([
+        computedPath,
         '../../assets/i18n/ar.json',
         '../../../assets/i18n/ar.json',
         '../assets/i18n/ar.json',
         './assets/i18n/ar.json'
-    ];
+    ]));
 }
 
 async function loadArabicDictionary() {

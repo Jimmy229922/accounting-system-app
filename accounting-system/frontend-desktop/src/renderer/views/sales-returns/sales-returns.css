@@ -132,15 +132,15 @@
 }
 
 .customer-balance.balance-positive {
-    color: var(--danger-color);
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.35);
-}
-
-.customer-balance.balance-negative {
     color: var(--success-color);
     background: rgba(16, 185, 129, 0.12);
     border-color: rgba(16, 185, 129, 0.35);
+}
+
+.customer-balance.balance-negative {
+    color: var(--danger-color);
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
 }
 
 .customer-balance.balance-zero {
@@ -429,11 +429,11 @@
 }
 
 .customer-due-value.due-positive {
-    color: var(--danger-color);
+    color: var(--success-color);
 }
 
 .customer-due-value.due-negative {
-    color: var(--success-color);
+    color: var(--danger-color);
 }
 
 .grand-total {

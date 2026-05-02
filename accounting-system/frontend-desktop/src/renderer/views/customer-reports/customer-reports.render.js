@@ -130,8 +130,8 @@
                                 <th>${t('customerReports.tableHeaders.type', 'نوع الحركة')}</th>
                                 <th>${t('customerReports.tableHeaders.docNumber', 'رقم المستند')}</th>
                                 <th>${t('customerReports.tableHeaders.description', 'البيان')}</th>
-                                <th>${t('customerReports.tableHeaders.debit', 'مدين')}</th>
-                                <th>${t('customerReports.tableHeaders.credit', 'دائن')}</th>
+                                <th>${t('customerReports.tableHeaders.debit', 'لينا (مدين)')}</th>
+                                <th>${t('customerReports.tableHeaders.credit', 'علينا (دائن)')}</th>
                                 <th>${t('customerReports.tableHeaders.runningBalance', 'الرصيد')}</th>
                             </tr>
                         </thead>
@@ -144,8 +144,8 @@
                     <table class="print-summary-table">
                         <thead>
                             <tr>
-                                <th>${t('customerReports.summaryDebit', 'إجمالي المدين')}</th>
-                                <th>${t('customerReports.summaryCredit', 'إجمالي الدائن')}</th>
+                                <th>${t('customerReports.summaryDebit', 'إجمالي الديون لينا (مدين)')}</th>
+                                <th>${t('customerReports.summaryCredit', 'إجمالي المستحقات علينا (دائن)')}</th>
                                 <th>${t('customerReports.summaryNet', 'صافي الحركة')}</th>
                                 <th>${t('customerReports.summaryOpening', 'رصيد أول المدة')}</th>
                                 <th>${t('customerReports.summaryClosing', 'الرصيد الختامي')}</th>

@@ -81,6 +81,14 @@
 | Auth Users | `../auth-users/index.html` | `auth-users/index.html`, `auth-users.css`, `auth-users.js`, `auth-users.bootstrap.js`, `auth-users.render.js`, `auth-users.utils.js` | `getAuthSessionToken`, `getAuthUsers`, `createAuthUser`, `setAuthUserActive`, `resetAuthUserPassword`, `getUserPermissions`, `updateUserPermissions` | `handlers/auth.js` | `__admin_only__` |
 | Search | `../search/index.html` | `search/index.html`, `search.css`, `search.js` | لا يوجد استهلاك مباشر لـ `electronAPI` في الملف الحالي | يعتمد على `globalSearch.js` | غير مربوط في `SHELL_HREF_TO_PERMISSION` |
 
+### Dashboard Date Filters (2026-05-02)
+
+- تمت إضافة فلتر فترة (من/إلى) داخل لوحة التحكم لتطبيقه على بطاقات: إجمالي المبيعات، إجمالي المشتريات، صافي الربح التقديري فقط.
+- قناة `getDashboardStats` أصبحت تقبل وسيط اختياري `{ startDate, endDate }` لتطبيق المدى الزمني.
+- عناصر الواجهة الجديدة داخل `views/dashboard`:
+   - IDs: `dashboardFromDate`, `dashboardToDate`, `dashboardApplyBtn`, `dashboardClearBtn`, `dashboardPeriod`.
+   - Classes: `filters-panel`, `filters-grid`, `form-group`, `form-control`, `filters-actions`, `btn-primary`, `btn-secondary`.
+
 > ملاحظة: `search/search.js` فارغ حاليًا.
 
 > ملاحظة Inventory (2026-04-12): إدارة التالف داخل صفحة `inventory` تعمل كمودال داخلي يفتح بزر من شريط التحكم (`data-action="open-damaged-manager"`) وتغلق بزر الإغلاق أو النقر خارج المودال.

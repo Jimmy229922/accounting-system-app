@@ -68,14 +68,14 @@ function renderPage() {
                 <div class="dc-summary-card card-debtor">
                     <div class="dc-card-icon"><i class="fas fa-arrow-down"></i></div>
                     <div class="dc-card-info">
-                        <div class="dc-card-label">${t('debtorCreditor.totalDebtor', 'إجمالي المدين (لنا)')}</div>
+                        <div class="dc-card-label">${t('debtorCreditor.totalDebtor', 'إجمالي الديون لينا (مدين)')}</div>
                         <div class="dc-card-value text-green" id="totalDebtor">0.00</div>
                     </div>
                 </div>
                 <div class="dc-summary-card card-creditor">
                     <div class="dc-card-icon"><i class="fas fa-arrow-up"></i></div>
                     <div class="dc-card-info">
-                        <div class="dc-card-label">${t('debtorCreditor.totalCreditor', 'إجمالي الدائن (علينا)')}</div>
+                        <div class="dc-card-label">${t('debtorCreditor.totalCreditor', 'إجمالي المستحقات علينا (دائن)')}</div>
                         <div class="dc-card-value text-red" id="totalCreditor">0.00</div>
                     </div>
                 </div>
@@ -110,8 +110,8 @@ function renderPage() {
                     <label><i class="fas fa-filter"></i> ${t('debtorCreditor.balanceStatus', 'حالة الرصيد')}</label>
                     <select id="balanceStatusFilter" class="form-control">
                         <option value="all">${t('debtorCreditor.allStatuses', 'الكل')}</option>
-                        <option value="debtor">${t('debtorCreditor.debtorStatus', 'مدين (لنا)')}</option>
-                        <option value="creditor">${t('debtorCreditor.creditorStatus', 'دائن (علينا)')}</option>
+                        <option value="debtor">${t('debtorCreditor.debtorStatus', 'لينا (مدين)')}</option>
+                        <option value="creditor">${t('debtorCreditor.creditorStatus', 'علينا (دائن)')}</option>
                         <option value="balanced">${t('debtorCreditor.balancedStatus', 'متزن (صفر)')}</option>
                     </select>
                 </div>
@@ -135,8 +135,8 @@ function renderPage() {
                             <th>${t('debtorCreditor.tableHeaders.name', 'الاسم')}</th>
                             <th>${t('debtorCreditor.tableHeaders.type', 'النوع')}</th>
                             <th>${t('debtorCreditor.tableHeaders.openingBalance', 'رصيد افتتاحي')}</th>
-                            <th>${t('debtorCreditor.tableHeaders.debit', 'مدين (لنا)')}</th>
-                            <th>${t('debtorCreditor.tableHeaders.credit', 'دائن (علينا)')}</th>
+                            <th>${t('debtorCreditor.tableHeaders.debit', 'لينا (مدين)')}</th>
+                            <th>${t('debtorCreditor.tableHeaders.credit', 'علينا (دائن)')}</th>
                             <th>${t('debtorCreditor.tableHeaders.closingBalance', 'رصيد ختامي')}</th>
                             <th>${t('debtorCreditor.tableHeaders.status', 'الحالة')}</th>
                         </tr>
@@ -223,18 +223,18 @@ function renderTable() {
 
         if (customer.type === 'customer' || customer.type === 'both') {
             if (balance > 0) {
-                statusText = t('debtorCreditor.debtorLabel', 'مدين (لنا)');
+                statusText = t('debtorCreditor.debtorLabel', 'لينا (مدين)');
                 statusClass = 'dc-badge-debtor';
             } else if (balance < 0) {
-                statusText = t('debtorCreditor.creditorLabel', 'دائن (علينا)');
+                statusText = t('debtorCreditor.creditorLabel', 'علينا (دائن)');
                 statusClass = 'dc-badge-creditor';
             }
         } else {
             if (balance > 0) {
-                statusText = t('debtorCreditor.creditorLabel', 'دائن (علينا)');
+                statusText = t('debtorCreditor.creditorLabel', 'علينا (دائن)');
                 statusClass = 'dc-badge-creditor';
             } else if (balance < 0) {
-                statusText = t('debtorCreditor.debtorLabel', 'مدين (لنا)');
+                statusText = t('debtorCreditor.debtorLabel', 'لينا (مدين)');
                 statusClass = 'dc-badge-debtor';
             }
         }
@@ -277,6 +277,6 @@ function updateSummary() {
     
     const net = totalDebtor - totalCreditor;
     const netElement = document.getElementById('netBalance');
-    netElement.textContent = Math.abs(net).toFixed(2) + (net >= 0 ? ' ' + t('debtorCreditor.forUs', '(لنا)') : ' ' + t('debtorCreditor.againstUs', '(علينا)'));
+    netElement.textContent = Math.abs(net).toFixed(2) + (net >= 0 ? ' ' + t('debtorCreditor.forUs', 'لينا (مدين)') : ' ' + t('debtorCreditor.againstUs', 'علينا (دائن)'));
     netElement.className = 'dc-card-value ' + (net >= 0 ? 'text-green' : 'text-red');
 }

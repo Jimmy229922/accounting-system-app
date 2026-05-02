@@ -50,6 +50,33 @@
                     <div class="action-icon"><i class="fas fa-chart-pie"></i></div>
                     <span class="action-label">${t('dashboard.reportsLink', 'التقارير')}</span>
                 </a>
+                <section class="filters-panel">
+                    <div class="filters-grid">
+                        <div class="form-group">
+                            <label for="dashboardFromDate"><i class="fas fa-calendar-alt"></i> ${t('dashboard.dateFrom', 'من تاريخ')}</label>
+                            <input type="date" id="dashboardFromDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="dashboardToDate"><i class="fas fa-calendar-alt"></i> ${t('dashboard.dateTo', 'إلى تاريخ')}</label>
+                            <input type="date" id="dashboardToDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-clock"></i> ${t('dashboard.periodLabel', 'الفترة')}</label>
+                            <div id="dashboardPeriod" class="form-control">${t('dashboard.allPeriods', 'كل الفترات')}</div>
+                        </div>
+                    </div>
+
+                    <div class="filters-actions">
+                        <button id="dashboardClearBtn" type="button" class="btn-secondary">
+                            <i class="fas fa-eraser"></i>
+                            <span>${t('dashboard.clearFilter', 'مسح الفلتر')}</span>
+                        </button>
+                        <button id="dashboardApplyBtn" type="button" class="btn-primary">
+                            <i class="fas fa-check"></i>
+                            <span>${t('dashboard.applyFilter', 'تطبيق')}</span>
+                        </button>
+                    </div>
+                </section>
             </section>
 
             <h3 class="section-title"><i class="fas fa-calendar-day"></i> ${t('dashboard.todaySummary', 'ملخص اليوم')}</h3>
@@ -90,7 +117,7 @@
                         <div class="metric-icon"><i class="fas fa-chart-line"></i></div>
                     </div>
                     <h3 class="metric-value" id="salesMonth">—</h3>
-                    <p class="metric-label">${t('dashboard.salesMonth', 'مبيعات الشهر')}</p>
+                    <p class="metric-label">${t('dashboard.salesMonth', 'إجمالي المبيعات')}</p>
                     <div class="metric-trend" id="salesMonthTrend"></div>
                 </div>
                 <div class="metric-card">
@@ -98,7 +125,7 @@
                         <div class="metric-icon"><i class="fas fa-shopping-basket"></i></div>
                     </div>
                     <h3 class="metric-value" id="purchasesMonth">—</h3>
-                    <p class="metric-label">${t('dashboard.purchasesMonth', 'مشتريات الشهر')}</p>
+                    <p class="metric-label">${t('dashboard.purchasesMonth', 'إجمالي المشتريات')}</p>
                     <div class="metric-trend" id="purchasesMonthTrend"></div>
                 </div>
                   <div class="metric-card interactive-card" id="netProfitCard" style="cursor: pointer; position: relative" onclick="window.showNetProfitDetails()">
