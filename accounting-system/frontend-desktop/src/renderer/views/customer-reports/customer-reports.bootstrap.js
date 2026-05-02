@@ -734,10 +734,10 @@ window.saveSummaryPDF = async () => {
                             ${t('customerReports.summaryColDate', 'التاريخ / نوع الحركة')}
                         </th>
                         <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
-                            ${t('customerReports.summaryColDebit', 'مدين (له)')}
+                            ${t('customerReports.summaryColDebit', 'مدين (لنا)')}
                         </th>
                         <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
-                            ${t('customerReports.summaryColCredit', 'دائن (منه)')}
+                            ${t('customerReports.summaryColCredit', 'دائن (علينا)')}
                         </th>
                         <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
                             ${t('customerReports.summaryColBalance', 'الرصيد')}

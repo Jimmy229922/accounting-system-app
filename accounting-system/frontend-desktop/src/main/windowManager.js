@@ -251,14 +251,16 @@ function createWindow() {
 
 /**
  * Full app opening flow: invite gate → auth gate → main window.
+ * NOTE: Invite screen is disabled for distributed versions.
  */
 async function openAppFlow() {
     inviteUnlocked = false;
     authUnlocked = false;
-    const valid = isInviteValid();
-    if (!valid) {
-        await showInviteWindow();
-    }
+    // Invite screen is completely disabled - skip validation
+    // const valid = isInviteValid();
+    // if (!valid) {
+    //     await showInviteWindow();
+    // }
     await showAuthWindow();
     if (!mainWindow) {
         createWindow();

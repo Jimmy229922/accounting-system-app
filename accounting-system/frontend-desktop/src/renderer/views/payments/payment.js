@@ -16,6 +16,8 @@ window.initializeTreasuryVoucherPage({
     },
     entity: {
         filterTypes: ['supplier', 'both'],
+        useStatementBalance: true,
+        invertStatementBalance: true,
         icon: 'fa-truck',
         placeholderIcon: 'fa-truck',
         fieldShellClass: 'supplier-field-shell',
@@ -94,25 +96,25 @@ window.initializeTreasuryVoucherPage({
         recentTransactionsTitle: { key: 'recentTransactionsTitle', fallback: 'آخر عمليات السداد' },
         noRecentTransactions: { key: 'noRecentTransactions', fallback: 'لا توجد عمليات سداد حديثة' },
         todayStatLabel: { key: 'stats.todayPayments', fallback: 'مدفوعات اليوم' },
-        countStatLabel: { key: 'stats.creditorsCount', fallback: 'موردين عليهم رصيد' },
+        countStatLabel: { key: 'stats.creditorsCount', fallback: 'موردين علينا رصيد' },
         totalStatLabel: { key: 'stats.totalCredits', fallback: 'إجمالي الأرصدة المستحقة' },
-        owedSuffix: { key: 'owedSuffix', fallback: '(عليه: {amount})' },
+        owedSuffix: { key: 'owedSuffix', fallback: '(علينا - دائن: {amount})' },
         toastLoadError: { key: 'toast.loadError', fallback: 'حدث خطأ في تحميل البيانات' },
-        balanceHintDebit: { key: 'balanceHintDebit', fallback: 'عليه رصيد مستحق السداد' },
-        balanceHintCredit: { key: 'balanceHintCredit', fallback: 'له رصيد دائن' },
+        balanceHintDebit: { key: 'balanceHintDebit', fallback: 'علينا رصيد مستحق السداد' },
+        balanceHintCredit: { key: 'balanceHintCredit', fallback: 'لنا رصيد مستحق التحصيل' },
         balanceHintZero: { key: 'balanceHintZero', fallback: 'لا يوجد رصيد' },
         entityType: { key: 'entityType', fallback: 'مورد' },
         accountStatement: { key: 'accountStatement', fallback: 'كشف حساب' },
         newInvoiceAction: { key: 'newPurchaseInvoice', fallback: 'فاتورة شراء' },
-        balanceOwed: { key: 'balanceOwed', fallback: 'عليه' },
-        balanceCredit: { key: 'balanceCredit', fallback: 'له' },
+        balanceOwed: { key: 'balanceOwed', fallback: 'علينا (دائن)' },
+        balanceCredit: { key: 'balanceCredit', fallback: 'لنا (مدين)' },
         balanceBalanced: { key: 'balanceBalanced', fallback: 'متزن' },
         unknownEntity: { key: 'unknownSupplier', fallback: 'مورد غير معروف' },
         defaultDescription: { key: 'defaultDescription', fallback: 'سداد نقدية' },
         fullBalanceDescription: { key: 'fullBalanceDescription', fallback: 'سداد كامل المستحق' },
         toastSelectEntityWithBalance: {
             key: 'toast.selectSupplierWithBalance',
-            fallback: 'اختر مورد عليه رصيد مستحق'
+            fallback: 'اختر مورد علينا رصيد مستحق السداد'
         },
         toastSaving: { key: 'toast.saving', fallback: 'جاري الحفظ...' },
         defaultDescriptionTemplate: {
@@ -136,6 +138,6 @@ window.initializeTreasuryVoucherPage({
         }
     },
     quickNote1(tx) {
-        return `${tx('quickNote1Prefix', 'الرصيد الموجب يعني:')} <strong>${tx('quickNote1Bold', 'عليه')}</strong> ${tx('quickNote1Suffix', 'رصيد مستحق.')}`;
+        return `${tx('quickNote1Prefix', 'الرصيد الموجب يعني:')} <strong>${tx('quickNote1Bold', 'علينا (دائن)')}</strong> ${tx('quickNote1Suffix', 'رصيد مستحق السداد.')}`;
     }
 });

@@ -262,10 +262,10 @@ function renderTable() {
 
         if (balance > 0) {
             balanceClass = 'balance-positive';
-            balanceTag = t('customers.balanceOwed', 'عليه');
+            balanceTag = t('customers.balanceOwed', 'لنا (مدين)');
         } else if (balance < 0) {
             balanceClass = 'balance-negative';
-            balanceTag = t('customers.balanceCredit', 'له');
+            balanceTag = t('customers.balanceCredit', 'علينا (دائن)');
         }
 
         tr.innerHTML = `
@@ -407,7 +407,7 @@ function updateOpeningBalanceHint() {
     if (!customerBalanceHint) return;
 
     const type = customerTypeSelect.value;
-    const direction = selectedBalanceDirection === 'for' ? t('customers.balanceDirection.for', 'له') : t('customers.balanceDirection.on', 'عليه');
+    const direction = selectedBalanceDirection === 'for' ? t('customers.balanceDirection.for', 'علينا (دائن)') : t('customers.balanceDirection.on', 'لنا (مدين)');
 
     if (type === 'supplier') {
         customerBalanceHint.textContent = fmt(t('customers.balanceHint.supplier', 'سيتم حفظ الرصيد كـ "{direction}" على المورد.'), {direction});

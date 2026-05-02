@@ -124,12 +124,37 @@
             }
         }
 
+        async function applyStatementBalances(entities) {
+            if (!config.entity.useStatementBalance) return entities;
+
+            const statementEntities = await Promise.all(entities.map(async (entity) => {
+                try {
+                    const result = await window.electronAPI.getCustomerDetailedStatement({
+                        customerId: entity.id
+                    });
+                    if (!result || !result.success || !result.totals) return entity;
+
+                    const closingBalance = Number(result.totals.closingBalance) || 0;
+                    return {
+                        ...entity,
+                        balance: config.entity.invertStatementBalance ? -closingBalance : closingBalance
+                    };
+                } catch (error) {
+                    console.error('[payments] Error loading statement balance:', error);
+                    return entity;
+                }
+            }));
+
+            return statementEntities;
+        }
+
         async function loadData() {
             try {
                 const customers = await window.electronAPI.getCustomers();
                 allEntities = customers.filter((entity) =>
                     config.entity.filterTypes.includes(entity.type)
                 );
+                allEntities = await applyStatementBalances(allEntities);
 
                 const select = document.getElementById(config.ids.entitySelect);
                 select.innerHTML = `<option value="">${text('searchPlaceholder')}</option>`;
@@ -345,7 +370,7 @@
 
             if (entityBalance === 0) {
                 const entityType = text('entityType') || 'حساب';
-                showToast(`ال${entityType} المختار رصيده متزن ومش عليه فلوس مستحقة.`, 'warning');
+                showToast(`ال${entityType} المختار رصيده متزن ولا يوجد رصيد مستحق.`, 'warning');
                 return;
             }
 
