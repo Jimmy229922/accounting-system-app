@@ -368,14 +368,13 @@ function renderReports(reports) {
                     <button type="button" class="btn-sm btn-edit" data-action="view" data-id="${report.id}" data-type="${report.type}">
                         <i class="fas fa-eye"></i> ${t('reports.viewBtn', 'عرض')}
                     </button>
-                    ` : `
+                    ` : ''}
                     <button type="button" class="btn-sm btn-edit" data-action="edit" data-id="${report.id}" data-type="${report.type}">
                         <i class="fas fa-edit"></i> ${t('reports.editBtn', 'تعديل')}
                     </button>
                     <button type="button" class="btn-sm btn-delete" data-action="delete" data-id="${report.id}" data-type="${report.type}">
                         <i class="fas fa-trash"></i> ${t('reports.deleteBtn', 'حذف')}
                     </button>
-                    `}
                 </div>
             </td>
         `;
@@ -440,6 +439,8 @@ function handleTableAction(event) {
         else if (type === 'purchase') page = '../purchases/index.html';
         else if (type === 'sales_return') page = '../sales-returns/index.html';
         else if (type === 'purchase_return') page = '../purchase-returns/index.html';
+        else if (type === 'receipt') page = '../payments/receipt.html';
+        else if (type === 'payment') page = '../payments/payment.html';
 
         if (page) {
             const target = `${page}?editId=${id}`;
@@ -456,20 +457,35 @@ function handleTableAction(event) {
 }
 
 async function deleteInvoice(id, type) {
+    const isTreasury = type === 'receipt' || type === 'payment';
+    const msg = isTreasury 
+        ? t('reports.deleteTreasuryConfirm', 'هل أنت متأكد من حذف هذا السند؟ سيتم عكس جميع التأثيرات المالية.')
+        : t('reports.deleteConfirm', 'هل أنت متأكد من حذف هذه الفاتورة؟ سيتم عكس جميع التأثيرات المالية والمخزنية.');
+    
     const confirmed = typeof window.showConfirmDialog === 'function'
-        ? await window.showConfirmDialog(t('reports.deleteConfirm', 'هل أنت متأكد من حذف هذه الفاتورة؟ سيتم عكس جميع التأثيرات المالية والمخزنية.'))
+        ? await window.showConfirmDialog(msg)
         : false;
     if (!confirmed) return;
 
-    const result = await window.electronAPI.deleteInvoice(Number(id), type);
-    if (result.success) {
+    let result;
+    if (isTreasury) {
+        result = await window.electronAPI.deleteTreasuryTransaction(Number(id));
+    } else if (type === 'sales_return') {
+        result = await window.electronAPI.deleteSalesReturn(Number(id));
+    } else if (type === 'purchase_return') {
+        result = await window.electronAPI.deletePurchaseReturn(Number(id));
+    } else {
+        result = await window.electronAPI.deleteInvoice(Number(id), type);
+    }
+    
+    if (result && result.success) {
         if (window.showToast) {
-            window.showToast(t('reports.deleteSuccess', 'تم حذف الفاتورة بنجاح'), 'success');
+            window.showToast(isTreasury ? t('reports.deleteTreasurySuccess', 'تم حذف السند بنجاح') : t('reports.deleteSuccess', 'تم حذف الفاتورة بنجاح'), 'success');
         }
         currentPage = 1;
         loadReports();
     } else {
-        const errorMessage = fmt(t('reports.deleteError', 'حدث خطأ أثناء الحذف: {error}'), { error: result.error });
+        const errorMessage = fmt(t('reports.deleteError', 'حدث خطأ أثناء الحذف: {error}'), { error: (result && result.error) || 'Unknown error' });
         if (window.showToast) {
             window.showToast(errorMessage, 'error');
         }

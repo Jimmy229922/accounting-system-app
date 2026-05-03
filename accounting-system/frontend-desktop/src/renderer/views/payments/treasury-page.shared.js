@@ -6,6 +6,7 @@
         let recentTransactions = [];
         let entityAutocomplete = null;
         let suggestedVoucherNumber = '';
+        let currentEditId = null;
 
         const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
         const tx = (suffix, fallback = '') => t(`${config.i18nPrefix}.${suffix}`, fallback);
@@ -20,8 +21,11 @@
 
         function getViewVoucherRequest() {
             const params = new URLSearchParams(window.location.search);
-            const viewId = (params.get('viewId') || '').trim();
+            const viewId = (params.get('viewId') || params.get('editId') || '').trim();
             const voucher = (params.get('voucher') || '').trim();
+            if (params.get('editId')) {
+                currentEditId = params.get('editId');
+            }
             return { viewId, voucher };
         }
 
@@ -248,10 +252,14 @@
         }
 
         function handleEntityChange() {
-            const entityId = document.getElementById(config.ids.entitySelect).value;
+            const selectEl = document.getElementById(config.ids.entitySelect);
+            const entityId = selectEl.value;
             if (!entityId) {
                 renderEntityPlaceholder();
                 updatePreview();
+                if (entityAutocomplete && entityAutocomplete.input) {
+                    entityAutocomplete.input.value = '';
+                }
                 return;
             }
 
@@ -259,6 +267,12 @@
             if (selectedEntity) {
                 renderEntityInfo(selectedEntity);
                 updatePreview();
+                if (entityAutocomplete && entityAutocomplete.input) {
+                    const selectedOption = Array.from(selectEl.options).find(opt => opt.value == entityId);
+                    if (selectedOption) {
+                        entityAutocomplete.input.value = selectedOption.textContent;
+                    }
+                }
             }
         }
 
@@ -407,10 +421,26 @@
                     return;
                 }
 
-                const result = await window.electronAPI.addTreasuryTransaction(data);
+                let result;
+                if (currentEditId) {
+                    data.id = currentEditId;
+                    result = await window.electronAPI.updateTreasuryTransaction(data);
+                } else {
+                    result = await window.electronAPI.addTreasuryTransaction(data);
+                }
 
                 if (result.success) {
                     showToast(text('toastSaveSuccess'), 'success');
+                    if (currentEditId) {
+                        setTimeout(() => {
+                            if (window.__navigateWithinShell) {
+                                window.__navigateWithinShell('../reports/index.html');
+                            } else {
+                                window.location.href = '../reports/index.html';
+                            }
+                        }, 1000);
+                        return;
+                    }
                     document.getElementById(config.ids.form).reset();
                     document.getElementById('date').valueAsDate = new Date();
                     await generateVoucherNumber();
