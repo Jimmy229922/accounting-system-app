@@ -26,6 +26,7 @@
                 invoicePaidDisplaySpan: null,
                 invoiceRemainingSpan: null,
                 invoiceForm: null,
+                printPreviewModal: null,
                 shiftCloseModal: null,
                 shiftClosePeriodStartSpan: null,
                 shiftClosePeriodEndSpan: null,
@@ -58,6 +59,7 @@
         state.dom.invoicePaidDisplaySpan = document.getElementById('invoicePaidDisplay');
         state.dom.invoiceRemainingSpan = document.getElementById('invoiceRemaining');
         state.dom.invoiceForm = document.getElementById('invoiceForm');
+        state.dom.printPreviewModal = document.getElementById('salesPrintPreviewModal');
         state.dom.shiftCloseModal = document.getElementById('salesShiftCloseModal');
         state.dom.shiftClosePeriodStartSpan = document.getElementById('shiftClosePeriodStart');
         state.dom.shiftClosePeriodEndSpan = document.getElementById('shiftClosePeriodEnd');

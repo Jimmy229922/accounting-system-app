@@ -180,6 +180,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveDebtorCreditorPdf: (options) => invokeChannel('save-debtor-creditor-pdf', options),
     saveCustomerReportPdf: (options) => invokeChannel('save-customer-report-pdf', options),
     saveCustomerSummaryPdf: (options) => invokeChannel('save-customer-summary-pdf', options),
+    getPrinters: () => ipcRenderer.invoke('get-printers'),
+    printCurrentWindow: (options) => ipcRenderer.invoke('print-current-window', options),
 
     // Summary Statement
     getCustomerSummaryStatement: (params) => invokeChannel('get-customer-summary-statement', params),

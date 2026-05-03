@@ -319,6 +319,34 @@ ipcMain.handle('get-auth-session-token', () => {
     return authSessionToken;
 });
 
+ipcMain.handle('get-printers', async (event) => {
+    if (typeof event.sender.getPrintersAsync === 'function') {
+        return event.sender.getPrintersAsync();
+    }
+    if (typeof event.sender.getPrinters === 'function') {
+        return event.sender.getPrinters();
+    }
+    return [];
+});
+
+ipcMain.handle('print-current-window', async (event, options = {}) => {
+    const printOptions = {
+        silent: Boolean(options.silent),
+        printBackground: true,
+        deviceName: typeof options.deviceName === 'string' ? options.deviceName : '',
+        pageSize: 'A4'
+    };
+
+    return new Promise((resolve) => {
+        event.sender.print(printOptions, (success, failureReason) => {
+            resolve({
+                success,
+                error: success ? '' : (failureReason || 'Print failed')
+            });
+        });
+    });
+});
+
 // Focus existing window when a second instance tries to launch
 app.on('second-instance', () => {
     const win = getMainWindow();

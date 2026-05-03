@@ -3,6 +3,7 @@ const salesApi = window.salesPageApi;
 const salesRender = window.salesPageRender;
 const salesEvents = window.salesPageEvents;
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => salesState.ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
+const SALES_PRINT_PRINTER_STORAGE_KEY = 'sales.invoicePrinterName';
 
 function getNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
@@ -64,6 +65,10 @@ function initializeElements() {
             onCustomerChange: handleCustomerChange,
             onAddRow: () => addInvoiceRow(),
             onSubmitInvoice: submitInvoice,
+            onPrintInvoice: printInvoice,
+            onConfirmPrintInvoice: confirmPrintInvoice,
+            onClosePrintPreview: closePrintPreview,
+            onChangePrintPrinter: changePrintPrinter,
             onLoadPrevInvoice: () => navigateInvoice(-1),
             onLoadNextInvoice: () => navigateInvoice(1),
             onRemoveRow: removeRow,
@@ -114,8 +119,20 @@ function initializeElements() {
         });
     }
 
+    if (salesState.dom.printPreviewModal) {
+        salesState.dom.printPreviewModal.addEventListener('click', (event) => {
+            if (event.target === salesState.dom.printPreviewModal) {
+                closePrintPreview();
+            }
+        });
+    }
+
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
+        if (salesState.dom.printPreviewModal?.classList.contains('is-open')) {
+            closePrintPreview();
+            return;
+        }
         if (!salesState.dom.shiftCloseModal) return;
         if (!salesState.dom.shiftCloseModal.classList.contains('is-open')) return;
         closeShiftCloseModal();
@@ -645,6 +662,7 @@ function setEditLocked(locked) {
     controls.forEach((control) => {
         if (
             control.dataset.action === 'submit-invoice' ||
+            control.dataset.action === 'print-invoice' ||
             control.dataset.action === 'load-prev-invoice' ||
             control.dataset.action === 'load-next-invoice'
         ) return;
@@ -731,6 +749,8 @@ async function handleCustomerChange() {
         if (balanceDiv) balanceDiv.style.display = 'none';
         clearSelectedItemAvailability();
     }
+    
+    updatePrintBtnState();
 }
 
 async function initializeNewInvoice() {
@@ -816,6 +836,235 @@ async function loadInvoiceForEdit(id) {
         if (window.showToast) window.showToast(t('sales.toast.unexpectedError', 'حدث خطأ غير متوقع') + ': ' + error.message, 'error');
         updateInvoiceNavigationButtons();
     }
+}
+
+function getSavedPrintPrinterName() {
+    try {
+        return localStorage.getItem(SALES_PRINT_PRINTER_STORAGE_KEY) || '';
+    } catch (_) {
+        return '';
+    }
+}
+
+function savePrintPrinterName(name) {
+    try {
+        if (name) {
+            localStorage.setItem(SALES_PRINT_PRINTER_STORAGE_KEY, name);
+        }
+    } catch (_) {
+    }
+}
+
+function clearSavedPrintPrinterName() {
+    try {
+        localStorage.removeItem(SALES_PRINT_PRINTER_STORAGE_KEY);
+    } catch (_) {
+    }
+}
+
+function syncPrintPreviewContent() {
+    const printArea = document.getElementById('printArea');
+    const previewPage = document.getElementById('salesPrintPreviewPage');
+    if (!printArea || !previewPage) return;
+
+    const clone = printArea.cloneNode(true);
+    clone.style.display = 'block';
+    clone.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
+    previewPage.innerHTML = clone.innerHTML;
+}
+
+function setPrintPreviewOpen(open) {
+    if (!salesState.dom.printPreviewModal) return;
+    salesState.dom.printPreviewModal.style.display = open ? 'flex' : 'none';
+    salesState.dom.printPreviewModal.classList.toggle('is-open', open);
+    salesState.dom.printPreviewModal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    document.body.style.overflow = open ? 'hidden' : '';
+}
+
+async function loadPrintPreviewPrinters({ forceChoose = false } = {}) {
+    const picker = document.getElementById('salesPrintPrinterPicker');
+    const select = document.getElementById('salesPrintPrinterSelect');
+    const status = document.getElementById('salesPrintPrinterStatus');
+    const changeBtn = document.getElementById('salesPrintChangePrinterBtn');
+    if (!picker || !select || !status || !changeBtn) return;
+
+    const savedPrinterName = getSavedPrintPrinterName();
+    let printers = [];
+    try {
+        if (window.electronAPI && typeof window.electronAPI.getPrinters === 'function') {
+            printers = await window.electronAPI.getPrinters();
+        }
+    } catch (_) {
+        printers = [];
+    }
+
+    const normalizedPrinters = Array.isArray(printers) ? printers : [];
+    select.innerHTML = '';
+    normalizedPrinters.forEach((printer) => {
+        const printerName = printer.name || printer.displayName || '';
+        if (!printerName) return;
+        const option = document.createElement('option');
+        option.value = printerName;
+        option.textContent = printer.displayName || printerName;
+        if (printer.isDefault) option.dataset.defaultPrinter = '1';
+        select.appendChild(option);
+    });
+
+    const hasSavedPrinter = savedPrinterName && normalizedPrinters.some((printer) => (printer.name || printer.displayName || '') === savedPrinterName);
+    if (savedPrinterName && !hasSavedPrinter && normalizedPrinters.length > 0) {
+        clearSavedPrintPrinterName();
+    }
+
+    if (hasSavedPrinter && !forceChoose) {
+        picker.style.display = 'none';
+        changeBtn.style.display = '';
+        const selectedPrinter = normalizedPrinters.find((printer) => (printer.name || printer.displayName || '') === savedPrinterName);
+        status.textContent = `الطابعة الحالية: ${selectedPrinter?.displayName || savedPrinterName}`;
+        return;
+    }
+
+    picker.style.display = normalizedPrinters.length > 0 ? 'grid' : 'none';
+    changeBtn.style.display = 'none';
+    status.textContent = normalizedPrinters.length > 0
+        ? 'اختر الطابعة أول مرة، وسيتم استخدامها تلقائياً بعد ذلك.'
+        : 'لم يتم العثور على طابعات. سيتم استخدام نافذة الطباعة العادية.';
+
+    const defaultOption = Array.from(select.options).find((option) => option.dataset.defaultPrinter === '1');
+    if (defaultOption) {
+        select.value = defaultOption.value;
+    }
+}
+
+async function openPrintPreview() {
+    syncPrintPreviewContent();
+    setPrintPreviewOpen(true);
+    await loadPrintPreviewPrinters({ forceChoose: !getSavedPrintPrinterName() });
+}
+
+function closePrintPreview() {
+    setPrintPreviewOpen(false);
+}
+
+async function changePrintPrinter() {
+    clearSavedPrintPrinterName();
+    await loadPrintPreviewPrinters({ forceChoose: true });
+}
+
+async function confirmPrintInvoice() {
+    const printBtn = document.getElementById('salesPrintConfirmBtn');
+    const select = document.getElementById('salesPrintPrinterSelect');
+    const savedPrinterName = getSavedPrintPrinterName();
+    const selectedPrinterName = savedPrinterName || select?.value || '';
+
+    if (printBtn) {
+        printBtn.disabled = true;
+        printBtn.textContent = 'جاري الطباعة...';
+    }
+
+    try {
+        if (window.electronAPI && typeof window.electronAPI.printCurrentWindow === 'function' && selectedPrinterName) {
+            const result = await window.electronAPI.printCurrentWindow({
+                silent: true,
+                deviceName: selectedPrinterName
+            });
+            if (result && result.success) {
+                savePrintPrinterName(selectedPrinterName);
+                closePrintPreview();
+                if (window.showToast) window.showToast('تم إرسال الفاتورة للطابعة', 'success');
+                return;
+            }
+            if (window.showToast) window.showToast((result && result.error) || 'تعذر طباعة الفاتورة', 'error');
+            return;
+        }
+
+        window.print();
+        closePrintPreview();
+    } finally {
+        if (printBtn) {
+            printBtn.disabled = false;
+            printBtn.textContent = 'طباعة';
+        }
+    }
+}
+
+async function printInvoice() {
+    // 1. Gather all data for printing from the DOM
+    const customerSelect = salesState.dom.customerSelect;
+    const customerName = customerSelect.options[customerSelect.selectedIndex]?.text || '';
+    const selectedCustomerOption = customerSelect.options[customerSelect.selectedIndex];
+    const invoiceNumber = document.getElementById('invoiceNumber').value;
+    const invoiceDate = salesState.dom.invoiceDateInput.value || new Date().toLocaleDateString('ar-EG');
+    const customerBalance = parseFloat(selectedCustomerOption?.dataset.balance || '0') || 0;
+
+    const { items, isValid } = collectInvoiceItemsFromForm();
+    if (!isValid || items.length === 0) {
+        if (window.showToast) window.showToast('الرجاء إدخال أصناف صحيحة قبل الطباعة', 'error');
+        return;
+    }
+
+    const financials = getInvoiceFinancials(parseFloat(salesState.dom.invoiceSubtotalSpan?.textContent || '0') || 0);
+
+    // 2. Submit the invoice if not locked
+    const wasEditing = !!salesState.editingInvoiceId;
+    const locked = isEditLocked();
+    
+    if (!locked) {
+        await submitInvoice();
+        
+        // Check if submit was successful by seeing if form reset
+        if (customerSelect.value !== '') {
+            // Form didn't reset, meaning save failed or validation failed. Stop printing.
+            return;
+        }
+    }
+
+    // 4. Populate Print Area
+    document.getElementById('printInvoiceNumber').textContent = invoiceNumber || (wasEditing ? 'معدلة' : 'جديدة');
+    document.getElementById('printInvoiceDate').textContent = invoiceDate;
+    document.getElementById('printCustomerName').textContent = customerName;
+
+    const printItemsTbody = document.getElementById('printInvoiceItems');
+    printItemsTbody.innerHTML = '';
+    items.forEach((item, index) => {
+        const itemObj = salesState.allItems.find(i => i.id === item.item_id);
+        const itemName = itemObj ? (itemObj.item_name || itemObj.name || '') : '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${itemName}</td>
+            <td>${item.quantity}</td>
+            <td>${parseFloat(item.sale_price).toFixed(2)}</td>
+            <td>${parseFloat(item.total_price).toFixed(2)}</td>
+        `;
+        printItemsTbody.appendChild(tr);
+    });
+
+    const netTotal = financials.netTotal;
+    const paid = financials.paidAmount;
+    const remaining = netTotal - paid;
+    const previousBalance = wasEditing && locked ? customerBalance - remaining : customerBalance;
+    const currentBalance = wasEditing && locked ? customerBalance : previousBalance + remaining;
+
+    document.getElementById('printInvoiceTotal').textContent = netTotal.toFixed(2);
+    document.getElementById('printInvoicePaid').textContent = paid.toFixed(2);
+    document.getElementById('printInvoiceRemaining').textContent = remaining.toFixed(2);
+    document.getElementById('printCustomerPreviousBalance').textContent = previousBalance.toFixed(2);
+    document.getElementById('printCustomerCurrentBalance').textContent = currentBalance.toFixed(2);
+
+    // Get settings for company info
+    try {
+        const settings = await window.electronAPI.getSettings();
+        if (settings) {
+            const companyPhone = settings.companyPhone || settings.company_phone || '';
+            document.getElementById('printCompanyName').textContent = settings.companyName || settings.company_name || 'اسم الشركة';
+            document.getElementById('printCompanyInfo').textContent = companyPhone ? `هاتف: ${companyPhone}` : '';
+            document.getElementById('printFooterText').textContent = settings.invoiceFooter || settings.invoice_notes || 'شكراً لتعاملكم معنا';
+        }
+    } catch(e) {
+        console.error('Error fetching settings for print', e);
+    }
+
+    await openPrintPreview();
 }
 
 async function submitInvoice() {
@@ -1599,6 +1848,26 @@ function calculateInvoiceTotal() {
             salesState.dom.invoiceRemainingSpan.className = 'customer-due-value';
         }
     }
+    
+    updatePrintBtnState();
+}
+
+function updatePrintBtnState() {
+    const printBtn = document.getElementById('printInvoiceBtn');
+    if (!printBtn) return;
+    
+    const customer_id = salesState.dom.customerSelect?.value;
+    const hasItems = salesState.dom.invoiceItemsBody?.querySelectorAll('tr').length > 0;
+    
+    if (customer_id && hasItems) {
+        printBtn.disabled = false;
+        printBtn.style.opacity = '1';
+        printBtn.style.cursor = 'pointer';
+    } else {
+        printBtn.disabled = true;
+        printBtn.style.opacity = '0.5';
+        printBtn.style.cursor = 'not-allowed';
+    }
 }
 
 function collectInvoiceItemsFromForm() {
@@ -1817,4 +2086,5 @@ async function resetForm() {
     window.history.replaceState({}, document.title, window.location.pathname);
     await loadItems();
     await initializeNewInvoice();
+    updatePrintBtnState();
 }

@@ -21,7 +21,10 @@
                 <div class="invoice-shell">
                     <div class="form-title-row">
                         <h2 class="form-title">${t('sales.formTitle', 'تسجيل فاتورة بيع جديدة')}</h2>
-                        <div style="display: flex; gap: 8px; margin-inline-start: auto;">
+                        <div style="display: flex; gap: 8px; margin-inline-start: auto; align-items: center;">
+                            <button class="btn btn-outline" type="button" data-action="print-invoice" id="printInvoiceBtn" disabled style="padding: 8px 12px; opacity: 0.5; cursor: not-allowed;" title="${t('sales.printInvoice', 'طباعة الفاتورة')}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                            </button>
                             <button class="btn btn-outline" type="button" data-action="load-prev-invoice" style="padding: 8px 10px;">
                                 ${t('common.actions.previous', 'السابق')}
                             </button>
@@ -152,6 +155,29 @@
                                 ${t('sales.saveAndPost', 'حفظ الفاتورة')}
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="salesPrintPreviewModal" class="sales-print-preview-modal" style="display: none;" aria-hidden="true">
+                <div class="sales-print-preview-panel" role="dialog" aria-modal="true" aria-label="معاينة الفاتورة">
+                    <div class="sales-print-preview-header">
+                        <div>
+                            <h3 class="sales-print-preview-title">معاينة الفاتورة</h3>
+                            <p id="salesPrintPrinterStatus" class="sales-print-preview-subtitle"></p>
+                        </div>
+                        <div class="sales-print-preview-actions">
+                            <button class="btn btn-outline" type="button" data-action="change-print-printer" id="salesPrintChangePrinterBtn" style="display: none;">تغيير الطابعة</button>
+                            <button class="btn btn-success" type="button" data-action="confirm-print-invoice" id="salesPrintConfirmBtn">طباعة</button>
+                            <button class="btn btn-outline" type="button" data-action="close-print-preview">إغلاق</button>
+                        </div>
+                    </div>
+                    <div id="salesPrintPrinterPicker" class="sales-print-printer-picker" style="display: none;">
+                        <label for="salesPrintPrinterSelect">اختر الطابعة</label>
+                        <select id="salesPrintPrinterSelect" class="form-control"></select>
+                    </div>
+                    <div class="sales-print-preview-body">
+                        <div id="salesPrintPreviewPage" class="sales-print-preview-page"></div>
                     </div>
                 </div>
             </div>
