@@ -7,6 +7,8 @@ let allItems = [];
 let allWarehouses = [];
 let damagedEntries = [];
 let currentUserIsAdmin = false;
+let currentUserCanEditDamaged = false;
+let currentUserCanDeleteDamaged = false;
 let showShortagesOnly = false;
 let damagedItemAutocomplete = null;
 let editDamagedItemAutocomplete = null;
@@ -390,11 +392,25 @@ async function loadInventory() {
 }
 
 async function initializeDamagedStockSection() {
-    currentUserIsAdmin = await isCurrentUserAdmin();
+    await resolveDamagedPermissions();
     await loadWarehouses();
     populateDamagedItemOptions();
     populateDamagedWarehouseOptions();
     await loadDamagedEntries();
+}
+
+async function resolveDamagedPermissions() {
+    if (window.permissionManager?.loadPermissions) {
+        const response = await window.permissionManager.loadPermissions();
+        currentUserIsAdmin = Boolean(response?.isAdmin);
+        currentUserCanEditDamaged = Boolean(window.permissionManager.canEdit?.('inventory'));
+        currentUserCanDeleteDamaged = Boolean(window.permissionManager.canDelete?.('inventory'));
+        return;
+    }
+
+    currentUserIsAdmin = await isCurrentUserAdmin();
+    currentUserCanEditDamaged = currentUserIsAdmin;
+    currentUserCanDeleteDamaged = currentUserIsAdmin;
 }
 
 async function isCurrentUserAdmin() {
@@ -536,16 +552,22 @@ function renderDamagedEntries(entries) {
 
     entries.forEach(entry => {
         const row = document.createElement('tr');
-        const actions = currentUserIsAdmin
-            ? `
+        const actionButtons = [];
+        if (currentUserCanEditDamaged) {
+            actionButtons.push(`
                 <button class="inv-icon-btn" data-action="edit-damaged-entry" data-id="${entry.id}" title="${t('inventory.edit', 'تعديل')}">
                     <i class="fas fa-pen"></i>
                 </button>
+            `);
+        }
+        if (currentUserCanDeleteDamaged) {
+            actionButtons.push(`
                 <button class="inv-icon-btn danger" data-action="delete-damaged-entry" data-id="${entry.id}" title="${t('inventory.delete', 'حذف')}">
                     <i class="fas fa-trash"></i>
                 </button>
-            `
-            : '<span class="inv-muted-text">-</span>';
+            `);
+        }
+        const actions = actionButtons.length ? actionButtons.join('') : '<span class="inv-muted-text">-</span>';
 
         row.innerHTML = `
             <td>${escapeHtml(formatDate(entry.damaged_date || entry.created_at))}</td>
@@ -639,7 +661,7 @@ function clearDamagedForm() {
 }
 
 function openDamagedEditModal(id) {
-    if (!currentUserIsAdmin) {
+    if (!currentUserCanEditDamaged) {
         showErrorToast(t('inventory.adminOnly', 'هذه العملية متاحة للمسؤول فقط'));
         return;
     }
@@ -652,6 +674,7 @@ function openDamagedEditModal(id) {
 
     if (editDamagedId) editDamagedId.value = String(entry.id);
     if (editDamagedItemSelect) editDamagedItemSelect.value = String(entry.item_id || '');
+    if (editDamagedItemAutocomplete) editDamagedItemAutocomplete.refresh();
     if (editDamagedWarehouseSelect) editDamagedWarehouseSelect.value = entry.warehouse_id ? String(entry.warehouse_id) : '';
     if (editDamagedQuantityInput) editDamagedQuantityInput.value = String(entry.quantity || '');
     if (editDamagedReasonInput) editDamagedReasonInput.value = entry.reason || '';
@@ -672,7 +695,7 @@ function closeDamagedEditModal() {
 }
 
 async function saveDamagedEdit() {
-    if (!currentUserIsAdmin) {
+    if (!currentUserCanEditDamaged) {
         showErrorToast(t('inventory.adminOnly', 'هذه العملية متاحة للمسؤول فقط'));
         return;
     }
@@ -705,7 +728,7 @@ async function saveDamagedEdit() {
 }
 
 async function deleteDamagedEntry(id) {
-    if (!currentUserIsAdmin) {
+    if (!currentUserCanDeleteDamaged) {
         showErrorToast(t('inventory.adminOnly', 'هذه العملية متاحة للمسؤول فقط'));
         return;
     }
