@@ -28,6 +28,10 @@
                             <button class="btn btn-outline" type="button" data-action="load-next-invoice" style="padding: 8px 10px;">
                                 ${t('common.actions.next', 'التالي')}
                             </button>
+                            <button class="btn btn-outline" type="button" id="printBarcodeBtn" style="padding: 8px 10px; display: inline-flex; align-items: center;">
+                                <svg style="width:16px;height:16px;vertical-align:middle;margin-inline-end:4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/></svg>
+                                ${t('purchases.printBarcode', 'طباعة الباركود')}
+                            </button>
                         </div>
                         <span class="form-status-chip">${t('purchases.formStatusChip', 'فاتورة مشتريات')}</span>
                     </div>
@@ -156,6 +160,34 @@
                 </div>
             </div>
         </div>
+
+        <div id="barcodePrintModal" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2>${t('purchases.barcodeModalTitle', 'تجهيز طباعة الباركود للمنتجات')}</h2>
+                    <span class="close" data-action="close-barcode-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <table class="items-table" style="margin-bottom: 20px;">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>${t('purchases.tableHeaders.item', 'الصنف')}</th>
+                                <th>${t('items.barcode', 'الباركود')}</th>
+                                <th>${t('purchases.barcodePrintCount', 'عدد الملصقات')}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="barcodeModalBody"></tbody>
+                    </table>
+                    <div style="display:flex;justify-content:flex-end;gap:10px;">
+                        <button class="btn btn-outline" type="button" data-action="close-barcode-modal">${t('common.actions.cancel', 'إلغاء')}</button>
+                        <button class="btn btn-success" type="button" data-action="execute-print-barcode">${t('purchases.print', 'طباعة')}</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="barcodePrintContainer" style="display:none;" class="print-only"></div>
     `;
     }
 

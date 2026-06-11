@@ -114,3 +114,41 @@ body {
         padding: 16px;
     }
 }
+
+/* ===== Sales Print Mode for Parent Shell ===== */
+body.sales-print-mode,
+html:has(body.sales-print-mode) {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+}
+body.sales-print-mode,
+html:has(body.sales-print-mode),
+body.sales-print-mode .shell-root,
+body.sales-print-mode .shell-stage,
+body.sales-print-mode .shell-frame {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+}
+body.sales-print-mode .shell-root,
+body.sales-print-mode .shell-stage {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+body.sales-print-mode .shell-frame {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    border: 0 !important; /* تأكيد عدم وجود أي حدود */
+}
+body.sales-print-mode #shellNav,
+body.sales-print-mode .top-nav {
+    display: none !important;
+}

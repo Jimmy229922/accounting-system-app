@@ -1,4 +1,4 @@
-﻿const purchasesState = window.purchasesPageState.createInitialState();
+const purchasesState = window.purchasesPageState.createInitialState();
 const purchasesApi = window.purchasesPageApi;
 const purchasesRender = window.purchasesPageRender;
 const purchasesEvents = window.purchasesPageEvents;
@@ -63,7 +63,10 @@ function initializeElements() {
             onSubmitInvoice: submitInvoice,
             onLoadPrevInvoice: () => navigateInvoice(-1),
             onLoadNextInvoice: () => navigateInvoice(1),
-            onRemoveRow: removeRow
+            onRemoveRow: removeRow,
+            onPrintBarcodeClick: openBarcodeModal,
+            onCloseBarcodeModal: closeBarcodeModal,
+            onExecutePrintBarcode: executePrintBarcode
         }
     });
 
@@ -1173,4 +1176,165 @@ async function resetForm() {
     window.history.replaceState({}, document.title, window.location.pathname);
     await loadItems();
     await initializeNewInvoice();
+}
+
+function openBarcodeModal() {
+    const { items, isValid } = collectInvoiceItemsFromForm();
+    if (!items || items.length === 0) {
+        if (window.showToast) window.showToast('الرجاء إضافة أصناف للفاتورة أولاً', 'warning');
+        return;
+    }
+
+    const modalBody = document.getElementById('barcodeModalBody');
+    if (!modalBody) return;
+
+    modalBody.innerHTML = '';
+    
+    items.forEach((item, index) => {
+        const itemData = purchasesState.allItems.find(i => i.id === item.item_id);
+        if (!itemData) return;
+        
+        const itemName = itemData.name || 'غير معروف';
+        const barcode = itemData.barcode || '';
+        const defaultQty = item.quantity || 1;
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="text-align: center;">${index + 1}</td>
+            <td>${itemName}</td>
+            <td>${barcode || 'لا يوجد'}</td>
+            <td>
+                <input type="number" min="0" value="${defaultQty}" class="form-control barcode-qty-input" data-item-id="${item.item_id}" data-item-name="${itemName}" data-item-barcode="${barcode}" data-item-price="${itemData.sell_price || itemData.cost_price || 0}" style="text-align: center; width: 80px;">
+            </td>
+        `;
+        modalBody.appendChild(tr);
+    });
+
+    const modal = document.getElementById('barcodePrintModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeBarcodeModal() {
+    const modal = document.getElementById('barcodePrintModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+}
+
+function executePrintBarcode() {
+    if (typeof JsBarcode === 'undefined') {
+        if (window.showToast) window.showToast('مكتبة الباركود غير متوفرة', 'error');
+        return;
+    }
+
+    const modalBody = document.getElementById('barcodeModalBody');
+    const printContainer = document.getElementById('barcodePrintContainer');
+    
+    if (!modalBody || !printContainer) return;
+    
+    printContainer.innerHTML = '';
+    let totalLabels = 0;
+    let totalGroups = 0;
+    const printContainerDisplayBeforePrint = printContainer.style.display || '';
+    
+    const inputs = modalBody.querySelectorAll('.barcode-qty-input');
+    inputs.forEach(input => {
+        const qty = parseInt(input.value, 10) || 0;
+        if (qty <= 0) return;
+        
+        const itemName = input.dataset.itemName;
+        const barcode = input.dataset.itemBarcode;
+        const itemPrice = parseFloat(input.dataset.itemPrice) || 0;
+        
+        if (!barcode) return;
+        
+        const productGroup = document.createElement('section');
+        productGroup.className = 'barcode-product-group';
+
+        const productGrid = document.createElement('div');
+        productGrid.className = 'barcode-product-grid';
+
+        for (let i = 0; i < qty; i++) {
+            totalLabels++;
+            
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'barcode-label';
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'barcode-label-title';
+            titleDiv.textContent = itemName;
+            
+            const codeDiv = document.createElement('div');
+            codeDiv.className = 'barcode-label-code-text';
+            codeDiv.textContent = barcode;
+            
+            const priceDiv = document.createElement('div');
+            priceDiv.className = 'barcode-label-price';
+            priceDiv.textContent = `${itemPrice.toFixed(2)} ج.م`;
+            
+            labelDiv.appendChild(titleDiv);
+            labelDiv.appendChild(codeDiv);
+            labelDiv.appendChild(priceDiv);
+            
+            productGrid.appendChild(labelDiv);
+        }
+
+        if (productGrid.childElementCount > 0) {
+            totalGroups++;
+            productGroup.appendChild(productGrid);
+            printContainer.appendChild(productGroup);
+        }
+    });
+    
+    if (totalLabels === 0 || totalGroups === 0) {
+        if (window.showToast) window.showToast('لم يتم تحديد أي ملصقات للطباعة', 'warning');
+        return;
+    }
+
+    const btn = document.querySelector('[data-action="execute-print-barcode"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="print-loading-spinner"></span>جاري الطباعة...`;
+    }
+    
+    // Allow DOM to update before printing
+    setTimeout(() => {
+        let restored = false;
+        const restorePrintState = () => {
+            if (restored) return;
+            restored = true;
+            window.removeEventListener('afterprint', restorePrintState);
+            printContainer.style.display = printContainerDisplayBeforePrint;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'طباعة';
+            }
+        };
+
+        printContainer.style.display = 'block';
+        window.addEventListener('afterprint', restorePrintState, { once: true });
+
+        // Fallback in case afterprint does not fire in some environments.
+        setTimeout(restorePrintState, 5000);
+
+        if (window.electronAPI && window.electronAPI.printBarcodeLabels) {
+            // تمرير اسم الطابعة وتفعيل خيار الصامت
+            window.electronAPI.printBarcodeLabels({ silent: true, deviceName: 'Xprinter XP-370B' }).then(() => {
+                // تأخير إغلاق النافذة واستعادة الحالة لضمان انتهاء معالجة الملصق الأخير
+                setTimeout(() => {
+                    restorePrintState();
+                    closeBarcodeModal();
+                }, 1500); // 1.5 ثانية تأخير أمان
+            }).catch(() => {
+                restorePrintState();
+            });
+        } else {
+            window.print();
+            closeBarcodeModal();
+        }
+    }, 1000);
 }

@@ -1,4 +1,4 @@
-﻿let customerSelect;
+let customerSelect;
 let reportContainer;
 let totalSalesEl;
 let totalPurchasesEl;
@@ -542,7 +542,16 @@ document.addEventListener('click', (event) => {
 
 window.printReport = async () => {
     await window.customerReportsUtils.loadAllItemDetails({ t, formatCurrency });
-    window.print();
+    
+    // إضافة الفئة المؤقتة لتأمين التنسيق الأبيض وإخفاء الواجهة
+    document.body.classList.add('customer-report-print-mode');
+    
+    // مهلة أمان لضمان استقرار الـ DOM والـ CSS
+    setTimeout(() => {
+        window.print();
+        // إزالة الفئة بعد فتح نافذة الطباعة
+        document.body.classList.remove('customer-report-print-mode');
+    }, 800);
 };
 
 window.savePDF = async () => {

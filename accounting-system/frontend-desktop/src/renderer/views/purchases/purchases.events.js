@@ -4,9 +4,16 @@
             dom.supplierSelect.addEventListener('change', handlers.onSupplierChange);
         }
 
-        if (root) {
+            if (root) {
             root.addEventListener('click', (event) => {
                 const actionEl = event.target.closest('[data-action]');
+                
+                // Also check for standard ID buttons
+                if (event.target.closest('#printBarcodeBtn')) {
+                    if (handlers.onPrintBarcodeClick) handlers.onPrintBarcodeClick();
+                    return;
+                }
+
                 if (!actionEl) return;
 
                 const action = actionEl.dataset.action;
@@ -32,6 +39,17 @@
 
                 if (action === 'remove-row') {
                     handlers.onRemoveRow(actionEl);
+                    return;
+                }
+
+                if (action === 'close-barcode-modal') {
+                    if (handlers.onCloseBarcodeModal) handlers.onCloseBarcodeModal();
+                    return;
+                }
+
+                if (action === 'execute-print-barcode') {
+                    if (handlers.onExecutePrintBarcode) handlers.onExecutePrintBarcode();
+                    return;
                 }
             });
         }

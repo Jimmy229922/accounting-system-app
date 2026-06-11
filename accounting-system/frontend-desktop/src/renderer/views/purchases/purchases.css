@@ -709,3 +709,198 @@
         padding: 16px;
     }
 }
+
+/* Print Loading Spinner */
+.print-loading-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2.5px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: print-spin 0.8s linear infinite;
+    margin-inline-end: 8px;
+    vertical-align: middle;
+}
+
+@keyframes print-spin {
+    to { transform: rotate(360deg); }
+}
+
+#barcodePrintModal {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.58);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 2200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+#barcodePrintModal .modal-content {
+    background-color: var(--card-bg, #ffffff);
+    width: min(920px, 100%);
+    max-width: 920px !important;
+    margin: 0;
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+}
+
+[data-theme="dark"] #barcodePrintModal .modal-content {
+    background-color: #1e293b;
+}
+
+#barcodePrintModal .modal-header {
+    flex-shrink: 0;
+}
+
+#barcodePrintModal .modal-body {
+    overflow-y: auto;
+    max-height: calc(100vh - 210px);
+}
+
+@media (max-width: 768px) {
+    #barcodePrintModal {
+        padding: 10px;
+    }
+
+    #barcodePrintModal .modal-content {
+        max-height: calc(100vh - 20px);
+    }
+
+    #barcodePrintModal .modal-body {
+        max-height: calc(100vh - 180px);
+    }
+}
+
+/* Barcode Print Styles */
+@media print {
+    @page {
+        size: 40mm 25mm; /* المقاس الفعلي للاستيكر بالعرض */
+        margin: 0;
+    }
+
+    html, body, #app, #barcodePrintContainer, .barcode-label {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 40mm !important;
+        height: auto !important;
+    }
+
+    /* Hide absolutely everything inside body except the app wrapper */
+    body > :not(#app) {
+        display: none !important;
+    }
+
+    #app {
+        display: block !important;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+    }
+
+    /* Hide all children of #app except the print container */
+    #app > * {
+        display: none !important;
+    }
+
+    #app > #barcodePrintContainer {
+        display: block !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 40mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box;
+    }
+
+    #barcodePrintContainer * {
+        visibility: visible !important;
+        color: #000 !important;
+    }
+
+    .barcode-product-group {
+        margin: 0;
+        padding: 0;
+        border: none;
+    }
+
+    .barcode-product-grid {
+        display: block;
+        width: 40mm;
+    }
+
+    .barcode-label {
+        width: 40mm;
+        height: 25mm;
+        border: none;
+        padding: 1.5mm 2mm 3.5mm 2mm;
+        text-align: center;
+        page-break-after: always;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        background: #fff;
+        box-sizing: border-box;
+        overflow: hidden;
+        /* تم حذف الـ transform والـ rotate تماماً لأن الطابعة ستطبع باتجاهها الطبيعي */
+    }
+
+    .barcode-label-title {
+        width: 100%;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: 0.2mm;
+        color: #000;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        direction: rtl;
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .barcode-label-code-text {
+        width: 100%;
+        font-size: 10px;
+        font-weight: 800;
+        color: #000;
+        text-align: center;
+        margin-top: 1.5mm;
+        margin-bottom: 1.5mm;
+    }
+
+    .barcode-label-price {
+        font-size: 11px;
+        font-weight: 800;
+        margin-top: 1mm;
+        color: #000;
+    }
+}

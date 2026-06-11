@@ -953,8 +953,12 @@ async function changePrintPrinter() {
 async function confirmPrintInvoice() {
     const printBtn = document.getElementById('salesPrintConfirmBtn');
     const select = document.getElementById('salesPrintPrinterSelect');
+    const appRoot = document.getElementById('app');
+    const printArea = document.getElementById('printArea');
     const savedPrinterName = getSavedPrintPrinterName();
     const selectedPrinterName = savedPrinterName || select?.value || '';
+    const appDisplayBeforePrint = appRoot ? appRoot.style.display : '';
+    const printAreaDisplayBeforePrint = printArea ? printArea.style.display : '';
 
     if (printBtn) {
         printBtn.disabled = true;
@@ -962,31 +966,55 @@ async function confirmPrintInvoice() {
     }
 
     try {
+        // عند بدء الطباعة: إضافة الفئة المؤقتة للابن والأب معاً
+        document.body.classList.add('sales-print-mode');
+        if (window.parent && window.parent.document && window.parent.document.body) {
+            window.parent.document.body.classList.add('sales-print-mode');
+        }
+
+        if (appRoot) appRoot.style.display = 'none';
+        if (printArea) printArea.style.display = 'block';
+
+        // مهلة أمان 800 مللي ثانية لضمان استقرار التنسيقات قبل لقط الشاشة
+        await new Promise(resolve => setTimeout(resolve, 800));
+
         if (window.electronAPI && typeof window.electronAPI.printCurrentWindow === 'function' && selectedPrinterName) {
             const result = await window.electronAPI.printCurrentWindow({
                 silent: true,
                 deviceName: selectedPrinterName
             });
+
             if (result && result.success) {
                 savePrintPrinterName(selectedPrinterName);
                 closePrintPreview();
                 if (window.showToast) window.showToast('تم إرسال الفاتورة للطابعة', 'success');
                 return;
             }
+
             if (window.showToast) window.showToast((result && result.error) || 'تعذر طباعة الفاتورة', 'error');
             return;
         }
 
         window.print();
         closePrintPreview();
+    } catch (error) {
+        console.error("Print error:", error);
     } finally {
+        if (appRoot) appRoot.style.display = appDisplayBeforePrint;
+        if (printArea) printArea.style.display = printAreaDisplayBeforePrint;
+        
+        // إزالة فئة الطباعة المؤقتة من الاثنين فوراً لعودة الواجهة لطبيعتها
+        document.body.classList.remove('sales-print-mode');
+        if (window.parent && window.parent.document && window.parent.document.body) {
+            window.parent.document.body.classList.remove('sales-print-mode');
+        }
+
         if (printBtn) {
             printBtn.disabled = false;
             printBtn.textContent = 'طباعة';
         }
     }
 }
-
 async function printInvoice() {
     // 1. Gather all data for printing from the DOM
     const customerSelect = salesState.dom.customerSelect;
@@ -1064,7 +1092,7 @@ async function printInvoice() {
         console.error('Error fetching settings for print', e);
     }
 
-    await openPrintPreview();
+    await confirmPrintInvoice();
 }
 
 async function submitInvoice() {
@@ -2088,3 +2116,4 @@ async function resetForm() {
     await initializeNewInvoice();
     updatePrintBtnState();
 }
+

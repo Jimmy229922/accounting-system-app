@@ -126,6 +126,13 @@
       - `.pending-items-table-wrap`
       - `.pending-items-actions`
 
+### Purchases Barcode Print (2026-05-08)
+
+- تم إضافة ميزة طباعة ملصقات الباركود للمنتجات مباشرة من شاشة `views/purchases`.
+- زر "طباعة الباركود" يظهر في أعلى الفاتورة (يفتح Barcode Modal).
+- يعتمد على مكتبة `JsBarcode` (تعمل Offline ومخزنة في `assets/js/JsBarcode.all.min.js`).
+- إعداد الطباعة يحتوي على `media print@` مخفي عن الشاشة ومقسّم بنظام Grid Layout لورق A4.
+
 ### Settings UI Structure (2026-04-12)
 
 - الصفحة `settings/index.html` (عبر `settings.js`) أصبحت مقسمة بصريًا داخل الفورم إلى 4 أقسام واضحة:

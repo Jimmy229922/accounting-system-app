@@ -549,6 +549,85 @@
             display: none;
         }
 
+        /* ===== Temporary Print Mode Class (to prevent Dark Mode / UI leak during window.print) ===== */
+        body.customer-report-print-mode {
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+
+        body.customer-report-print-mode * {
+            background: transparent !important;
+            background-color: transparent !important;
+            color: #000000 !important;
+            animation: none !important;
+            transition: none !important;
+        }
+
+        /* Force light theme colors on variables */
+        body.customer-report-print-mode,
+        body.customer-report-print-mode[data-theme="dark"],
+        body.customer-report-print-mode [data-theme="dark"] {
+            --bg-color: #ffffff !important;
+            --text-color: #000000 !important;
+            --text-muted: #444444 !important;
+            --card-bg: #ffffff !important;
+            --card-border: #ccd4df !important;
+            --input-bg: #ffffff !important;
+            --table-header-bg: #f3f6fb !important;
+            --table-border: #dee4ec !important;
+            --shadow-color: transparent !important;
+        }
+
+        /* Specific containers should keep white background, not transparent */
+        body.customer-report-print-mode .card,
+        body.customer-report-print-mode .table-card,
+        body.customer-report-print-mode .summary-card,
+        body.customer-report-print-mode .report-container,
+        body.customer-report-print-mode .items-detail-box,
+        body.customer-report-print-mode .items-inner-table td,
+        body.customer-report-print-mode .balance-footer {
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+        }
+
+        /* Hide elements completely without animation */
+        body.customer-report-print-mode .top-nav,
+        body.customer-report-print-mode .shell-top-nav,
+        body.customer-report-print-mode .selection-card,
+        body.customer-report-print-mode .page-hero,
+        body.customer-report-print-mode .btn-icon,
+        body.customer-report-print-mode .row-actions,
+        body.customer-report-print-mode .no-print,
+        body.customer-report-print-mode .btn-toggle,
+        body.customer-report-print-mode .empty-state,
+        body.customer-report-print-mode #sidebar,
+        body.customer-report-print-mode .sidebar,
+        body.customer-report-print-mode .app-sidebar,
+        body.customer-report-print-mode .main-sidebar,
+        body.customer-report-print-mode header,
+        body.customer-report-print-mode nav {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            animation: none !important;
+            transition: none !important;
+        }
+
+        body.customer-report-print-mode .content {
+            padding: 0 !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            overflow: visible !important;
+        }
+
+        body.customer-report-print-mode .report-container {
+            display: block !important;
+            max-height: none !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+
         /* ===== Print Styles ===== */
         @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }

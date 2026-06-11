@@ -334,7 +334,31 @@ ipcMain.handle('print-current-window', async (event, options = {}) => {
         silent: Boolean(options.silent),
         printBackground: true,
         deviceName: typeof options.deviceName === 'string' ? options.deviceName : '',
-        pageSize: 'A4'
+        pageSize: 'A4',
+        margins: { marginType: 'none' } // إلغاء الهوامش التلقائية لمنع البرواز الأسود
+    };
+
+    return new Promise((resolve) => {
+        event.sender.print(printOptions, (success, failureReason) => {
+            resolve({
+                success,
+                error: success ? '' : (failureReason || 'Print failed')
+            });
+        });
+    });
+});
+
+ipcMain.handle('print-barcode-labels', async (event, options = {}) => {
+    const printOptions = {
+        silent: true,
+        printBackground: false, // لمنع طباعة أي ألوان خلفية للنظام
+        deviceName: 'Xprinter XP-370B',
+        pageSize: {
+            width: 40000,
+            height: 25000
+        },
+        margins: { marginType: 'none' },
+        landscape: true
     };
 
     return new Promise((resolve) => {
