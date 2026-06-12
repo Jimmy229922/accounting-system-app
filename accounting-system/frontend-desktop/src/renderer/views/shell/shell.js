@@ -1,4 +1,4 @@
-﻿let shellDictionary = {};
+let shellDictionary = {};
 const helpers = window.i18n?.createPageHelpers?.(() => shellDictionary) || { t: (_k, fallback = '') => fallback };
 const t = helpers.t;
 
@@ -384,6 +384,21 @@ function navigateTo(rawTarget, options = {}) {
             }
         } catch (_e) {
             // Ignore parse issue and continue navigation.
+        }
+    }
+
+    const frameWindow = frame.contentWindow;
+    if (frameWindow && typeof frameWindow.hasUnsavedChanges === 'function') {
+        if (frameWindow.hasUnsavedChanges()) {
+            // حفظ الأصناف تلقائياً كمسودة صامتة في الخلفية فوراً بدون تعطيل المستخدم
+            if (typeof frameWindow.saveInvoiceDraft === 'function') {
+                frameWindow.saveInvoiceDraft();
+                
+                // إظهار تنبيه Toast ناعم وغير تزامني ولا يمنع الـ Thread
+                if (typeof showToast === 'function') {
+                    showToast('تم حفظ الفاتورة كمسودة تلقائية مؤقتة', 'success');
+                }
+            }
         }
     }
 

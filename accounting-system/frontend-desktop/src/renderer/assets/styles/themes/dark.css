@@ -21,7 +21,7 @@
     /* =========================================================================
        3. BORDERS & SHADOWS
        ========================================================================= */
-    --border-color: #2d3b56;       /* Soft separator lines */
+    --border-color: #1e293b;       /* Soft separator lines */
     --card-border: #2d3b56;
     --input-border: #3d4f6b;
     --table-border: #2d3b56;
@@ -36,9 +36,9 @@
     --primary-color: #a5c9ff;
     --secondary-color: #38d9ee;
     --accent-color: #70b5ff;       /* Vivid Blue for links and buttons */
-    --success-color: #34d875;      /* Luminescent Green */
+    --success-color: #10b981;      /* Luminescent Green */
     --warning-color: #fbbf24;      /* Amber/Yellow warning */
-    --danger-color: #ff8787;       /* Soft Red for danger */
+    --danger-color: #f87171;       /* Soft Red for danger */
     --info-color: #38bdf8;
 
     /* =========================================================================
@@ -71,10 +71,10 @@
     /* =========================================================================
        7. GRADIENTS (Dashboard & Cards - Optimized contrast for Dark)
        ========================================================================= */
-    --dash-gradient-1: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);  
-    --dash-gradient-2: linear-gradient(135deg, #059669 0%, #10b981 100%);  
-    --dash-gradient-3: linear-gradient(135deg, #ea580c 0%, #ef4444 100%);  
-    --dash-gradient-4: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);  
+    --dash-gradient-1: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);  /* نيلي متناسق مع بنفسجي داكن */
+    --dash-gradient-2: linear-gradient(135deg, #065f46 0%, #047857 100%);  /* أخضر زمردي هادئ ومريح */
+    --dash-gradient-3: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);  /* أزرق ملكي متدرج */
+    --dash-gradient-4: linear-gradient(135deg, #374151 0%, #4b5563 100%);  /* رمادي معدني فاخر */
     --dash-gradient-5: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);  
     --dash-gradient-6: linear-gradient(135deg, #be123c 0%, #f43f5e 100%);  
     --dash-gradient-7: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);  

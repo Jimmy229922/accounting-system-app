@@ -53,17 +53,14 @@ function register() {
             }
 
             const numberField = (type === 'sales_return' || type === 'purchase_return') ? 'return_number' : 'invoice_number';
-            
-            // Use COUNT to get actual number of invoices, not MAX(id) which can be misleading after deletions
-            const countResult = db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get();
-            // Also get the max number to avoid duplicates
-            const maxNumberResult = db.prepare(`SELECT MAX(CAST(${numberField} AS INTEGER)) as maxNum FROM ${table} WHERE ${numberField} GLOB '[0-9]*'`).get();
-            
-            const nextFromCount = (countResult.count || 0) + 1;
-            const nextFromMaxNumber = (maxNumberResult.maxNum || 0) + 1;
-            
-            // Return the higher value to avoid duplicates with prefix
-            const nextNumber = Math.max(nextFromCount, nextFromMaxNumber);
+            const lastInvoice = db.prepare(`SELECT ${numberField} FROM ${table} ORDER BY id DESC LIMIT 1`).get();
+            let nextNumber = 1;
+            if (lastInvoice && lastInvoice[numberField]) {
+                const numericPart = lastInvoice[numberField].replace(/[^0-9]/g, '');
+                if (numericPart) {
+                    nextNumber = parseInt(numericPart, 10) + 1;
+                }
+            }
             return `${prefix}-${String(nextNumber).padStart(4, '0')}`;
         } catch (error) {
             return '1';
@@ -205,16 +202,13 @@ function register() {
                 }
             }
 
-            // 3. Reverse Treasury (if paid > 0)
-            if (invoice.paid_amount > 0) {
-                // Delete the treasury transaction
-                db.prepare('DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = ?').run(id, type);
-            }
+            // 3. Reverse Treasury (Delete the treasury transaction if any exists)
+            db.prepare('DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = ?').run(id, type);
 
             // 4. Delete Details
             db.prepare(`DELETE FROM ${detailsTable} WHERE invoice_id = ?`).run(id);
 
-            // 5. Delete Invoice
+            // 5. Hard Delete Invoice
             db.prepare(`DELETE FROM ${invoiceTable} WHERE id = ?`).run(id);
         });
 

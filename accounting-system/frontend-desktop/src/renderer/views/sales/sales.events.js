@@ -96,6 +96,11 @@
                     return;
                 }
 
+                if (action === 'delete-invoice-btn') {
+                    handlers.onDeleteInvoice();
+                    return;
+                }
+
                 if (action === 'remove-row') {
                     handlers.onRemoveRow(actionEl);
                 }

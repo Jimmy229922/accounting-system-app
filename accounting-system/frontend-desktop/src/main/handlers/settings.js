@@ -81,7 +81,6 @@ function register() {
             const itemsCount = db.prepare("SELECT COUNT(*) as count FROM items WHERE is_deleted = 0").get().count;
             const stockValue = db.prepare("SELECT COALESCE(SUM(cost_price * stock_quantity), 0) as total FROM items WHERE is_deleted = 0").get().total;
 
-            // --- Sales & Purchases ---
             const salesTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date = ?").get(today).total;
             const salesReturnsTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE return_date = ?").get(today).total;
             const salesToday = Math.max(0, salesTotalToday - salesReturnsTotalToday);
@@ -211,6 +210,7 @@ function register() {
                 SELECT i.name, SUM(sid.quantity) as total_qty, SUM(sid.total_price) as total_value
                 FROM sales_invoice_details sid
                 JOIN items i ON sid.item_id = i.id
+                JOIN sales_invoices si ON sid.invoice_id = si.id
                 GROUP BY sid.item_id ORDER BY total_qty DESC LIMIT 5
             `).all();
 

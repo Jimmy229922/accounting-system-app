@@ -48,6 +48,10 @@
         return window.electronAPI.deleteSalesShiftClosing(id);
     }
 
+    async function deleteInvoice(id, type) {
+        return window.electronAPI.deleteInvoice(id, type);
+    }
+
     window.salesPageApi = {
         getNextInvoiceNumber,
         getInvoiceWithDetails,
@@ -60,7 +64,8 @@
         createShiftClosing,
         getShiftClosings,
         updateShiftClosing,
-        deleteShiftClosing
+        deleteShiftClosing,
+        deleteInvoice
     };
 })();
 

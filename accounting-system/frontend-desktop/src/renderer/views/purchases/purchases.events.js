@@ -27,6 +27,11 @@
                     return;
                 }
 
+                if (action === 'delete-invoice-btn') {
+                    handlers.onDeleteInvoice();
+                    return;
+                }
+
                 if (action === 'load-prev-invoice') {
                     handlers.onLoadPrevInvoice();
                     return;

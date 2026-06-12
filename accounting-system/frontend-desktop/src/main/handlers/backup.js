@@ -619,7 +619,9 @@ function register() {
             }
 
             const targetDir = path.dirname(chosenPath);
-            fs.mkdirSync(targetDir, { recursive: true });
+            if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+            }
 
             await db.backup(chosenPath);
             const cloudResult = await uploadFileToSupabase(chosenPath, {

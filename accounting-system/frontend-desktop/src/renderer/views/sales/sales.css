@@ -1474,3 +1474,35 @@ body.sales-print-mode .print-shell {
     border: 1px solid #475569;
 }
 
+[data-theme="dark"] .totals-panel,
+[data-theme="dark"] .notes-section {
+    background: var(--card-bg) !important; /* #131b2e بدلاً من الخلفية السادة */
+    border: 1px solid #1e293b !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .btn-success {
+    background: linear-gradient(135deg, #059669, #047857) !important; /* أخضر زمردي هادئ متناسق مع الداش بورد */
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.15) !important; /* ظل مكتوم ومريح جداً في العتمة */
+    border: none;
+}
+[data-theme="dark"] .btn-success:hover {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    box-shadow: 0 6px 20px rgba(5, 150, 105, 0.25) !important;
+}
+[data-theme="dark"] .btn-danger {
+    background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15) !important;
+    border: none;
+}
+
+[data-theme="dark"] .customer-due-value {
+    color: #f8fafc !important; /* أبيض ناصع للأرقام المالية */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+[data-theme="dark"] .customer-due-label {
+    color: var(--accent-color) !important; /* الأزرق الحيوي المريح */
+    font-weight: bold;
+}
+
+

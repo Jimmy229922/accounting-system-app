@@ -608,7 +608,7 @@ function register() {
                 JOIN sales_invoices si ON sid.invoice_id = si.id
                 JOIN items i ON sid.item_id = i.id
                 LEFT JOIN units u ON i.unit_id = u.id
-                WHERE si.customer_id = ?`;
+                 WHERE si.customer_id = ?`;
             const salesParams = [custId];
             if (startDate) { salesItemsQuery += ' AND si.invoice_date >= ?'; salesParams.push(startDate); }
             if (endDate) { salesItemsQuery += ' AND si.invoice_date <= ?'; salesParams.push(endDate); }
@@ -624,7 +624,7 @@ function register() {
                 JOIN purchase_invoices pi ON pid.invoice_id = pi.id
                 JOIN items i ON pid.item_id = i.id
                 LEFT JOIN units u ON i.unit_id = u.id
-                WHERE pi.supplier_id = ?`;
+                 WHERE pi.supplier_id = ?`;
             const purchaseParams = [custId];
             if (startDate) { purchaseItemsQuery += ' AND pi.invoice_date >= ?'; purchaseParams.push(startDate); }
             if (endDate) { purchaseItemsQuery += ' AND pi.invoice_date <= ?'; purchaseParams.push(endDate); }
@@ -672,7 +672,7 @@ function register() {
                 SELECT type, SUM(amount) as total_amount
                 FROM treasury_transactions
                 WHERE (customer_id = ?
-                   OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?)))
+                    OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?)))
                 AND COALESCE(related_type, '') NOT IN ('sales', 'sales_return', 'purchase_return')`;
             const paymentParams = [custId, custId];
             if (startDate) { paymentsQuery += ' AND transaction_date >= ?'; paymentParams.push(startDate); }
@@ -712,16 +712,13 @@ function register() {
                         END
                     ), 0) as net
                     FROM (
-                        SELECT 'sales' as sub_type, total_amount as amount
-                        FROM sales_invoices WHERE customer_id = ? AND invoice_date < ?
+                        SELECT 'sales' as sub_type, total_amount as amount FROM sales_invoices WHERE customer_id = ? AND invoice_date < ?
 
                         UNION ALL
-                        SELECT 'payment_in' as sub_type, paid_amount as amount
-                        FROM sales_invoices WHERE customer_id = ? AND invoice_date < ? AND paid_amount > 0
+                        SELECT 'payment_in' as sub_type, paid_amount as amount FROM sales_invoices WHERE customer_id = ? AND invoice_date < ? AND paid_amount > 0
 
                         UNION ALL
-                        SELECT 'purchase' as sub_type, total_amount as amount
-                        FROM purchase_invoices WHERE supplier_id = ? AND invoice_date < ?
+                        SELECT 'purchase' as sub_type, total_amount as amount FROM purchase_invoices WHERE supplier_id = ? AND invoice_date < ?
 
                         UNION ALL
                         SELECT CASE WHEN type = 'income' THEN 'payment_in' ELSE 'payment_out' END as sub_type,

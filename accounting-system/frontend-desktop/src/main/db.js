@@ -220,6 +220,7 @@ function initDB() {
             paid_amount REAL DEFAULT 0,
             remaining_amount REAL DEFAULT 0,
             notes TEXT,
+            status TEXT DEFAULT 'active',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (supplier_id) REFERENCES customers(id)
         )
@@ -232,6 +233,7 @@ function initDB() {
     runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN discount_type TEXT DEFAULT 'amount'", 'purchase_invoices', 'discount_type');
     runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN discount_value REAL DEFAULT 0", 'purchase_invoices', 'discount_value');
     runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN discount_amount REAL DEFAULT 0", 'purchase_invoices', 'discount_amount');
+    runAddColumnMigration("ALTER TABLE purchase_invoices ADD COLUMN status TEXT DEFAULT 'active'", 'purchase_invoices', 'status');
 
     // 6. Purchase Invoice Details Table (جدول تفاصيل فاتورة المشتريات)
     db.exec(`
@@ -262,6 +264,7 @@ function initDB() {
             paid_amount REAL DEFAULT 0,
             remaining_amount REAL DEFAULT 0,
             notes TEXT,
+            status TEXT DEFAULT 'active',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (customer_id) REFERENCES customers(id)
         )
@@ -274,6 +277,7 @@ function initDB() {
     runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN discount_type TEXT DEFAULT 'amount'", 'sales_invoices', 'discount_type');
     runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN discount_value REAL DEFAULT 0", 'sales_invoices', 'discount_value');
     runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN discount_amount REAL DEFAULT 0", 'sales_invoices', 'discount_amount');
+    runAddColumnMigration("ALTER TABLE sales_invoices ADD COLUMN status TEXT DEFAULT 'active'", 'sales_invoices', 'status');
 
     // 8. Sales Invoice Details Table (جدول تفاصيل فاتورة المبيعات)
     db.exec(`

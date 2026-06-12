@@ -15,7 +15,7 @@ let isMainWindowClosingConfirmed = false;
 
 function isInviteValid() {
     try {
-        const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('invite_code', 'invite_expiry', 'renew_count')").all();
+        const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('invite_code', 'invite_expiry', 'renew_count', 'auth_last_login_at')").all();
         const map = {};
         rows.forEach(r => { map[r.key] = r.value; });
         
@@ -31,8 +31,22 @@ function isInviteValid() {
         }
 
         const expiry = map.invite_expiry ? new Date(map.invite_expiry) : null;
-        const withinRange = expiry ? expiry > new Date() : false;
-        return codeMatches && withinRange;
+        const now = new Date();
+
+        // فحص ثغرة السفر عبر الزمن: التأكد من أن تاريخ الجهاز الحالي ليس أقدم من آخر تسجيل دخول مسجل
+        let timeIsGenuine = true;
+        if (map.auth_last_login_at) {
+            const lastLogin = new Date(map.auth_last_login_at);
+            if (now < lastLogin) {
+                console.error('[invite] Security Alert: System clock has been set backward!');
+                timeIsGenuine = false; // تم كشف التلاعب بالتاريخ
+            }
+        }
+
+        const withinRange = expiry ? expiry > now : false;
+
+        // لن يفتح البرنامج إلا إذا كان الكود مطابقاً، والتاريخ لم ينتهِ، ولم يتم التلاعب بساعة الجهاز
+        return codeMatches && withinRange && timeIsGenuine;
     } catch (err) {
         console.error('[invite] validation error:', err);
         return false;
@@ -256,11 +270,14 @@ function createWindow() {
 async function openAppFlow() {
     inviteUnlocked = false;
     authUnlocked = false;
-    // Invite screen is completely disabled - skip validation
-    // const valid = isInviteValid();
-    // if (!valid) {
-    //     await showInviteWindow();
-    // }
+
+    // إعادة تفعيل نظام التراخيص والقفل إجبارياً
+    const valid = isInviteValid();
+    if (!valid) {
+        await showInviteWindow();
+        return; // إيقاف التدفق لكي لا يفتح البرنامج شاشة تسجيل الدخول
+    }
+
     await showAuthWindow();
     if (!mainWindow) {
         createWindow();

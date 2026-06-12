@@ -185,22 +185,23 @@
     margin-bottom: 40px;
 }
 .metric-card {
-    background: var(--card-bg);
-    border-radius: 24px;
+    background: var(--card-bg); /* #131b2e */
+    border-radius: 16px; /* توحيد الحواف لتكون عصرية وأقل حدة */
     padding: 24px;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 10px 30px var(--shadow-color);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+    border: 1px solid #1e293b;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     height: 160px;
 }
 .metric-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px var(--shadow-color);
+    transform: translateY(-3px);
+    border-color: var(--accent-color); /* توهج الحدود عند الوقوف عليها */
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
 }
 .metric-card::before {
     content: '';
@@ -986,3 +987,15 @@
         padding: 16px;
     }
 }
+
+[data-theme="dark"] .metric-card .card-title,
+[data-theme="dark"] .metric-card .metric-label {
+    color: var(--text-secondary) !important; /* #94a3b8 */
+    font-size: 14px;
+}
+[data-theme="dark"] .metric-card .card-value,
+[data-theme="dark"] .metric-card .metric-value {
+    color: var(--text-color) !important; /* #f1f5f9 */
+    font-weight: 700;
+}
+

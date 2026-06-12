@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             await loadInvoiceForEdit(editId);
         } else {
             await initializeNewInvoice();
+            await checkAndRestoreDraft();
         }
 
         if (urlParams.get('openShiftClose') === '1') {
@@ -72,6 +73,7 @@ function initializeElements() {
             onLoadPrevInvoice: () => navigateInvoice(-1),
             onLoadNextInvoice: () => navigateInvoice(1),
             onRemoveRow: removeRow,
+            onDeleteInvoice: deleteInvoice,
             onOpenShiftCloseModal: () => openShiftCloseModal(),
             onCloseShiftCloseModal: () => closeShiftCloseModal(),
             onRefreshShiftClosePreview: () => refreshShiftClosePreview({ keepCurrentAmounts: false }),
@@ -83,6 +85,11 @@ function initializeElements() {
             onShiftCloseAmountsInput: () => updateShiftCloseDifferenceDisplay()
         }
     });
+
+    const notesInput = document.getElementById('invoiceNotes');
+    if (notesInput) {
+        notesInput.addEventListener('input', () => updateDeleteBtnState());
+    }
 
     salesEvents.bindRowsEvents({
         dom: salesState.dom,
@@ -1316,6 +1323,8 @@ async function displayCustomerBalance() {
     if (!customerId) return;
 
     const selectedOption = salesState.dom.customerSelect.options[salesState.dom.customerSelect.selectedIndex];
+    if (!selectedOption) return;
+
     const balance = parseFloat(selectedOption.dataset.balance || 0);
 
     const balanceDiv = document.getElementById('customerBalance');
@@ -1907,6 +1916,38 @@ function updatePrintBtnState() {
         printBtn.style.opacity = '0.5';
         printBtn.style.cursor = 'not-allowed';
     }
+
+    updateDeleteBtnState();
+}
+
+function updateDeleteBtnState() {
+    const deleteBtn = document.querySelector('#invoiceForm [data-action="delete-invoice-btn"]');
+    if (!deleteBtn) return;
+
+    const isEditMode = !!salesState.editingInvoiceId;
+    if (isEditMode) {
+        deleteBtn.disabled = false;
+        deleteBtn.style.opacity = '1';
+        deleteBtn.style.cursor = 'pointer';
+        return;
+    }
+
+    const hasCustomer = !!salesState.dom.customerSelect?.value;
+    const hasItems = salesState.dom.invoiceItemsBody?.querySelectorAll('tr').length > 0;
+    const notesInput = document.getElementById('invoiceNotes');
+    const hasNotes = notesInput ? !!notesInput.value.trim() : false;
+
+    const hasAnythingToCancel = hasCustomer || hasItems || hasNotes;
+
+    if (hasAnythingToCancel) {
+        deleteBtn.disabled = false;
+        deleteBtn.style.opacity = '1';
+        deleteBtn.style.cursor = 'pointer';
+    } else {
+        deleteBtn.disabled = true;
+        deleteBtn.style.opacity = '0.5';
+        deleteBtn.style.cursor = 'not-allowed';
+    }
 }
 
 function collectInvoiceItemsFromForm() {
@@ -2080,6 +2121,46 @@ async function saveInvoice() {
     }
 }
 
+async function deleteInvoice() {
+    const invoiceId = salesState.editingInvoiceId;
+    
+    // الحالة الأولى: الفاتورة جديدة وقيد الإنشاء
+    if (!invoiceId) {
+        const confirmCancel = typeof window.showConfirmDialog === 'function'
+            ? await window.showConfirmDialog(t('sales.confirmCancelNew', 'هل أنت متأكد من إلغاء وتفريغ الفاتورة الحالية؟ جميع الأصناف المضافة ستُمسح.'))
+            : confirm('هل أنت متأكد من إلغاء وتفريغ الفاتورة الحالية؟ جميع الأصناف المضافة ستُمسح.');
+            
+        if (confirmCancel) {
+            await resetForm();
+            if (typeof renderTotalsPanel === 'function') renderTotalsPanel(); // إعادة رندرة اللوحة لتحديث الزرار
+            if (window.showToast) window.showToast(t('sales.cancelSuccess', 'تم إلغاء وتفريغ الفاتورة بنجاح'), 'success');
+        }
+        return;
+    }
+    
+    // الحالة الثانية: الفاتورة قديمة ومحفوظة (وضع التعديل)
+    const confirmDelete = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('sales.confirmDeleteSaved', 'تحذير محاسبي: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟ سيتم إلغاء الحركات المالية وعكس حركة المخازن بالكامل!'))
+        : confirm('تحذير محاسبي: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟ سيتم إلغاء الحركات المالية وعكس حركة المخازن بالكامل!');
+        
+    if (!confirmDelete) return;
+    
+    try {
+        const result = await salesApi.deleteInvoice(invoiceId, 'sales');
+        if (result && result.success) {
+            if (window.showToast) window.showToast(t('sales.deleteSuccess', 'تم حذف الفاتورة وعكس حركات المخزن والمالية بنجاح'), 'success');
+            await resetForm();
+            if (typeof renderTotalsPanel === 'function') renderTotalsPanel();
+        } else {
+            const errorMsg = result?.error || 'خطأ غير معروف';
+            if (window.showToast) window.showToast(t('sales.deleteFailed', 'فشل حذف الفاتورة') + `: ${errorMsg}`, 'error');
+        }
+    } catch (error) {
+        console.error('[sales-delete] Error:', error);
+        if (window.showToast) window.showToast(t('sales.deleteError', 'حدث خطأ أثناء الحذف') + `: ${error.message}`, 'error');
+    }
+}
+
 async function resetForm() {
     salesState.dom.customerSelect.value = '';
     if (salesState.customerAutocomplete) {
@@ -2123,9 +2204,89 @@ async function resetForm() {
     setEditLocked(false);
 
     window.history.replaceState({}, document.title, window.location.pathname);
+    localStorage.removeItem('sales_invoice_draft');
     await loadItems();
     await loadCustomers();
     await initializeNewInvoice();
     updatePrintBtnState();
 }
+
+window.hasUnsavedChanges = function() {
+    // التحقق من وجود أصناف في جدول المبيعات الحالي
+    const rows = document.querySelectorAll('.items-table tbody tr');
+    return rows.length > 0;
+};
+
+window.saveInvoiceDraft = function() {
+    try {
+        const items = [];
+        salesState.dom.invoiceItemsBody.querySelectorAll('tr').forEach((row) => {
+            const item_id = parseInt(row.querySelector('.item-select')?.value, 10);
+            const quantity = parseFloat(row.querySelector('.quantity-input')?.value);
+            const sale_price = parseFloat(row.querySelector('.price-input')?.value);
+            
+            if (Number.isFinite(item_id) && item_id > 0) {
+                items.push({
+                    item_id,
+                    quantity: Number.isFinite(quantity) ? quantity : 1,
+                    sale_price: Number.isFinite(sale_price) ? sale_price : 0,
+                    total_price: (Number.isFinite(quantity) ? quantity : 1) * (Number.isFinite(sale_price) ? sale_price : 0)
+                });
+            }
+        });
+        const customerId = salesState.dom.customerSelect?.value || '';
+        if (items.length > 0 || customerId) {
+            localStorage.setItem('sales_invoice_draft', JSON.stringify({ items, customerId, timestamp: Date.now() }));
+        }
+    } catch (err) { console.error('Failed to save draft:', err); }
+};
+
+async function checkAndRestoreDraft() {
+    try {
+        const draftStr = localStorage.getItem('sales_invoice_draft');
+        if (!draftStr) return;
+
+        const draft = JSON.parse(draftStr);
+        if (!draft || !draft.items) return;
+
+        const ageMs = Date.now() - (draft.timestamp || 0);
+        if (ageMs > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem('sales_invoice_draft');
+            return;
+        }
+
+        // 1. نقل الحذف للأعلى فوراً لمنع أي حلقة استعادة متداخلة أو لانهائية
+        localStorage.removeItem('sales_invoice_draft');
+
+        if (draft.customerId && salesState.dom.customerSelect) {
+            salesState.dom.customerSelect.value = draft.customerId;
+            if (salesState.customerAutocomplete) {
+                salesState.customerAutocomplete.refresh();
+            }
+            await displayCustomerBalance();
+        }
+
+        if (draft.items.length > 0) {
+            if (salesState.dom.invoiceItemsBody) {
+                salesState.dom.invoiceItemsBody.innerHTML = '';
+            }
+
+            // 2. تنظيف وإزالة أي عناصر Autocomplete قديمة وعالقة في الـ body لمنع تصادم الأحداث
+            const activeDropdowns = document.querySelectorAll('body > .autocomplete-dropdown, body > .autocomplete-suggestions, body > .autocomplete-list');
+            activeDropdowns.forEach(el => el.remove());
+
+            draft.items.forEach((itemData) => {
+                addInvoiceRow(itemData);
+            });
+            calculateInvoiceTotal();
+        }
+
+        if (window.showToast) {
+            window.showToast('تم استعادة مسودة الفاتورة التلقائية بنجاح', 'success');
+        }
+    } catch (e) {
+        console.error('Failed to restore draft:', e);
+    }
+}
+
 

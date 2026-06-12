@@ -152,9 +152,14 @@
                                 <span class="customer-due-label">${t('purchases.supplierDue', 'المتبقي على المورد:')}</span>
                                 <span id="invoiceRemaining" class="customer-due-value">0.00</span>
                             </div>
-                            <button class="btn btn-success" type="button" data-action="submit-invoice">
-                                ${t('purchases.saveAndPost', 'حفظ وترحيل الفاتورة')}
-                            </button>
+                            <div class="invoice-action-buttons-row" style="display: flex; gap: 10px; margin-top: 12px; width: 100%;">
+                                <button class="btn btn-success" type="button" data-action="submit-invoice" style="flex: 1; margin: 0; padding: 10px 14px;">
+                                    ${t('purchases.saveAndPost', 'حفظ وترحيل الفاتورة')}
+                                </button>
+                                <button class="btn btn-warning" type="button" data-action="delete-invoice-btn" style="flex: 1; margin: 0; padding: 10px 14px;">
+                                    ${t('purchases.cancelInvoice', 'إلغاء وتفريغ الفاتورة')}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -266,6 +271,11 @@
             saveBtn.style.cursor = 'pointer';
             saveBtn.disabled = false; // Override any static disabled
         }
+        const deleteBtn = document.querySelector('#invoiceForm [data-action="delete-invoice-btn"]');
+        if (deleteBtn) {
+            deleteBtn.textContent = t('purchases.deleteInvoice', 'حذف الفاتورة نهائياً');
+            deleteBtn.className = 'btn btn-danger';
+        }
     }
 
     function setCreateModeUI(t) {
@@ -279,6 +289,11 @@
             saveBtn.style.opacity = '1';
             saveBtn.style.cursor = 'pointer';
             saveBtn.disabled = false; // Override any static disabled
+        }
+        const deleteBtn = document.querySelector('#invoiceForm [data-action="delete-invoice-btn"]');
+        if (deleteBtn) {
+            deleteBtn.textContent = t('purchases.cancelInvoice', 'إلغاء وتفريغ الفاتورة');
+            deleteBtn.className = 'btn btn-warning';
         }
     }
 

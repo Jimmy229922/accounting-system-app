@@ -34,13 +34,14 @@ document.addEventListener('DOMContentLoaded', async () => {    // Reset submitti
         loadSuppliers(),
         loadItems(),
         loadInvoiceNumberSuggestions()
-    ]).then(() => {
+    ]).then(async () => {
         const urlParams = new URLSearchParams(window.location.search);
         const editId = urlParams.get('editId');
         if (editId) {
-            loadInvoiceForEdit(editId);
+            await loadInvoiceForEdit(editId);
         } else {
-            initializeNewInvoice();
+            await initializeNewInvoice();
+            await checkAndRestoreDraft();
         }
     });
     } catch (error) {
@@ -66,9 +67,15 @@ function initializeElements() {
             onRemoveRow: removeRow,
             onPrintBarcodeClick: openBarcodeModal,
             onCloseBarcodeModal: closeBarcodeModal,
-            onExecutePrintBarcode: executePrintBarcode
+            onExecutePrintBarcode: executePrintBarcode,
+            onDeleteInvoice: deleteInvoice
         }
     });
+
+    const notesInput = document.getElementById('invoiceNotes');
+    if (notesInput) {
+        notesInput.addEventListener('input', () => updateDeleteBtnState());
+    }
 
     purchasesEvents.bindRowsEvents({
         dom: purchasesState.dom,
@@ -224,6 +231,7 @@ async function handleSupplierChange() {
         if (balanceDiv) balanceDiv.style.display = 'none';
         clearSelectedItemAvailability();
     }
+    updateDeleteBtnState();
 }
 
 async function initializeNewInvoice() {
@@ -1024,6 +1032,7 @@ function calculateInvoiceTotal() {
             purchasesState.dom.invoiceRemainingSpan.className = 'customer-due-value';
         }
     }
+    updateDeleteBtnState();
 }
 
 function collectInvoiceItemsFromForm() {
@@ -1139,6 +1148,7 @@ async function updateInvoice() {
 }
 
 async function resetForm() {
+    localStorage.removeItem('purchase_invoice_draft');
     purchasesState.dom.supplierSelect.value = '';
     if (purchasesState.supplierAutocomplete) purchasesState.supplierAutocomplete.refresh();
 
@@ -1176,6 +1186,130 @@ async function resetForm() {
     window.history.replaceState({}, document.title, window.location.pathname);
     await loadItems();
     await initializeNewInvoice();
+}
+
+window.hasUnsavedChanges = function() {
+    if (purchasesState.editingInvoiceId) return false;
+    const rows = purchasesState.dom.invoiceItemsBody ? purchasesState.dom.invoiceItemsBody.querySelectorAll('tr') : [];
+    let hasItems = false;
+    rows.forEach(row => {
+        const itemSelect = row.querySelector('.item-select');
+        if (itemSelect && itemSelect.value) {
+            hasItems = true;
+        }
+    });
+    const hasSupplier = purchasesState.dom.supplierSelect ? !!purchasesState.dom.supplierSelect.value : false;
+    return hasItems || hasSupplier;
+};
+
+window.saveInvoiceDraft = function() {
+    try {
+        if (purchasesState.editingInvoiceId) return;
+        const items = [];
+        if (purchasesState.dom.invoiceItemsBody) {
+            purchasesState.dom.invoiceItemsBody.querySelectorAll('tr').forEach((row) => {
+                const item_id = parseInt(row.querySelector('.item-select')?.value, 10);
+                const quantity = parseLocaleFloat(row.querySelector('.quantity-input')?.value);
+                const cost_price = parseLocaleFloat(row.querySelector('.price-input')?.value);
+                
+                if (Number.isFinite(item_id) && item_id > 0) {
+                    items.push({
+                        item_id,
+                        quantity: Number.isFinite(quantity) ? quantity : 1,
+                        cost_price: Number.isFinite(cost_price) ? cost_price : 0,
+                        total_price: (Number.isFinite(quantity) ? quantity : 1) * (Number.isFinite(cost_price) ? cost_price : 0)
+                    });
+                }
+            });
+        }
+        const supplierId = purchasesState.dom.supplierSelect?.value || '';
+        const notes = document.getElementById('invoiceNotes')?.value || '';
+        const paymentType = document.getElementById('paymentType')?.value || 'credit';
+        const discountType = purchasesState.dom.discountTypeSelect?.value || 'amount';
+        const discountValue = parseLocaleFloat(purchasesState.dom.discountValueInput?.value || '0') || 0;
+        const paidAmount = parseLocaleFloat(purchasesState.dom.paidAmountInput?.value || '0') || 0;
+        
+        if (items.length > 0 || supplierId) {
+            localStorage.setItem('purchase_invoice_draft', JSON.stringify({
+                items,
+                supplierId,
+                notes,
+                paymentType,
+                discountType,
+                discountValue,
+                paidAmount,
+                timestamp: Date.now()
+            }));
+        }
+    } catch (err) { console.error('Failed to save draft:', err); }
+};
+
+async function checkAndRestoreDraft() {
+    try {
+        const draftStr = localStorage.getItem('purchase_invoice_draft');
+        if (!draftStr) return;
+
+        const draft = JSON.parse(draftStr);
+        if (!draft) return;
+
+        const ageMs = Date.now() - (draft.timestamp || 0);
+        if (ageMs > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem('purchase_invoice_draft');
+            return;
+        }
+
+        localStorage.removeItem('purchase_invoice_draft');
+
+        if (draft.supplierId && purchasesState.dom.supplierSelect) {
+            purchasesState.dom.supplierSelect.value = draft.supplierId;
+            if (purchasesState.supplierAutocomplete) {
+                purchasesState.supplierAutocomplete.refresh();
+            }
+            await displaySupplierBalance();
+        }
+
+        if (draft.notes) {
+            const notesInput = document.getElementById('invoiceNotes');
+            if (notesInput) notesInput.value = draft.notes;
+        }
+
+        if (draft.paymentType) {
+            const paymentTypeInput = document.getElementById('paymentType');
+            if (paymentTypeInput) paymentTypeInput.value = draft.paymentType;
+        }
+
+        if (draft.discountType && purchasesState.dom.discountTypeSelect) {
+            purchasesState.dom.discountTypeSelect.value = draft.discountType;
+        }
+
+        if (draft.discountValue !== undefined && purchasesState.dom.discountValueInput) {
+            purchasesState.dom.discountValueInput.value = draft.discountValue;
+        }
+
+        if (draft.paidAmount !== undefined && purchasesState.dom.paidAmountInput) {
+            purchasesState.dom.paidAmountInput.value = draft.paidAmount;
+        }
+
+        if (draft.items && draft.items.length > 0) {
+            if (purchasesState.dom.invoiceItemsBody) {
+                purchasesState.dom.invoiceItemsBody.innerHTML = '';
+            }
+
+            const activeDropdowns = document.querySelectorAll('body > .autocomplete-dropdown, body > .autocomplete-suggestions, body > .autocomplete-list');
+            activeDropdowns.forEach(el => el.remove());
+
+            draft.items.forEach((itemData) => {
+                addInvoiceRow(itemData);
+            });
+            calculateInvoiceTotal();
+        }
+
+        if (window.showToast) {
+            window.showToast('تم استعادة مسودة الفاتورة التلقائية بنجاح', 'success');
+        }
+    } catch (e) {
+        console.error('Failed to restore draft:', e);
+    }
 }
 
 function openBarcodeModal() {
@@ -1338,3 +1472,72 @@ function executePrintBarcode() {
         }
     }, 1000);
 }
+
+function updateDeleteBtnState() {
+    const deleteBtn = document.querySelector('#invoiceForm [data-action="delete-invoice-btn"]');
+    if (!deleteBtn) return;
+
+    const isEditMode = !!purchasesState.editingInvoiceId;
+    if (isEditMode) {
+        deleteBtn.disabled = false;
+        deleteBtn.style.opacity = '1';
+        deleteBtn.style.cursor = 'pointer';
+        return;
+    }
+
+    const hasSupplier = !!purchasesState.dom.supplierSelect?.value;
+    const hasItems = purchasesState.dom.invoiceItemsBody?.querySelectorAll('tr').length > 0;
+    const notesInput = document.getElementById('invoiceNotes');
+    const hasNotes = notesInput ? !!notesInput.value.trim() : false;
+
+    const hasAnythingToCancel = hasSupplier || hasItems || hasNotes;
+
+    if (hasAnythingToCancel) {
+        deleteBtn.disabled = false;
+        deleteBtn.style.opacity = '1';
+        deleteBtn.style.cursor = 'pointer';
+    } else {
+        deleteBtn.disabled = true;
+        deleteBtn.style.opacity = '0.5';
+        deleteBtn.style.cursor = 'not-allowed';
+    }
+}
+
+async function deleteInvoice() {
+    const invoiceId = purchasesState.editingInvoiceId;
+    
+    // الحالة الأولى: الفاتورة جديدة وقيد الإنشاء
+    if (!invoiceId) {
+        const confirmCancel = typeof window.showConfirmDialog === 'function'
+            ? await window.showConfirmDialog(t('purchases.confirmCancelNew', 'هل أنت متأكد من إلغاء وتفريغ الفاتورة الحالية؟ جميع الأصناف المضافة ستُمسح.'))
+            : confirm('هل أنت متأكد من إلغاء وتفريغ الفاتورة الحالية؟ جميع الأصناف المضافة ستُمسح.');
+            
+        if (confirmCancel) {
+            await resetForm();
+            if (window.showToast) window.showToast(t('purchases.cancelSuccess', 'تم إلغاء وتفريغ الفاتورة بنجاح'), 'success');
+        }
+        return;
+    }
+    
+    // الحالة الثانية: الفاتورة قديمة ومحفوظة (وضع التعديل)
+    const confirmDelete = typeof window.showConfirmDialog === 'function'
+        ? await window.showConfirmDialog(t('purchases.confirmDeleteSaved', 'تحذير محاسبي: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟ سيتم إلغاء الحركات المالية وعكس حركة المخازن بالكامل!'))
+        : confirm('تحذير محاسبي: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟ سيتم إلغاء الحركات المالية وعكس حركة المخازن بالكامل!');
+        
+    if (!confirmDelete) return;
+    
+    try {
+        const result = await purchasesApi.deleteInvoice(invoiceId, 'purchase');
+        if (result && result.success) {
+            if (window.showToast) window.showToast(t('purchases.deleteSuccess', 'تم حذف الفاتورة وعكس حركات المخزن والمالية بنجاح'), 'success');
+            await resetForm();
+        } else {
+            const errorMsg = result?.error || 'خطأ غير معروف';
+            if (window.showToast) window.showToast(t('purchases.deleteFailed', 'فشل حذف الفاتورة') + `: ${errorMsg}`, 'error');
+        }
+    } catch (error) {
+        console.error('[purchases-delete] Error:', error);
+        if (window.showToast) window.showToast(t('purchases.deleteError', 'حدث خطأ أثناء الحذف') + `: ${error.message}`, 'error');
+    }
+}
+
