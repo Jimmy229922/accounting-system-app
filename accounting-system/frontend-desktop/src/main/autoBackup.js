@@ -48,6 +48,51 @@ function getBackupPaths() {
     return { programRootPath, backupRootPath, backupFilePath, fallbackFlagPath };
 }
 
+function getDynamicBackupFilePath(backupRootPath) {
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}-${String(now.getMilliseconds()).padStart(3, '0')}`;
+    return path.join(backupRootPath, `accounting-backup-${timestamp}.db`);
+}
+
+function rotateBackups(dataFolder) {
+    try {
+        if (!fs.existsSync(dataFolder)) return;
+        const files = fs.readdirSync(dataFolder)
+            .filter(file => file.startsWith('accounting-backup-') && file.endsWith('.db'))
+            .map(file => ({
+                name: file,
+                time: fs.statSync(path.join(dataFolder, file)).mtime.getTime()
+            }))
+            .sort((a, b) => b.time - a.time);
+
+        if (files.length > 7) {
+            for (let i = 7; i < files.length; i++) {
+                fs.unlinkSync(path.join(dataFolder, files[i].name));
+                console.log(`[auto-backup] Deleted old backup file: ${files[i].name}`);
+            }
+        }
+    } catch (error) {
+        console.error('[auto-backup] Failed to rotate backups:', error.message);
+    }
+}
+
+function getLatestBackupPath(backupRootPath) {
+    try {
+        if (!fs.existsSync(backupRootPath)) return null;
+        const files = fs.readdirSync(backupRootPath)
+            .filter(file => (file.startsWith('accounting-backup-') || file === 'accounting-auto-backup.db') && file.endsWith('.db'))
+            .map(file => ({
+                name: file,
+                time: fs.statSync(path.join(backupRootPath, file)).mtime.getTime()
+            }))
+            .sort((a, b) => b.time - a.time);
+        return files.length > 0 ? path.join(backupRootPath, files[0].name) : null;
+    } catch (error) {
+        console.error('[auto-backup] Failed to find latest backup:', error.message);
+        return null;
+    }
+}
+
 function writeQuitFallbackFlag(payload = {}) {
     try {
         const { backupRootPath, fallbackFlagPath } = getBackupPaths();
@@ -174,13 +219,14 @@ function checkDatabaseIntegrity() {
 }
 
 function autoRestoreFromDataBackup() {
-    const { backupFilePath } = getBackupPaths();
+    const { backupRootPath } = getBackupPaths();
+    const latestBackup = getLatestBackupPath(backupRootPath);
     const userDataBackup = getUserDataBackupPath();
 
     // Check both locations: DATA folder and next to the database
     let sourceBackup = null;
-    if (fs.existsSync(backupFilePath)) {
-        sourceBackup = backupFilePath;
+    if (latestBackup && fs.existsSync(latestBackup)) {
+        sourceBackup = latestBackup;
     } else if (userDataBackup && fs.existsSync(userDataBackup)) {
         sourceBackup = userDataBackup;
     }
@@ -212,7 +258,8 @@ function autoRestoreFromDataBackup() {
 }
 
 function createStartupBackup() {
-    const { backupRootPath, backupFilePath } = getBackupPaths();
+    const { backupRootPath } = getBackupPaths();
+    const backupFilePath = getDynamicBackupFilePath(backupRootPath);
 
     fs.mkdirSync(backupRootPath, { recursive: true });
 
@@ -224,6 +271,7 @@ function createStartupBackup() {
             .then(() => {
                 console.log('[auto-backup] Startup backup saved to DATA');
                 copyBackupToUserData(backupFilePath);
+                rotateBackups(backupRootPath);
             })
             .catch((err) => console.error('[auto-backup] Startup backup failed:', err.message));
     } catch (error) {
@@ -232,7 +280,8 @@ function createStartupBackup() {
 }
 
 function createDataBackupBeforeQuit() {
-    const { backupRootPath, backupFilePath } = getBackupPaths();
+    const { backupRootPath } = getBackupPaths();
+    const backupFilePath = getDynamicBackupFilePath(backupRootPath);
 
     fs.mkdirSync(backupRootPath, { recursive: true });
 
@@ -244,6 +293,7 @@ function createDataBackupBeforeQuit() {
     // Use better-sqlite3's built-in .backup() for a safe, consistent database backup
     return db.backup(backupFilePath).then(() => {
         copyBackupToUserData(backupFilePath);
+        rotateBackups(backupRootPath);
         return backupFilePath;
     });
 }
@@ -296,7 +346,8 @@ function handleQuitBackup() {
  */
 function handleQuitBackupFallback() {
     try {
-        const { backupRootPath, backupFilePath } = getBackupPaths();
+        const { backupRootPath } = getBackupPaths();
+        const backupFilePath = getDynamicBackupFilePath(backupRootPath);
         fs.mkdirSync(backupRootPath, { recursive: true });
         const dbPath = db && db.name ? db.name : null;
 
@@ -307,6 +358,7 @@ function handleQuitBackupFallback() {
             fs.copyFileSync(dbPath, backupFilePath);
             console.log(`[auto-backup] Fallback copy succeeded: ${backupFilePath}`);
             copyBackupToUserData(backupFilePath);
+            rotateBackups(backupRootPath);
             writeQuitFallbackFlag({ mode: 'raw-copy-succeeded', backupPath: backupFilePath });
         } else {
             console.error('[auto-backup] Could not locate database file for fallback copy');

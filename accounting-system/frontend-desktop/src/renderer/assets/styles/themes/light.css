@@ -3,7 +3,7 @@
     /* =========================================================================
        1. CORE COLORS (Backgrounds & Surfaces)
        ========================================================================= */
-    --bg-color: #f4f6fb;           /* App main background */
+    --bg-color: #f8fafc;           /* App main background */
     --card-bg: #ffffff;            /* Card/Panel background */
     --secondary-bg: #f8fafc;       /* Headers, Footers, Modals */
     --nav-bg: #0f172a;             /* Main Navigation */
@@ -22,10 +22,10 @@
     /* =========================================================================
        3. BORDERS & SHADOWS
        ========================================================================= */
-    --border-color: #dbe3ed;       /* General structural borders */
-    --card-border: #dbe3ed;        /* Specific card borders */
+    --border-color: #e2e8f0;       /* General structural borders */
+    --card-border: #e2e8f0;        /* Specific card borders */
     --input-border: #cfd8e3;       /* Input fields borders */
-    --table-border: #d8e1eb;       /* Table lines */
+    --table-border: #e2e8f0;       /* Table lines */
     --shadow-color: rgba(15, 23, 42, 0.12); /* Subtle shadows */
     --shadow-sm: 0 1px 3px var(--shadow-color);
     --shadow-md: 0 4px 6px -1px var(--shadow-color);

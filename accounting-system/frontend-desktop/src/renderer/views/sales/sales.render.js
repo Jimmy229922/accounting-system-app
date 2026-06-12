@@ -295,12 +295,16 @@
 
         let unitName = '';
         let barcodeValue = '';
+        let costPrice = 0;
         if (existingItem) {
             const existingItemId = parseInt(existingItem.item_id, 10);
             const match = Number.isFinite(existingItemId) ? allItems.find((i) => i.id === existingItemId) : null;
             unitName = match && match.unit_name ? match.unit_name : '';
             barcodeValue = match && match.barcode ? match.barcode : '';
+            costPrice = match && match.cost_price ? match.cost_price : 0;
         }
+
+        row.dataset.costPrice = Number(costPrice).toFixed(2);
 
         row.innerHTML = `
         <td class="row-index"></td>

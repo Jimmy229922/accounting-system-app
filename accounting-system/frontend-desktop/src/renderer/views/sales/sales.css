@@ -989,7 +989,19 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+}
+
+.sales-print-preview-actions .btn {
+    width: auto !important;
+    margin: 0 !important;
+    min-height: 38px !important;
+    height: 38px !important;
+    font-size: 0.88rem !important;
+    padding: 0 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 .sales-print-printer-picker {
@@ -1015,22 +1027,64 @@
 .sales-print-preview-page {
     width: 210mm;
     min-height: 297mm;
-    max-width: 100%;
-    margin: 0 auto;
-    padding: 16mm;
+    margin: 0 auto 20px auto; /* إضافة هامش سفلي يفصل الصفحات عن بعضها */
+    padding: 24mm 20mm;
     box-sizing: border-box;
-    background: #fff;
-    color: #000;
-    box-shadow: 0 18px 55px rgba(15, 23, 42, 0.28);
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: 0 25px 70px rgba(15, 23, 42, 0.35);
     direction: rtl;
     font-family: Arial, sans-serif;
+    position: relative;
+    /* السماح بانقسام الصفحات تلقائياً بناءً على حجم الـ A4 */
+    page-break-after: auto;
+    break-after: page;
+}
+
+.sales-print-preview-page table tbody tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+}
+
+/* تأمين الفوتر والإجماليات من الانقسام المشوه */
+.sales-print-preview-page .print-summary,
+.sales-print-preview-page .print-footer {
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
 }
 
 .sales-print-preview-page .print-head {
-    border-bottom: 2px solid #333;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #1e293b;
     text-align: center;
+}
+
+.sales-print-preview-page h2, 
+.sales-print-preview-page h3 {
+    margin-top: 0;
+    line-height: 1.5 !important; /* حل مشكلة قطع الحروف السفلي */
+}
+
+.sales-print-preview-page table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    margin-bottom: 25px;
+}
+
+.sales-print-preview-page th {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    font-weight: bold;
+    padding: 10px 8px;
+    border: 1px solid #cbd5e1;
+}
+
+.sales-print-preview-page td {
+    padding: 10px 8px;
+    border: 1px solid #e2e8f0;
+    color: #334155 !important;
 }
 
 .sales-print-preview-page .print-header-top {
@@ -1083,13 +1137,13 @@
 
 .sales-print-preview-page .print-items-table th,
 .sales-print-preview-page .print-items-table td {
-    border: 1px solid #ddd;
-    padding: 8px;
+    border: 1px solid #e2e8f0;
+    padding: 10px 8px;
     text-align: center;
 }
 
 .sales-print-preview-page .print-items-table th {
-    background-color: #f5f5f5;
+    background-color: #f8fafc !important;
     font-weight: bold;
 }
 
@@ -1104,18 +1158,18 @@
 }
 
 .sales-print-preview-page .print-summary-table td {
-    padding: 6px;
-    border: 1px solid #ddd;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
 }
 
 .sales-print-preview-page .print-summary-table td:first-child {
     width: 60%;
     font-weight: bold;
-    background-color: #f9f9f9;
+    background-color: #f8fafc !important;
 }
 
 .sales-print-preview-page .print-highlight-row td {
-    background-color: #eef2ff;
+    background-color: #eef2ff !important;
     font-weight: bold;
 }
 
@@ -1126,6 +1180,34 @@
     color: #555;
     border-top: 1px dashed #ccc;
     padding-top: 10px;
+}
+
+.sales-print-preview-actions .btn-success {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    border: none !important;
+    border-radius: 6px !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+    transition: all 0.2s ease-in-out;
+}
+
+.sales-print-preview-actions .btn-success:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35) !important;
+}
+
+.sales-print-preview-actions .btn-outline {
+    border: 1px solid var(--card-border) !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    color: var(--text-color) !important;
+    transition: all 0.2s ease-in-out;
+}
+
+.sales-print-preview-actions .btn-outline:hover {
+    background: rgba(148, 163, 184, 0.12) !important;
+    border-color: var(--accent-color) !important;
+    color: var(--accent-color) !important;
 }
 
 @media (max-width: 768px) {
@@ -1218,35 +1300,15 @@ body.sales-print-mode .print-highlight-row td {
     background-color: #eef2ff !important;
 }
 
-/* Hide all elements except the print shell completely without transition */
-body.sales-print-mode #app,
-body.sales-print-mode .top-nav,
-body.sales-print-mode .sales-page-header,
-body.sales-print-mode .invoice-form-container,
-body.sales-print-mode #toastContainer,
-body.sales-print-mode .toast-container,
-body.sales-print-mode .modal,
-body.sales-print-mode .sales-shift-modal-overlay,
-body.sales-print-mode .sales-print-preview-modal,
-body.sales-print-mode #sidebar,
-body.sales-print-mode .sidebar,
-body.sales-print-mode .app-sidebar,
-body.sales-print-mode .main-sidebar,
-body.sales-print-mode header,
-body.sales-print-mode nav {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    animation: none !important;
-    transition: none !important;
-}
-
+/* بدلاً من إخفاء المودال فجأة، نترك الفاتورة البيضاء النظيفة تظهر في المنتصف تماماً أثناء اللقط */
 body.sales-print-mode .print-shell {
     display: block !important;
-    width: 100% !important;
-    max-width: 800px !important;
-    margin: 0 auto !important;
-    direction: rtl !important;
+    position: fixed;
+    inset: 0;
+    background: #ffffff !important;
+    z-index: 11000;
+    padding: 20mm;
+    box-sizing: border-box;
 }
 
 /* ===== Print Styles ===== */
@@ -1255,12 +1317,19 @@ body.sales-print-mode .print-shell {
     
     @page { margin: 10mm; }
     
-    body {
-        background: #fff !important;
-        color: #000 !important;
+    html, body {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        color: #000000 !important;
         margin: 0 !important;
         padding: 0 !important;
         font-family: Arial, sans-serif !important;
+    }
+
+    /* تصفير الهامش السفلي المسبب لخروج صفحة ثانية بالخطأ */
+    .sales-content {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
     }
 
     #app, .top-nav, .sales-page-header, .invoice-form-container, #toastContainer, .toast-container, .modal, .sales-shift-modal-overlay { 
@@ -1389,3 +1458,19 @@ body.sales-print-mode .print-shell {
         break-inside: avoid-page !important;
     }
 }
+
+.global-cost-tooltip {
+    position: absolute;
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    z-index: 99999;
+    display: none;
+    pointer-events: none;
+    border: 1px solid #475569;
+}
+
