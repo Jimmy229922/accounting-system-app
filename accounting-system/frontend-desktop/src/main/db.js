@@ -700,20 +700,72 @@ function initDB() {
         END
     `);
 
-    // Backfill cost_price for existing sales and returns from items table if null/0
+    // Backfill cost_price for existing sales and returns chronologically if null/0
     try {
         db.exec(`
             UPDATE sales_invoice_details 
-            SET cost_price = (SELECT cost_price FROM items WHERE items.id = sales_invoice_details.item_id)
+            SET cost_price = COALESCE(
+                (
+                    SELECT pid.cost_price 
+                    FROM purchase_invoice_details pid
+                    JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+                    WHERE pid.item_id = sales_invoice_details.item_id
+                      AND pi.invoice_date <= (SELECT invoice_date FROM sales_invoices WHERE id = sales_invoice_details.invoice_id)
+                    ORDER BY pi.invoice_date DESC, pi.id DESC
+                    LIMIT 1
+                ),
+                (
+                    SELECT cost_price 
+                    FROM opening_balances 
+                    WHERE item_id = sales_invoice_details.item_id
+                    LIMIT 1
+                ),
+                (
+                    SELECT cost_price 
+                    FROM items 
+                    WHERE items.id = sales_invoice_details.item_id
+                ),
+                0
+            )
             WHERE cost_price IS NULL OR cost_price = 0
         `);
         db.exec(`
             UPDATE sales_return_details 
-            SET cost_price = (SELECT cost_price FROM items WHERE items.id = sales_return_details.item_id)
+            SET cost_price = COALESCE(
+                (
+                    SELECT sid.cost_price
+                    FROM sales_invoice_details sid
+                    JOIN sales_returns sr ON sr.original_invoice_id = sid.invoice_id
+                    WHERE sr.id = sales_return_details.return_id
+                      AND sid.item_id = sales_return_details.item_id
+                    LIMIT 1
+                ),
+                (
+                    SELECT pid.cost_price 
+                    FROM purchase_invoice_details pid
+                    JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+                    WHERE pid.item_id = sales_return_details.item_id
+                      AND pi.invoice_date <= (SELECT return_date FROM sales_returns WHERE id = sales_return_details.return_id)
+                    ORDER BY pi.invoice_date DESC, pi.id DESC
+                    LIMIT 1
+                ),
+                (
+                    SELECT cost_price 
+                    FROM opening_balances 
+                    WHERE item_id = sales_return_details.item_id
+                    LIMIT 1
+                ),
+                (
+                    SELECT cost_price 
+                    FROM items 
+                    WHERE items.id = sales_return_details.item_id
+                ),
+                0
+            )
             WHERE cost_price IS NULL OR cost_price = 0
         `);
     } catch (err) {
-        console.error('[db-migration] Error backfilling cost_price:', err.message);
+        console.error('[db-migration] Error backfilling cost_price chronologically:', err.message);
     }
 
     console.log('Database initialized at:', dbPath);
