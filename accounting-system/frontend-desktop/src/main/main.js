@@ -330,19 +330,51 @@ ipcMain.handle('get-printers', async (event) => {
 });
 
 ipcMain.handle('print-current-window', async (event, options = {}) => {
-    const printOptions = {
-        silent: Boolean(options.silent),
-        printBackground: true,
-        deviceName: typeof options.deviceName === 'string' ? options.deviceName : '',
-        pageSize: 'A4',
-        margins: { marginType: 'none' } // إلغاء الهوامش التلقائية لمنع البرواز الأسود
-    };
+    const { htmlContent, deviceName } = options;
+
+    if (!htmlContent) {
+        const printOptions = {
+            silent: true,
+            printBackground: true,
+            deviceName: typeof deviceName === 'string' ? deviceName : '',
+            pageSize: 'A4',
+            margins: { marginType: 'default' }
+        };
+        return new Promise((resolve) => {
+            event.sender.print(printOptions, (success, failureReason) => {
+                resolve({
+                    success,
+                    error: success ? '' : (failureReason || 'Print failed')
+                });
+            });
+        });
+    }
+
+    let printWindow = new BrowserWindow({
+        show: false,
+        skipTaskbar: true,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+        }
+    });
+
+    printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
 
     return new Promise((resolve) => {
-        event.sender.print(printOptions, (success, failureReason) => {
-            resolve({
-                success,
-                error: success ? '' : (failureReason || 'Print failed')
+        printWindow.webContents.on('did-finish-load', () => {
+            const printOptions = {
+                silent: true,
+                printBackground: true,
+                deviceName: typeof deviceName === 'string' ? deviceName : '',
+                pageSize: 'A4',
+                margins: { marginType: 'default' }
+            };
+
+            printWindow.webContents.print(printOptions, (success, failureReason) => {
+                printWindow.close();
+                printWindow = null;
+                resolve({ success, error: failureReason });
             });
         });
     });
@@ -367,6 +399,47 @@ ipcMain.handle('print-barcode-labels', async (event, options = {}) => {
                 success,
                 error: success ? '' : (failureReason || 'Print failed')
             });
+        });
+    });
+});
+
+ipcMain.handle('generate-pdf-preview', async (event, options = {}) => {
+    const { htmlContent } = options;
+    if (!htmlContent) return { success: false, error: 'No HTML content provided' };
+
+    let previewWindow = new BrowserWindow({
+        show: false,
+        skipTaskbar: true,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+        }
+    });
+
+    previewWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+
+    return new Promise((resolve) => {
+        previewWindow.webContents.on('did-finish-load', async () => {
+            try {
+                const pdfBuffer = await previewWindow.webContents.printToPDF({
+                    pageSize: 'A4',
+                    printBackground: true,
+                    margins: { marginType: 'default' }
+                });
+                
+                if (previewWindow && !previewWindow.isDestroyed()) {
+                    previewWindow.close();
+                    previewWindow = null;
+                }
+                
+                const base64Pdf = pdfBuffer.toString('base64');
+                resolve({ success: true, base64Pdf });
+            } catch (error) {
+                if (previewWindow && !previewWindow.isDestroyed()) {
+                    previewWindow.close();
+                }
+                resolve({ success: false, error: error.message });
+            }
         });
     });
 });

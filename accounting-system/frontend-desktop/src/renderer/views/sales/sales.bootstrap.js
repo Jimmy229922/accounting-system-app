@@ -17,37 +17,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     salesState.isSubmitting = false;
 
     try {
-    if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
-        salesState.ar = await window.i18n.loadArabicDictionary();
-    }
-
-    salesRender.renderPage({ t, getNavHTML });
-
-    if (window.FieldSystem && typeof window.FieldSystem.enable === 'function') {
-        window.FieldSystem.enable(document, { watch: true });
-    }
-
-    initializeElements();
-
-    if (salesState.dom.invoiceDateInput) {
-        salesState.dom.invoiceDateInput.valueAsDate = new Date();
-    }
-
-    Promise.all([loadCustomers(), loadItems(), loadInvoiceNumberSuggestions()]).then(async () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const editId = urlParams.get('editId');
-        if (editId) {
-            await loadInvoiceForEdit(editId);
-        } else {
-            await initializeNewInvoice();
-            await checkAndRestoreDraft();
+        if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
+            salesState.ar = await window.i18n.loadArabicDictionary();
         }
 
-        if (urlParams.get('openShiftClose') === '1') {
-            await openShiftCloseModal();
-            clearShiftCloseAutoOpenQueryParam();
+        salesRender.renderPage({ t, getNavHTML });
+
+        if (window.FieldSystem && typeof window.FieldSystem.enable === 'function') {
+            window.FieldSystem.enable(document, { watch: true });
         }
-    });
+
+        initializeElements();
+
+        if (salesState.dom.invoiceDateInput) {
+            salesState.dom.invoiceDateInput.valueAsDate = new Date();
+        }
+
+        Promise.all([loadCustomers(), loadItems(), loadInvoiceNumberSuggestions()]).then(async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const editId = urlParams.get('editId');
+            if (editId) {
+                await loadInvoiceForEdit(editId);
+            } else {
+                await initializeNewInvoice();
+                await checkAndRestoreDraft();
+            }
+
+            if (urlParams.get('openShiftClose') === '1') {
+                await openShiftCloseModal();
+                clearShiftCloseAutoOpenQueryParam();
+            }
+        });
     } catch (error) {
         console.error('Initialization Error:', error);
         if (window.toast && typeof window.toast.error === 'function') {
@@ -756,7 +756,7 @@ async function handleCustomerChange() {
         if (balanceDiv) balanceDiv.style.display = 'none';
         clearSelectedItemAvailability();
     }
-    
+
     updatePrintBtnState();
 }
 
@@ -869,10 +869,73 @@ function clearSavedPrintPrinterName() {
     }
 }
 
-function syncPrintPreviewContent() {
+async function syncPrintPreviewContent() {
     const printArea = document.getElementById('printArea');
     const previewPage = document.getElementById('salesPrintPreviewPage');
     if (!printArea || !previewPage) return;
+
+    if (window.electronAPI && typeof window.electronAPI.generatePdfPreview === 'function') {
+        const printAreaHtml = printArea.innerHTML;
+        const fullHtmlForPrinting = `
+            <html>
+                <head>
+                    <meta charset="utf-8">
+                    <style>
+                        body { direction: rtl; font-family: system-ui, sans-serif; padding: 20px; }
+                        .print-items-table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+                        .print-items-table thead { display: table-header-group !important; }
+                        .print-items-table tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+                        .print-summary, .print-footer, .print-summary-table { page-break-inside: avoid !important; break-inside: avoid !important; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        th, td { border: 1px solid #000; padding: 8px; text-align: right; }
+                        th { background-color: #f2f2f2; }
+                        .print-header-top { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                        .print-company-name { font-size: 24px; font-weight: bold; }
+                        .print-invoice-title { font-size: 20px; font-weight: bold; }
+                        .print-header-details { display: flex; justify-content: space-between; margin-bottom: 20px; }
+                        .print-footer { margin-top: 30px; text-align: center; border-top: 1px dashed #000; padding-top: 10px; }
+                    </style>
+                </head>
+                <body>
+                    ${printAreaHtml}
+                </body>
+            </html>
+        `;
+
+        try {
+            const result = await window.electronAPI.generatePdfPreview({ htmlContent: fullHtmlForPrinting });
+            if (result && result.success && result.base64Pdf) {
+                // Convert base64 to Blob for reliable iframe rendering
+                const byteCharacters = atob(result.base64Pdf);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'application/pdf' });
+                const blobUrl = URL.createObjectURL(blob);
+
+                // Override styles so iframe takes full space
+                previewPage.style.width = '100%';
+                previewPage.style.minHeight = 'auto';
+                previewPage.style.height = '82vh';
+                previewPage.style.padding = '0';
+                previewPage.style.margin = '0 auto';
+                previewPage.style.background = 'transparent';
+                previewPage.style.boxShadow = 'none';
+
+                previewPage.innerHTML = `<iframe src="${blobUrl}#toolbar=0&navpanes=0&scrollbar=1" style="width: 100%; height: 100%; border: none; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background: #f5f5f5;"></iframe>`;
+                return;
+            } else {
+                console.error("PDF Preview generation failed:", result.error);
+            }
+        } catch (error) {
+            console.error("Error generating PDF preview:", error);
+        }
+    }
+
+    // Restore styles if falling back to HTML
+    previewPage.style = '';
 
     const clone = printArea.cloneNode(true);
     clone.style.display = 'block';
@@ -943,9 +1006,13 @@ async function loadPrintPreviewPrinters({ forceChoose = false } = {}) {
 }
 
 async function openPrintPreview() {
-    syncPrintPreviewContent();
     setPrintPreviewOpen(true);
+    const previewPage = document.getElementById('salesPrintPreviewPage');
+    if (previewPage) {
+        previewPage.innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:300px; color:#666; font-size: 16px; font-weight: bold;">جاري تجهيز معاينة الطباعة الحقيقية...</div>';
+    }
     await loadPrintPreviewPrinters({ forceChoose: !getSavedPrintPrinterName() });
+    await syncPrintPreviewContent();
 }
 
 function closePrintPreview() {
@@ -964,8 +1031,6 @@ async function confirmPrintInvoice() {
     const printArea = document.getElementById('printArea');
     const savedPrinterName = getSavedPrintPrinterName();
     let selectedPrinterName = savedPrinterName || select?.value || '';
-    const appDisplayBeforePrint = appRoot ? appRoot.style.display : '';
-    const printAreaDisplayBeforePrint = printArea ? printArea.style.display : '';
 
     // تأمين اسم الطابعة: إذا كانت فارغة نجلب الطابعة الافتراضية للنظام فوراً
     if (!selectedPrinterName && window.electronAPI && typeof window.electronAPI.getPrinters === 'function') {
@@ -988,18 +1053,36 @@ async function confirmPrintInvoice() {
     }
 
     try {
-        // عند بدء الطباعة: إضافة الفئة المؤقتة للابن والأب معاً
-        document.body.classList.add('sales-print-mode');
-        if (window.parent && window.parent.document && window.parent.document.body) {
-            window.parent.document.body.classList.add('sales-print-mode');
-        }
-
-        // مهلة أمان 800 مللي ثانية لضمان استقرار التنسيقات قبل لقط الشاشة
-        await new Promise(resolve => setTimeout(resolve, 800));
-
         if (window.electronAPI && typeof window.electronAPI.printCurrentWindow === 'function' && selectedPrinterName) {
+            const printAreaHtml = printArea ? printArea.innerHTML : '';
+            const fullHtmlForPrinting = `
+                <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <style>
+                            body { direction: rtl; font-family: system-ui, sans-serif; padding: 20px; }
+                            .print-items-table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+                            .print-items-table thead { display: table-header-group !important; }
+                            .print-items-table tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+                            .print-summary, .print-footer { page-break-inside: avoid !important; break-inside: avoid !important; }
+                            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                            th { background-color: #f2f2f2; }
+                            .print-header-top { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                            .print-company-name { font-size: 24px; font-weight: bold; }
+                            .print-invoice-title { font-size: 20px; font-weight: bold; }
+                            .print-header-details { display: flex; justify-content: space-between; margin-bottom: 20px; }
+                            .print-footer { margin-top: 30px; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }
+                        </style>
+                    </head>
+                    <body>
+                        ${printAreaHtml}
+                    </body>
+                </html>
+            `;
+
             const result = await window.electronAPI.printCurrentWindow({
-                silent: true,
+                htmlContent: fullHtmlForPrinting,
                 deviceName: selectedPrinterName
             });
 
@@ -1014,17 +1097,10 @@ async function confirmPrintInvoice() {
             return;
         }
 
-        // حذف window.print() القديم واستبداله بتنبيه أمان
         if (window.showToast) window.showToast('تعذر العثور على طابعة متصلة بالنظام، يرجى اختيار طابعة أولاً', 'error');
     } catch (error) {
         console.error("Print error:", error);
     } finally {
-        // إزالة فئة الطباعة المؤقتة من الاثنين فوراً لعودة الواجهة لطبيعتها
-        document.body.classList.remove('sales-print-mode');
-        if (window.parent && window.parent.document && window.parent.document.body) {
-            window.parent.document.body.classList.remove('sales-print-mode');
-        }
-
         if (printBtn) {
             printBtn.disabled = false;
             printBtn.textContent = 'طباعة';
@@ -1051,10 +1127,10 @@ async function printInvoice() {
     // 2. Submit the invoice if not locked
     const wasEditing = !!salesState.editingInvoiceId;
     const locked = isEditLocked();
-    
+
     if (!locked) {
         await submitInvoice();
-        
+
         // Check if submit was successful by seeing if form reset
         if (customerSelect.value !== '') {
             // Form didn't reset, meaning save failed or validation failed. Stop printing.
@@ -1104,7 +1180,7 @@ async function printInvoice() {
             document.getElementById('printCompanyInfo').textContent = companyPhone ? `هاتف: ${companyPhone}` : '';
             document.getElementById('printFooterText').textContent = settings.invoiceFooter || settings.invoice_notes || 'شكراً لتعاملكم معنا';
         }
-    } catch(e) {
+    } catch (e) {
         console.error('Error fetching settings for print', e);
     }
 
@@ -1498,7 +1574,7 @@ function updateSelectedItemAvailability(row) {
     if (enteredQty > 0) {
         const remainingQty = Math.max(availableQty - enteredQty, 0);
         const overQty = Math.max(enteredQty - availableQty, 0);
-        
+
         if (badge) {
             badge.className = overQty > 0 ? 'item-stock-badge warning' : 'item-stock-badge';
             badge.textContent = overQty > 0 ? `متبقي: ${formatQty(remainingQty)} | زائد: ${formatQty(overQty)}` : `متبقي: ${formatQty(remainingQty)}`;
@@ -1733,7 +1809,7 @@ function updateProfitIndicator(row) {
     const selectedOption = select.options[select.selectedIndex];
     const unitCostPrice = parseFloat(selectedOption?.dataset?.cost) || 0;
     const unitSalePrice = parseLocaleFloat(row.querySelector('.price-input').value) || 0;
-    
+
     let qtyRaw = parseLocaleFloat(row.querySelector('.quantity-input').value);
     const qty = (Number.isFinite(qtyRaw) && qtyRaw > 0) ? qtyRaw : 1;
 
@@ -1896,18 +1972,19 @@ function calculateInvoiceTotal() {
             salesState.dom.invoiceRemainingSpan.className = 'customer-due-value';
         }
     }
-    
+
     updatePrintBtnState();
 }
 
 function updatePrintBtnState() {
     const printBtn = document.getElementById('printInvoiceBtn');
     if (!printBtn) return;
-    
+
     const customer_id = salesState.dom.customerSelect?.value;
     const hasItems = salesState.dom.invoiceItemsBody?.querySelectorAll('tr').length > 0;
-    
-    if (customer_id && hasItems) {
+    const locked = (typeof isEditLocked === 'function') ? isEditLocked() : false;
+
+    if (customer_id && hasItems && !locked) {
         printBtn.disabled = false;
         printBtn.style.opacity = '1';
         printBtn.style.cursor = 'pointer';
@@ -2123,13 +2200,13 @@ async function saveInvoice() {
 
 async function deleteInvoice() {
     const invoiceId = salesState.editingInvoiceId;
-    
+
     // الحالة الأولى: الفاتورة جديدة وقيد الإنشاء
     if (!invoiceId) {
         const confirmCancel = typeof window.showConfirmDialog === 'function'
             ? await window.showConfirmDialog(t('sales.confirmCancelNew', 'هل أنت متأكد من إلغاء وتفريغ الفاتورة الحالية؟ جميع الأصناف المضافة ستُمسح.'))
             : confirm('هل أنت متأكد من إلغاء وتفريغ الفاتورة الحالية؟ جميع الأصناف المضافة ستُمسح.');
-            
+
         if (confirmCancel) {
             await resetForm();
             if (typeof renderTotalsPanel === 'function') renderTotalsPanel(); // إعادة رندرة اللوحة لتحديث الزرار
@@ -2137,14 +2214,14 @@ async function deleteInvoice() {
         }
         return;
     }
-    
+
     // الحالة الثانية: الفاتورة قديمة ومحفوظة (وضع التعديل)
     const confirmDelete = typeof window.showConfirmDialog === 'function'
         ? await window.showConfirmDialog(t('sales.confirmDeleteSaved', 'تحذير محاسبي: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟ سيتم إلغاء الحركات المالية وعكس حركة المخازن بالكامل!'))
         : confirm('تحذير محاسبي: هل أنت متأكد من حذف هذه الفاتورة نهائياً؟ سيتم إلغاء الحركات المالية وعكس حركة المخازن بالكامل!');
-        
+
     if (!confirmDelete) return;
-    
+
     try {
         const result = await salesApi.deleteInvoice(invoiceId, 'sales');
         if (result && result.success) {
@@ -2196,7 +2273,7 @@ async function resetForm() {
     salesState.editingInvoiceId = null;
     salesState.isEditLocked = false;
     salesState.originalInvoiceItemTotalsByItemId = {};
-    
+
     // Safety check: force reset any pending boolean states
     salesState.isSubmitting = false;
 
@@ -2211,20 +2288,20 @@ async function resetForm() {
     updatePrintBtnState();
 }
 
-window.hasUnsavedChanges = function() {
+window.hasUnsavedChanges = function () {
     // التحقق من وجود أصناف في جدول المبيعات الحالي
     const rows = document.querySelectorAll('.items-table tbody tr');
     return rows.length > 0;
 };
 
-window.saveInvoiceDraft = function() {
+window.saveInvoiceDraft = function () {
     try {
         const items = [];
         salesState.dom.invoiceItemsBody.querySelectorAll('tr').forEach((row) => {
             const item_id = parseInt(row.querySelector('.item-select')?.value, 10);
             const quantity = parseFloat(row.querySelector('.quantity-input')?.value);
             const sale_price = parseFloat(row.querySelector('.price-input')?.value);
-            
+
             if (Number.isFinite(item_id) && item_id > 0) {
                 items.push({
                     item_id,
@@ -2235,8 +2312,34 @@ window.saveInvoiceDraft = function() {
             }
         });
         const customerId = salesState.dom.customerSelect?.value || '';
-        if (items.length > 0 || customerId) {
-            localStorage.setItem('sales_invoice_draft', JSON.stringify({ items, customerId, timestamp: Date.now() }));
+        const editingInvoiceId = salesState.editingInvoiceId || null;
+        const isEditLocked = salesState.isEditLocked || false;
+        const originalTotals = salesState.originalInvoiceItemTotalsByItemId || {};
+        
+        const invoiceDate = salesState.dom.invoiceDateInput?.value || '';
+        const invoiceNumber = document.getElementById('invoiceNumber')?.value || '';
+        const notes = document.getElementById('invoiceNotes')?.value || '';
+        const paymentType = document.getElementById('paymentType')?.value || '';
+        const discountType = salesState.dom.discountTypeSelect?.value || '';
+        const discountValue = salesState.dom.discountValueInput?.value || '';
+        const paidAmount = salesState.dom.paidAmountInput?.value || '';
+
+        if (items.length > 0 || customerId || editingInvoiceId) {
+            localStorage.setItem('sales_invoice_draft', JSON.stringify({ 
+                items, 
+                customerId, 
+                editingInvoiceId, 
+                isEditLocked, 
+                originalInvoiceItemTotalsByItemId: originalTotals,
+                invoiceDate, 
+                invoiceNumber, 
+                notes, 
+                paymentType, 
+                discountType, 
+                discountValue, 
+                paidAmount,
+                timestamp: Date.now() 
+            }));
         }
     } catch (err) { console.error('Failed to save draft:', err); }
 };
@@ -2257,6 +2360,44 @@ async function checkAndRestoreDraft() {
 
         // 1. نقل الحذف للأعلى فوراً لمنع أي حلقة استعادة متداخلة أو لانهائية
         localStorage.removeItem('sales_invoice_draft');
+
+        if (draft.editingInvoiceId) {
+            salesState.editingInvoiceId = draft.editingInvoiceId;
+            salesState.originalInvoiceItemTotalsByItemId = draft.originalInvoiceItemTotalsByItemId || {};
+            salesRender.setEditModeUI(t);
+            setEditLocked(!!draft.isEditLocked);
+        }
+
+        if (draft.invoiceDate && salesState.dom.invoiceDateInput) {
+            salesState.dom.invoiceDateInput.value = draft.invoiceDate;
+        }
+        
+        if (draft.invoiceNumber) {
+            const invoiceNumberInput = document.getElementById('invoiceNumber');
+            if (invoiceNumberInput) invoiceNumberInput.value = draft.invoiceNumber;
+        }
+        
+        if (draft.notes) {
+            const notesInput = document.getElementById('invoiceNotes');
+            if (notesInput) notesInput.value = draft.notes;
+        }
+        
+        if (draft.paymentType) {
+            const paymentTypeInput = document.getElementById('paymentType');
+            if (paymentTypeInput) paymentTypeInput.value = draft.paymentType;
+        }
+        
+        if (draft.discountType && salesState.dom.discountTypeSelect) {
+            salesState.dom.discountTypeSelect.value = draft.discountType;
+        }
+        
+        if (draft.discountValue && salesState.dom.discountValueInput) {
+            salesState.dom.discountValueInput.value = draft.discountValue;
+        }
+        
+        if (draft.paidAmount && salesState.dom.paidAmountInput) {
+            salesState.dom.paidAmountInput.value = draft.paidAmount;
+        }
 
         if (draft.customerId && salesState.dom.customerSelect) {
             salesState.dom.customerSelect.value = draft.customerId;
@@ -2279,6 +2420,10 @@ async function checkAndRestoreDraft() {
                 addInvoiceRow(itemData);
             });
             calculateInvoiceTotal();
+        }
+
+        if (draft.editingInvoiceId) {
+            updateInvoiceNavigationButtons();
         }
 
         if (window.showToast) {

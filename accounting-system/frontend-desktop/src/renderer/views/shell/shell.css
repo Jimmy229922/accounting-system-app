@@ -124,6 +124,7 @@ html:has(body.sales-print-mode) {
     padding: 0 !important;
     width: 100% !important;
 }
+
 body.sales-print-mode,
 html:has(body.sales-print-mode),
 body.sales-print-mode .shell-root,
@@ -133,6 +134,7 @@ body.sales-print-mode .shell-frame {
     min-height: 100% !important;
     overflow: visible !important;
 }
+
 body.sales-print-mode .shell-root,
 body.sales-print-mode .shell-stage {
     background: #ffffff !important;
@@ -140,25 +142,40 @@ body.sales-print-mode .shell-stage {
     padding: 0 !important;
     margin: 0 !important;
 }
+
 body.sales-print-mode .shell-frame {
     background: #ffffff !important;
     background-color: #ffffff !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     margin: 0 !important;
-    border: 0 !important; /* تأكيد عدم وجود أي حدود */
+    border: 0 !important;
+    /* تأكيد عدم وجود أي حدود */
 }
+
 body.sales-print-mode #shellNav,
 body.sales-print-mode .top-nav {
     display: none !important;
 }
 
 @media print {
-    html, body, .shell-root, .shell-stage, .shell-frame {
+
+    html,
+    body,
+    .shell-root,
+    .shell-stage,
+    .shell-frame,
+    .print-shell,
+    #printArea {
         background: #ffffff !important;
         background-color: #ffffff !important;
         margin: 0 !important;
         padding: 0 !important;
         height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+        position: relative !important;
     }
 }

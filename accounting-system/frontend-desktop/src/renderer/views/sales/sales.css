@@ -1253,6 +1253,21 @@ body.sales-print-mode {
     color: #000000 !important;
 }
 
+body.sales-print-mode #toastContainer, 
+body.sales-print-mode .toast-container, 
+body.sales-print-mode .toast,
+body.sales-print-mode .autocomplete-list, 
+body.sales-print-mode .autocomplete-dropdown, 
+body.sales-print-mode .autocomplete-suggestions,
+body.sales-print-mode .modal, 
+body.sales-print-mode .sales-shift-modal-overlay,
+body.sales-print-mode #app, 
+body.sales-print-mode .top-nav, 
+body.sales-print-mode .sales-page-header, 
+body.sales-print-mode .invoice-form-container {
+    display: none !important;
+}
+
 body.sales-print-mode * {
     background: transparent !important;
     background-color: transparent !important;
@@ -1400,10 +1415,15 @@ body.sales-print-mode .print-shell {
         width: 100%;
         border-collapse: collapse;
         margin-bottom: 20px;
+        page-break-inside: auto !important;
+    }
+
+    .print-items-table thead {
+        display: table-header-group !important;
     }
 
     .print-items-table th, .print-items-table td {
-        border: 1px solid #ddd;
+        border: 1px solid #000 !important;
         padding: 8px;
         text-align: center;
     }
@@ -1450,12 +1470,13 @@ body.sales-print-mode .print-shell {
 
     .print-items-table tr {
         page-break-inside: avoid !important;
-        break-inside: avoid-page !important;
+        break-inside: avoid !important;
     }
-    .print-summary,
-    .print-footer {
+    
+    /* ترحيل الإجماليات والفوتر ككتلة واحدة مأمنة في الورقة الأخيرة */
+    .print-summary, .print-footer {
         page-break-inside: avoid !important;
-        break-inside: avoid-page !important;
+        break-inside: avoid !important;
     }
 }
 

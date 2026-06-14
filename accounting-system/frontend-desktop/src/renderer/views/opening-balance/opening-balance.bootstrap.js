@@ -1,4 +1,4 @@
-﻿
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
     // State
@@ -590,9 +590,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        const entry = history.find(h => h.id == id);
+        if (!entry) {
+            Toast.show('Entry not found', 'error');
+            return;
+        }
+
         try {
             const result = await window.electronAPI.updateOpeningBalance({
                 id,
+                item_id: entry.item_id,
                 warehouse_id: warehouseId,
                 quantity,
                 cost_price: costPrice

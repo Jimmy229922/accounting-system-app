@@ -182,6 +182,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveCustomerSummaryPdf: (options) => invokeChannel('save-customer-summary-pdf', options),
     getPrinters: () => ipcRenderer.invoke('get-printers'),
     printCurrentWindow: (options) => ipcRenderer.invoke('print-current-window', options),
+    generatePdfPreview: (options) => ipcRenderer.invoke('generate-pdf-preview', options),
     printBarcodeLabels: (options) => ipcRenderer.invoke('print-barcode-labels', options),
 
     // Summary Statement
