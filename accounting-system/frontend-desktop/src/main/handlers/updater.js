@@ -61,7 +61,7 @@ function register() {
     ipcMain.handle('check-for-updates', async () => {
         try {
             // Checks for updates and downloads them if available
-            const result = await autoUpdater.checkForUpdatesAndDownload();
+            const result = await autoUpdater.checkForUpdates();
             return { success: true, updateInfo: result ? result.updateInfo : null };
         } catch (error) {
             console.error('[auto-updater] Check for updates failed:', error);

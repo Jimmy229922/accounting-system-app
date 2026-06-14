@@ -588,23 +588,26 @@ function setupUpdaterListeners() {
             const progressContainer = document.getElementById('updateProgressContainer');
             const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
             
-            if (!statusText) return;
-
             if (status === 'checking') {
                 statusText.textContent = 'جاري الفحص عن تحديثات...';
+                statusText.style.color = '';
                 if (checkUpdatesBtn) checkUpdatesBtn.disabled = true;
             } else if (status === 'available') {
                 statusText.textContent = 'يتوفر تحديث جديد! جاري التحميل...';
+                statusText.style.color = '';
                 if (progressContainer) progressContainer.style.display = 'block';
                 if (checkUpdatesBtn) checkUpdatesBtn.disabled = true;
             } else if (status === 'not-available') {
                 statusText.textContent = 'النظام محدث بالفعل.';
+                statusText.style.color = '';
                 if (checkUpdatesBtn) checkUpdatesBtn.disabled = false;
             } else if (status === 'downloaded') {
                 statusText.textContent = 'تم تنزيل التحديث بنجاح! سيتم إعادة التشغيل لتثبيت التحديث.';
+                statusText.style.color = '';
                 if (checkUpdatesBtn) checkUpdatesBtn.disabled = true;
             } else if (status === 'error') {
-                statusText.textContent = `حدث خطأ: ${info || 'فشل التحديث'}`;
+                statusText.textContent = `حدث خطأ أثناء التحديث: ${info || 'فشل الاتصال بخادم التحديثات'}`;
+                statusText.style.color = '#dc2626';
                 if (checkUpdatesBtn) checkUpdatesBtn.disabled = false;
                 if (progressContainer) progressContainer.style.display = 'none';
             }
@@ -640,15 +643,24 @@ async function handleCheckUpdates() {
     }
 
     const statusText = document.getElementById('updateStatusText');
-    if (statusText) statusText.textContent = 'جاري الاتصال بالسيرفر للفحص...';
+    if (statusText) {
+        statusText.textContent = 'جاري الاتصال بالسيرفر للفحص...';
+        statusText.style.color = '';
+    }
 
     try {
         const res = await window.electronAPI.checkForUpdates();
         if (!res || !res.success) {
-            if (statusText) statusText.textContent = `تعذر الفحص: ${res ? res.error : 'خطأ غير معروف'}`;
+            if (statusText) {
+                statusText.textContent = `تعذر الفحص: ${res ? res.error : 'خطأ غير معروف'}`;
+                statusText.style.color = '#dc2626';
+            }
         }
     } catch (err) {
-        if (statusText) statusText.textContent = `تعذر الفحص: ${err.message}`;
+        if (statusText) {
+            statusText.textContent = `تعذر الفحص: ${err.message}`;
+            statusText.style.color = '#dc2626';
+        }
     }
 }
 
