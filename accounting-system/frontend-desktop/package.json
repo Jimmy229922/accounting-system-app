@@ -3,6 +3,10 @@
   "version": "3.0.1",
   "description": "Professional Accounting System",
   "main": "src/main/main.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jimmy229922/accounting-system-app.git"
+  },
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
@@ -12,6 +16,11 @@
   "build": {
     "appId": "com.accountingsystem.app",
     "productName": "Accounting System",
+    "publish": {
+      "provider": "github",
+      "owner": "Jimmy229922",
+      "repo": "accounting-system-app"
+    },
     "win": {
       "target": "nsis",
       "icon": "src/main/assets/icon.ico"
@@ -44,6 +53,7 @@
   "dependencies": {
     "accounting-system-monorepo": "file:..",
     "better-sqlite3": "^12.5.0",
+    "electron-updater": "^6.3.9",
     "pdf-lib": "^1.17.1"
   }
 }

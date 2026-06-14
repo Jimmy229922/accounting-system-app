@@ -198,6 +198,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Purchase Returns API
     getPurchaseReturns: () => invokeChannel('get-purchase-returns'),
+
+    // Sales Returns API
+    getSalesReturns: () => invokeChannel('get-sales-returns'),
+    getCustomerSalesInvoices: (customerId) => invokeChannel('get-customer-sales-invoices', customerId),
+    getInvoiceItemsForReturn: (invoiceId, type) => invokeChannel('get-invoice-items-for-return', { invoiceId, type }),
+    saveSalesReturn: (data) => invokeChannel('save-sales-return', data),
+    updateSalesReturn: (data) => invokeChannel('update-sales-return', data),
+    deleteSalesReturn: (id) => invokeChannel('delete-sales-return', id),
+
+    // Purchase Returns API
+    getPurchaseReturns: () => invokeChannel('get-purchase-returns'),
     getSupplierPurchaseInvoices: (supplierId) => invokeChannel('get-supplier-purchase-invoices', supplierId),
     savePurchaseReturn: (data) => invokeChannel('save-purchase-return', data),
     updatePurchaseReturn: (data) => invokeChannel('update-purchase-return', data),
@@ -207,5 +218,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getSalesInvoiceDetails: (invoiceId) => invokeChannel('get-sales-invoice-details', invoiceId),
     getPurchaseInvoiceDetails: (invoiceId) => invokeChannel('get-purchase-invoice-details', invoiceId),
     getSalesReturnDetails: (returnId) => invokeChannel('get-sales-return-details', returnId),
-    getPurchaseReturnDetails: (returnId) => invokeChannel('get-purchase-return-details', returnId)
+    getPurchaseReturnDetails: (returnId) => invokeChannel('get-purchase-return-details', returnId),
+
+    // Auto-updater API
+    checkForUpdates: () => invokeChannel('check-for-updates'),
+    onUpdateMessage: (callback) => {
+        const listener = (event, status, info) => callback(status, info);
+        ipcRenderer.on('update-message', listener);
+        return () => ipcRenderer.removeListener('update-message', listener);
+    },
+    onUpdateDownloadProgress: (callback) => {
+        const listener = (event, progressObj) => callback(progressObj);
+        ipcRenderer.on('update-download-progress', listener);
+        return () => ipcRenderer.removeListener('update-download-progress', listener);
+    }
 });

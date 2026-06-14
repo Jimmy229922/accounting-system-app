@@ -217,6 +217,24 @@ function renderPage() {
                             <div class="info-item-value" style="color: #10b981;">${t('settings.connected', 'متصل')}</div>
                         </div>
                     </div>
+                    <div class="info-item" id="updateInfoSection">
+                        <div class="info-item-icon"><i class="fas fa-sync-alt"></i></div>
+                        <div>
+                            <div class="info-item-label">تحديثات النظام</div>
+                            <div class="info-item-value" style="display:flex; flex-direction:column; gap:6px;">
+                                <button type="button" id="checkUpdatesBtn" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.85rem; width: fit-content; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="fas fa-sync"></i> التحقق من التحديثات
+                                </button>
+                                <span id="updateStatusText" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+                                <div id="updateProgressContainer" style="display: none; margin-top: 4px; width: 100%; max-width: 200px;">
+                                    <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+                                        <div id="updateProgressBar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.1s;"></div>
+                                    </div>
+                                    <span id="updateProgressPercent" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; display: block;">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -252,6 +270,12 @@ function initializeElements() {
     if (themeToggleBtn && typeof window.bindThemeToggleButtons === 'function') {
         window.bindThemeToggleButtons();
     }
+
+    const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+    if (checkUpdatesBtn) {
+        checkUpdatesBtn.addEventListener('click', handleCheckUpdates);
+    }
+    setupUpdaterListeners();
 
     setSaveButtonState('idle');
 }
@@ -547,6 +571,84 @@ async function handleRestore() {
             }
             await window.electronAPI.restartApp();
         }
+    }
+}
+
+let updaterListenersBound = false;
+let removeUpdateMessageListener = null;
+let removeUpdateProgressListener = null;
+
+function setupUpdaterListeners() {
+    if (updaterListenersBound) return;
+    if (!window.electronAPI) return;
+
+    if (typeof window.electronAPI.onUpdateMessage === 'function') {
+        removeUpdateMessageListener = window.electronAPI.onUpdateMessage((status, info) => {
+            const statusText = document.getElementById('updateStatusText');
+            const progressContainer = document.getElementById('updateProgressContainer');
+            const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+            
+            if (!statusText) return;
+
+            if (status === 'checking') {
+                statusText.textContent = 'جاري الفحص عن تحديثات...';
+                if (checkUpdatesBtn) checkUpdatesBtn.disabled = true;
+            } else if (status === 'available') {
+                statusText.textContent = 'يتوفر تحديث جديد! جاري التحميل...';
+                if (progressContainer) progressContainer.style.display = 'block';
+                if (checkUpdatesBtn) checkUpdatesBtn.disabled = true;
+            } else if (status === 'not-available') {
+                statusText.textContent = 'النظام محدث بالفعل.';
+                if (checkUpdatesBtn) checkUpdatesBtn.disabled = false;
+            } else if (status === 'downloaded') {
+                statusText.textContent = 'تم تنزيل التحديث بنجاح! سيتم إعادة التشغيل لتثبيت التحديث.';
+                if (checkUpdatesBtn) checkUpdatesBtn.disabled = true;
+            } else if (status === 'error') {
+                statusText.textContent = `حدث خطأ: ${info || 'فشل التحديث'}`;
+                if (checkUpdatesBtn) checkUpdatesBtn.disabled = false;
+                if (progressContainer) progressContainer.style.display = 'none';
+            }
+        });
+    }
+
+    if (typeof window.electronAPI.onUpdateDownloadProgress === 'function') {
+        removeUpdateProgressListener = window.electronAPI.onUpdateDownloadProgress((progressObj) => {
+            const progressBar = document.getElementById('updateProgressBar');
+            const progressPercent = document.getElementById('updateProgressPercent');
+            const progressContainer = document.getElementById('updateProgressContainer');
+            
+            if (progressContainer) progressContainer.style.display = 'block';
+            
+            const percent = progressObj && progressObj.percent ? Math.round(progressObj.percent) : 0;
+            if (progressBar) progressBar.style.width = `${percent}%`;
+            if (progressPercent) progressPercent.textContent = `${percent}%`;
+        });
+    }
+
+    updaterListenersBound = true;
+}
+
+window.addEventListener('unload', () => {
+    if (typeof removeUpdateMessageListener === 'function') removeUpdateMessageListener();
+    if (typeof removeUpdateProgressListener === 'function') removeUpdateProgressListener();
+});
+
+async function handleCheckUpdates() {
+    if (!window.electronAPI || typeof window.electronAPI.checkForUpdates !== 'function') {
+        if (window.showToast) window.showToast('ميزة التحديث التلقائي غير مدعومة في هذه البيئة', 'error');
+        return;
+    }
+
+    const statusText = document.getElementById('updateStatusText');
+    if (statusText) statusText.textContent = 'جاري الاتصال بالسيرفر للفحص...';
+
+    try {
+        const res = await window.electronAPI.checkForUpdates();
+        if (!res || !res.success) {
+            if (statusText) statusText.textContent = `تعذر الفحص: ${res ? res.error : 'خطأ غير معروف'}`;
+        }
+    } catch (err) {
+        if (statusText) statusText.textContent = `تعذر الفحص: ${err.message}`;
     }
 }
 
