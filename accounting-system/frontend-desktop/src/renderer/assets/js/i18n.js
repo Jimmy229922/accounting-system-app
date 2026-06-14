@@ -6,7 +6,7 @@ function resolvePathCandidates() {
     
     // Count how many directories we are deep inside "renderer"
     // e.g. /D:/JS/accounting-system/frontend-desktop/src/renderer/views/reports/debtor-creditor/index.html
-    const match = path.match(/renderer\/(.*\/)index\.html$/i);
+    const match = path.match(/renderer\/(.*\/)[^/]+\.html$/i);
     if (match && match[1]) {
         depth = match[1].split('/').filter(Boolean).length;
     } else {

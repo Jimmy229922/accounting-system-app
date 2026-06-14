@@ -146,7 +146,8 @@ function setEditLocked(locked) {
         if (
             control.dataset.action === 'submit-invoice' ||
             control.dataset.action === 'load-prev-invoice' ||
-            control.dataset.action === 'load-next-invoice'
+            control.dataset.action === 'load-next-invoice' ||
+            control.id === 'printBarcodeBtn'
         ) return;
         control.disabled = lockActive;
 
@@ -1531,6 +1532,10 @@ async function deleteInvoice() {
         if (result && result.success) {
             if (window.showToast) window.showToast(t('purchases.deleteSuccess', 'تم حذف الفاتورة وعكس حركات المخزن والمالية بنجاح'), 'success');
             await resetForm();
+            if (window.electronAPI && window.electronAPI.getDashboardStats) {
+                window.electronAPI.getDashboardStats().catch(console.error);
+            }
+            window.dispatchEvent(new Event('dashboard-refresh-requested'));
         } else {
             const errorMsg = result?.error || 'خطأ غير معروف';
             if (window.showToast) window.showToast(t('purchases.deleteFailed', 'فشل حذف الفاتورة') + `: ${errorMsg}`, 'error');

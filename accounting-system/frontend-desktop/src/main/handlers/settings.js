@@ -116,6 +116,7 @@ function register() {
                 JOIN sales_invoices si ON sid.invoice_id = si.id
                 JOIN items i ON sid.item_id = i.id
                 WHERE 1=1${salesInvoiceRange.clause}
+                AND EXISTS (SELECT 1 FROM purchase_invoice_details pid WHERE pid.item_id = i.id)
             `).get(...salesInvoiceRange.params).total;
             const cogsMonthReturns = db.prepare(`
                 SELECT COALESCE(SUM(srd.quantity * i.cost_price), 0) as total
@@ -123,6 +124,7 @@ function register() {
                 JOIN sales_returns sr ON srd.return_id = sr.id
                 JOIN items i ON srd.item_id = i.id
                 WHERE 1=1${salesReturnRange.clause}
+                AND EXISTS (SELECT 1 FROM purchase_invoice_details pid WHERE pid.item_id = i.id)
             `).get(...salesReturnRange.params).total;
             const cogsMonth = Math.max(0, cogsMonthSales - cogsMonthReturns);
             const netProfit = salesMonth - cogsMonth;

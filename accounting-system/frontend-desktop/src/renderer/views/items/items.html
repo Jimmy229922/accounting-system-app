@@ -245,6 +245,34 @@
                 </div>
             </div>
         </div>
+        <!-- Barcode Print Modal -->
+        <div id="barcodePrintModal" class="modal">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3 data-i18n="items.barcodeModalTitle">تجهيز طباعة الباركود للمنتج</h3>
+                    <button class="close-modal" data-action="close-barcode-modal">&times;</button>
+                </div>
+                <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="items.itemName">اسم المنتج</th>
+                                <th data-i18n="items.barcode">الباركود</th>
+                                <th data-i18n="items.barcodePrintCount">عدد الملصقات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="barcodeModalBody"></tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" type="button" data-action="close-barcode-modal" data-i18n="items.cancelBtn">إلغاء</button>
+                    <button class="btn btn-success" type="button" data-action="execute-print-barcode" data-i18n="items.printBtn">طباعة</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden container for JSBarcode / printing logic -->
+        <div id="barcodePrintContainer" style="display:none;" class="print-only"></div>
     </div>
 
     <script src="../../assets/js/toast.js"></script>

@@ -1,4 +1,4 @@
-﻿let ar = {};
+let ar = {};
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 
 function buildTopNavHTML() {
@@ -322,6 +322,25 @@ function handleAppActionClick(event) {
 
     if (action === 'confirm-delete-item') {
         confirmDelete();
+        return;
+    }
+
+    if (action === 'open-barcode-modal') {
+        const id = Number.parseInt(actionEl.dataset.id || '', 10);
+        if (Number.isFinite(id)) {
+            openBarcodeModal(id);
+        }
+        return;
+    }
+
+    if (action === 'close-barcode-modal') {
+        closeBarcodeModal();
+        return;
+    }
+
+    if (action === 'execute-print-barcode') {
+        executePrintBarcode();
+        return;
     }
 }
 
@@ -527,6 +546,9 @@ function renderTable() {
             <td>${reorderLvl}</td>
             <td>
                 <div class="action-buttons">
+                    <button class="btn-icon btn-barcode" data-action="open-barcode-modal" data-id="${item.id}" title="طباعة باركود">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18M3 15h18M5 6v12M9 6v12M13 6v12M17 6v12M21 6v12"/></svg>
+                    </button>
                     <button class="btn-icon btn-edit" data-action="open-edit-modal" data-id="${item.id}" title="${t('items.editBtnTitle', 'تعديل')}">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     </button>

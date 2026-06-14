@@ -1984,7 +1984,7 @@ function updatePrintBtnState() {
     const hasItems = salesState.dom.invoiceItemsBody?.querySelectorAll('tr').length > 0;
     const locked = (typeof isEditLocked === 'function') ? isEditLocked() : false;
 
-    if (customer_id && hasItems && !locked) {
+    if (customer_id && hasItems) {
         printBtn.disabled = false;
         printBtn.style.opacity = '1';
         printBtn.style.cursor = 'pointer';
@@ -2228,6 +2228,10 @@ async function deleteInvoice() {
             if (window.showToast) window.showToast(t('sales.deleteSuccess', 'تم حذف الفاتورة وعكس حركات المخزن والمالية بنجاح'), 'success');
             await resetForm();
             if (typeof renderTotalsPanel === 'function') renderTotalsPanel();
+            if (window.electronAPI && window.electronAPI.getDashboardStats) {
+                window.electronAPI.getDashboardStats().catch(console.error);
+            }
+            window.dispatchEvent(new Event('dashboard-refresh-requested'));
         } else {
             const errorMsg = result?.error || 'خطأ غير معروف';
             if (window.showToast) window.showToast(t('sales.deleteFailed', 'فشل حذف الفاتورة') + `: ${errorMsg}`, 'error');
