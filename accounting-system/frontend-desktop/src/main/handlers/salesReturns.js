@@ -55,9 +55,12 @@ function register() {
             VALUES (@return_number, @original_invoice_id, @customer_id, @return_date, @total_amount, @notes)
         `);
 
+        const getCostPrice = db.prepare('SELECT cost_price FROM sales_invoice_details WHERE invoice_id = ? AND item_id = ?');
+        const getItemCost = db.prepare('SELECT cost_price FROM items WHERE id = ?');
+
         const insertDetail = db.prepare(`
-            INSERT INTO sales_return_details (return_id, item_id, quantity, price, total_price)
-            VALUES (@return_id, @item_id, @quantity, @price, @total_price)
+            INSERT INTO sales_return_details (return_id, item_id, quantity, cost_price, price, total_price)
+            VALUES (@return_id, @item_id, @quantity, @cost_price, @price, @total_price)
         `);
 
         // Return items to stock
@@ -88,10 +91,14 @@ function register() {
             const returnId = info.lastInsertRowid;
 
             for (const item of data.items) {
+                const sidCost = getCostPrice.get(data.original_invoice_id, item.item_id)?.cost_price;
+                const costPrice = (sidCost !== undefined && sidCost !== null) ? sidCost : (getItemCost.get(item.item_id)?.cost_price || 0);
+
                 insertDetail.run({
                     return_id: returnId,
                     item_id: item.item_id,
                     quantity: item.quantity,
+                    cost_price: costPrice,
                     price: item.price,
                     total_price: item.total_price
                 });
@@ -170,9 +177,12 @@ function register() {
         `);
 
         const deleteDetails = db.prepare('DELETE FROM sales_return_details WHERE return_id = ?');
+        const getCostPrice = db.prepare('SELECT cost_price FROM sales_invoice_details WHERE invoice_id = ? AND item_id = ?');
+        const getItemCost = db.prepare('SELECT cost_price FROM items WHERE id = ?');
+
         const insertDetail = db.prepare(`
-            INSERT INTO sales_return_details (return_id, item_id, quantity, price, total_price)
-            VALUES (@return_id, @item_id, @quantity, @price, @total_price)
+            INSERT INTO sales_return_details (return_id, item_id, quantity, cost_price, price, total_price)
+            VALUES (@return_id, @item_id, @quantity, @cost_price, @price, @total_price)
         `);
 
         const addToStock = db.prepare('UPDATE items SET stock_quantity = stock_quantity + @quantity WHERE id = @item_id');
@@ -222,10 +232,14 @@ function register() {
 
             deleteDetails.run(returnId);
             normalizedItems.forEach((item) => {
+                const sidCost = getCostPrice.get(original_invoice_id, item.item_id)?.cost_price;
+                const costPrice = (sidCost !== undefined && sidCost !== null) ? sidCost : (getItemCost.get(item.item_id)?.cost_price || 0);
+
                 insertDetail.run({
                     return_id: returnId,
                     item_id: item.item_id,
                     quantity: item.quantity,
+                    cost_price: costPrice,
                     price: item.price,
                     total_price: item.total_price
                 });

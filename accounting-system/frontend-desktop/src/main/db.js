@@ -286,12 +286,14 @@ function initDB() {
             invoice_id INTEGER,
             item_id INTEGER,
             quantity REAL,
+            cost_price REAL DEFAULT 0,
             sale_price REAL,
             total_price REAL,
             FOREIGN KEY (invoice_id) REFERENCES sales_invoices(id) ON DELETE CASCADE,
             FOREIGN KEY (item_id) REFERENCES items(id)
         )
     `);
+    runAddColumnMigration("ALTER TABLE sales_invoice_details ADD COLUMN cost_price REAL DEFAULT 0", 'sales_invoice_details', 'cost_price');
 
     // 9. Treasury Transactions Table (جدول حركات الخزينة)
     db.exec(`
@@ -415,12 +417,14 @@ function initDB() {
             return_id INTEGER NOT NULL,
             item_id INTEGER NOT NULL,
             quantity REAL NOT NULL,
+            cost_price REAL DEFAULT 0,
             price REAL NOT NULL,
             total_price REAL NOT NULL,
             FOREIGN KEY (return_id) REFERENCES sales_returns(id) ON DELETE CASCADE,
             FOREIGN KEY (item_id) REFERENCES items(id)
         )
     `);
+    runAddColumnMigration("ALTER TABLE sales_return_details ADD COLUMN cost_price REAL DEFAULT 0", 'sales_return_details', 'cost_price');
 
     // 17. Purchase Returns Table (جدول مردودات المشتريات)
     db.exec(`
@@ -695,6 +699,22 @@ function initDB() {
             SELECT RAISE(ABORT, 'duplicate purchase return number');
         END
     `);
+
+    // Backfill cost_price for existing sales and returns from items table if null/0
+    try {
+        db.exec(`
+            UPDATE sales_invoice_details 
+            SET cost_price = (SELECT cost_price FROM items WHERE items.id = sales_invoice_details.item_id)
+            WHERE cost_price IS NULL OR cost_price = 0
+        `);
+        db.exec(`
+            UPDATE sales_return_details 
+            SET cost_price = (SELECT cost_price FROM items WHERE items.id = sales_return_details.item_id)
+            WHERE cost_price IS NULL OR cost_price = 0
+        `);
+    } catch (err) {
+        console.error('[db-migration] Error backfilling cost_price:', err.message);
+    }
 
     console.log('Database initialized at:', dbPath);
 }
