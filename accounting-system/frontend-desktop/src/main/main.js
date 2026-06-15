@@ -193,6 +193,7 @@ try {
 }
 
 const { runStartupChecks, handleQuitBackup, handleQuitBackupFallback } = require('./autoBackup');
+const { runSilentBalanceRepair } = require('./repairBalances');
 const { openAppFlow, getMainWindow } = require('./windowManager');
 const { INVITE_CODE, INVITE_DURATION_DAYS } = require('./inviteConfig');
 
@@ -465,6 +466,12 @@ app.whenReady().then(() => {
         app.relaunch();
         app.quit();
         return;
+    }
+
+    try {
+        runSilentBalanceRepair();
+    } catch (repairError) {
+        console.error('[Startup Repair Error] Failed to execute balance repair:', repairError);
     }
 
     if (handleCliActivationMode()) {

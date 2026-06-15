@@ -173,9 +173,31 @@ function register() {
         const personIdField = isSales ? 'customer_id' : 'supplier_id';
 
         const invoice = db.prepare(`SELECT * FROM ${invoiceTable} WHERE id = ?`).get(id);
-        if (!invoice) return { success: false, error: 'Invoice not found' };
+        if (!invoice) return { success: false, error: 'الفاتورة غير موجودة أو تم حذفها من قبل' };
 
         const details = db.prepare(`SELECT * FROM ${detailsTable} WHERE invoice_id = ?`).all(id);
+
+        if (!isSales) {
+            const quantitiesByItem = new Map();
+            details.forEach((item) => {
+                const itemId = Number(item.item_id);
+                if (!Number.isFinite(itemId)) return;
+                quantitiesByItem.set(itemId, (quantitiesByItem.get(itemId) || 0) + (Number(item.quantity) || 0));
+            });
+
+            const getItemStock = db.prepare('SELECT name, stock_quantity FROM items WHERE id = ?');
+            for (const [itemId, quantityToRemove] of quantitiesByItem.entries()) {
+                const currentItem = getItemStock.get(itemId);
+                const currentStock = Number(currentItem?.stock_quantity) || 0;
+                if (quantityToRemove > currentStock) {
+                    const itemName = currentItem?.name || `#${itemId}`;
+                    return {
+                        success: false,
+                        error: `لا يمكن حذف فاتورة المشتريات لأن الصنف "${itemName}" المتاح حالياً ${currentStock} فقط، بينما حذف الفاتورة سيخصم ${quantityToRemove}. يبدو أن جزءاً من هذه الكمية تم بيعه أو استخدامه.`
+                    };
+                }
+            }
+        }
 
         const transaction = db.transaction(() => {
             // 1. Reverse Stock
@@ -198,7 +220,7 @@ function register() {
             } else {
                 const purchaseBalanceDelta = (Number(invoice.total_amount) || 0) - (Number(invoice.paid_amount) || 0);
                 if (purchaseBalanceDelta !== 0) {
-                    db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(purchaseBalanceDelta, invoice[personIdField]);
+                    db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(purchaseBalanceDelta, invoice[personIdField]);
                 }
             }
 
@@ -217,6 +239,12 @@ function register() {
             return { success: true };
         } catch (error) {
             console.error(error);
+            if (String(error?.message || '').includes('negative stock_quantity')) {
+                return {
+                    success: false,
+                    error: 'لا يمكن إتمام الحذف لأن العملية ستجعل رصيد أحد الأصناف في المخزون بالسالب. راجع حركات البيع والمرتجعات المرتبطة بهذه الفاتورة أولاً.'
+                };
+            }
             return { success: false, error: error.message };
         }
     });

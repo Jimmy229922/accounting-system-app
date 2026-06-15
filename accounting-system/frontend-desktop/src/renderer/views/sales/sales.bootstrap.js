@@ -4,6 +4,7 @@ const salesRender = window.salesPageRender;
 const salesEvents = window.salesPageEvents;
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => salesState.ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 const SALES_PRINT_PRINTER_STORAGE_KEY = 'sales.invoicePrinterName';
+let restoredDraftActive = false;
 
 function getNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
@@ -82,6 +83,7 @@ function initializeElements() {
             onEditShiftClose: editShiftCloseFromAction,
             onDeleteShiftClose: deleteShiftCloseFromAction,
             onShiftCloseSearchInput: () => queueShiftCloseHistoryRefresh(),
+            onCancelRestoredDraft: cancelRestoredDraft,
             onShiftCloseAmountsInput: () => updateShiftCloseDifferenceDisplay()
         }
     });
@@ -154,6 +156,40 @@ function clearShiftCloseAutoOpenQueryParam() {
     const nextSearch = currentUrl.searchParams.toString();
     const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash || ''}`;
     window.history.replaceState({}, document.title, nextUrl);
+}
+
+function setRestoredDraftCancelVisible(visible) {
+    const titleRow = salesState.dom.invoiceForm?.querySelector('.form-title-row');
+    if (!titleRow) return;
+
+    let cancelBtn = titleRow.querySelector('[data-action="cancel-restored-draft"]');
+    if (!visible) {
+        if (cancelBtn) cancelBtn.remove();
+        return;
+    }
+
+    if (!cancelBtn) {
+        cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-outline';
+        cancelBtn.type = 'button';
+        cancelBtn.dataset.action = 'cancel-restored-draft';
+        cancelBtn.textContent = '×';
+        cancelBtn.title = 'إلغاء المسودة';
+        cancelBtn.setAttribute('aria-label', 'إلغاء المسودة');
+        cancelBtn.style.padding = '8px 12px';
+        cancelBtn.style.minWidth = '38px';
+        titleRow.appendChild(cancelBtn);
+    }
+}
+
+async function cancelRestoredDraft() {
+    if (!restoredDraftActive) return;
+
+    restoredDraftActive = false;
+    localStorage.removeItem('sales_invoice_draft');
+    setRestoredDraftCancelVisible(false);
+    await resetForm();
+    if (window.showToast) window.showToast('تم إلغاء المسودة', 'success');
 }
 
 function escapeHtml(value) {
@@ -1939,12 +1975,17 @@ function calculateRowTotal(element) {
 
 function calculateInvoiceTotal() {
     let subtotal = 0;
+    let totalCost = 0;
     salesState.dom.invoiceItemsBody.querySelectorAll('tr').forEach((row) => {
         const rowTotal = parseFloat(row.querySelector('.row-total').textContent) || 0;
+        const quantity = parseLocaleFloat(row.querySelector('.quantity-input')?.value);
+        const costPrice = parseFloat(row.dataset.costPrice || '0') || 0;
         subtotal += rowTotal;
+        totalCost += (Number.isFinite(quantity) ? quantity : 0) * costPrice;
     });
 
     const financials = getInvoiceFinancials(subtotal);
+    const invoiceProfit = roundMoney(financials.netTotal - totalCost);
 
     if (salesState.dom.invoiceSubtotalSpan) {
         salesState.dom.invoiceSubtotalSpan.textContent = subtotal.toFixed(2);
@@ -1961,6 +2002,7 @@ function calculateInvoiceTotal() {
     }
 
     if (salesState.dom.invoiceRemainingSpan) {
+        salesState.dom.invoiceRemainingSpan.dataset.profitTooltip = `صافي ربح الفاتورة: ${invoiceProfit.toFixed(2)}`;
         if (financials.customerRemaining > 0) {
             salesState.dom.invoiceRemainingSpan.textContent = fmt(t('sales.customerDuePositive', 'لينا (مدين) {amount}'), { amount: financials.customerRemaining.toFixed(2) });
             salesState.dom.invoiceRemainingSpan.className = 'customer-due-value due-positive';
@@ -2243,6 +2285,8 @@ async function deleteInvoice() {
 }
 
 async function resetForm() {
+    restoredDraftActive = false;
+    setRestoredDraftCancelVisible(false);
     salesState.dom.customerSelect.value = '';
     if (salesState.customerAutocomplete) {
         salesState.customerAutocomplete.refresh();
@@ -2293,6 +2337,7 @@ async function resetForm() {
 }
 
 window.hasUnsavedChanges = function () {
+    if (isEditLocked()) return false;
     // التحقق من وجود أصناف في جدول المبيعات الحالي
     const rows = document.querySelectorAll('.items-table tbody tr');
     return rows.length > 0;
@@ -2429,6 +2474,9 @@ async function checkAndRestoreDraft() {
         if (draft.editingInvoiceId) {
             updateInvoiceNavigationButtons();
         }
+
+        restoredDraftActive = true;
+        setRestoredDraftCancelVisible(true);
 
         if (window.showToast) {
             window.showToast('تم استعادة مسودة الفاتورة التلقائية بنجاح', 'success');

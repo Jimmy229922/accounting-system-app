@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyI18nToDOM();
     loadCustomers();
     setupEventListeners();
+    window.addEventListener('dashboard-refresh-requested', loadCustomers);
     setBalanceDirection('on');
     } catch (error) {
         console.error('Initialization Error:', error);

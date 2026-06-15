@@ -485,6 +485,41 @@
     font-weight: 900;
     font-size: 1.65rem;
     line-height: 1;
+    position: relative;
+    cursor: help;
+}
+
+.customer-due-value[data-profit-tooltip]:hover::after {
+    content: attr(data-profit-tooltip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 10px);
+    transform: translateX(-50%);
+    z-index: 50;
+    min-width: 210px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: #111827;
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+    font-size: 0.84rem;
+    font-weight: 800;
+    line-height: 1.4;
+    text-align: center;
+    direction: rtl;
+    white-space: nowrap;
+}
+
+.customer-due-value[data-profit-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 4px);
+    transform: translateX(-50%);
+    z-index: 51;
+    border-width: 6px 6px 0 6px;
+    border-style: solid;
+    border-color: #111827 transparent transparent transparent;
 }
 
 .total-row-secondary {

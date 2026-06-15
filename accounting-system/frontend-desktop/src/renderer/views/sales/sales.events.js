@@ -101,6 +101,11 @@
                     return;
                 }
 
+                if (action === 'cancel-restored-draft') {
+                    handlers.onCancelRestoredDraft();
+                    return;
+                }
+
                 if (action === 'remove-row') {
                     handlers.onRemoveRow(actionEl);
                 }

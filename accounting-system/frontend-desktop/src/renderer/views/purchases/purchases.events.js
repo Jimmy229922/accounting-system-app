@@ -32,6 +32,11 @@
                     return;
                 }
 
+                if (action === 'cancel-restored-draft') {
+                    handlers.onCancelRestoredDraft();
+                    return;
+                }
+
                 if (action === 'load-prev-invoice') {
                     handlers.onLoadPrevInvoice();
                     return;

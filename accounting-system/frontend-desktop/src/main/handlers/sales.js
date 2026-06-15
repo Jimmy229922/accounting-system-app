@@ -56,6 +56,13 @@ function calculateInvoiceFinancials({ subtotalAmount, discountType, discountValu
     };
 }
 
+function getLatestPurchaseCostPrice(getLatestPurchaseCost, itemId, fallbackCostPrice) {
+    const latestPurchase = getLatestPurchaseCost.get(itemId);
+    const latestCost = Number(latestPurchase?.cost_price);
+    if (Number.isFinite(latestCost)) return latestCost;
+    return Number(fallbackCostPrice) || 0;
+}
+
 function getLastSalesShiftClosing() {
     return db.prepare(`
         SELECT id, period_end_at
@@ -554,6 +561,14 @@ function register() {
 
         // Stock validation: prevent selling more than available
         const getStock = db.prepare('SELECT id, name, stock_quantity, cost_price FROM items WHERE id = ?');
+        const getLatestPurchaseCost = db.prepare(`
+            SELECT pid.cost_price
+            FROM purchase_invoice_details pid
+            JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+            WHERE pid.item_id = ?
+            ORDER BY pi.invoice_date DESC, pi.id DESC, pid.id DESC
+            LIMIT 1
+        `);
         const itemCosts = {};
         for (const item of items) {
             const dbItem = getStock.get(item.item_id);
@@ -563,7 +578,7 @@ function register() {
             if (item.quantity > dbItem.stock_quantity) {
                 return { success: false, error: `الصنف "${dbItem.name}": الكمية المطلوبة (${item.quantity}) أكبر من المتاح (${dbItem.stock_quantity})` };
             }
-            itemCosts[item.item_id] = dbItem.cost_price || 0;
+            itemCosts[item.item_id] = getLatestPurchaseCostPrice(getLatestPurchaseCost, item.item_id, dbItem.cost_price);
         }
 
         let subtotalAmount = 0;
@@ -694,6 +709,14 @@ function register() {
 
             // Stock validation after reversal: check new quantities fit
             const getStockForUpdate = db.prepare('SELECT id, name, stock_quantity, cost_price FROM items WHERE id = ?');
+            const getLatestPurchaseCost = db.prepare(`
+                SELECT pid.cost_price
+                FROM purchase_invoice_details pid
+                JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+                WHERE pid.item_id = ?
+                ORDER BY pi.invoice_date DESC, pi.id DESC, pid.id DESC
+                LIMIT 1
+            `);
             const itemCosts = {};
             for (const item of items) {
                 const dbItem = getStockForUpdate.get(item.item_id);
@@ -703,7 +726,7 @@ function register() {
                 if (item.quantity > dbItem.stock_quantity) {
                     throw new Error(`الصنف "${dbItem.name}": الكمية المطلوبة (${item.quantity}) أكبر من المتاح (${dbItem.stock_quantity})`);
                 }
-                itemCosts[item.item_id] = dbItem.cost_price || 0;
+                itemCosts[item.item_id] = getLatestPurchaseCostPrice(getLatestPurchaseCost, item.item_id, dbItem.cost_price);
             }
 
             const oldBalanceDelta = roundMoney((Number(oldInvoice.total_amount) || 0) - (Number(oldInvoice.paid_amount) || 0));

@@ -3,12 +3,47 @@ const purchasesApi = window.purchasesPageApi;
 const purchasesRender = window.purchasesPageRender;
 const purchasesEvents = window.purchasesPageEvents;
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => purchasesState.ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
+let restoredDraftActive = false;
 
 function buildTopNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
         return window.navManager.getTopNavHTML(t);
     }
     return '';
+}
+
+function setRestoredDraftCancelVisible(visible) {
+    const titleRow = purchasesState.dom.invoiceForm?.querySelector('.form-title-row');
+    if (!titleRow) return;
+
+    let cancelBtn = titleRow.querySelector('[data-action="cancel-restored-draft"]');
+    if (!visible) {
+        if (cancelBtn) cancelBtn.remove();
+        return;
+    }
+
+    if (!cancelBtn) {
+        cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-outline';
+        cancelBtn.type = 'button';
+        cancelBtn.dataset.action = 'cancel-restored-draft';
+        cancelBtn.textContent = '×';
+        cancelBtn.title = 'إلغاء المسودة';
+        cancelBtn.setAttribute('aria-label', 'إلغاء المسودة');
+        cancelBtn.style.padding = '8px 12px';
+        cancelBtn.style.minWidth = '38px';
+        titleRow.appendChild(cancelBtn);
+    }
+}
+
+async function cancelRestoredDraft() {
+    if (!restoredDraftActive) return;
+
+    restoredDraftActive = false;
+    localStorage.removeItem('purchase_invoice_draft');
+    setRestoredDraftCancelVisible(false);
+    await resetForm();
+    if (window.showToast) window.showToast('تم إلغاء المسودة', 'success');
 }
 
 document.addEventListener('DOMContentLoaded', async () => {    // Reset submitting state just in case
@@ -68,7 +103,8 @@ function initializeElements() {
             onPrintBarcodeClick: openBarcodeModal,
             onCloseBarcodeModal: closeBarcodeModal,
             onExecutePrintBarcode: executePrintBarcode,
-            onDeleteInvoice: deleteInvoice
+            onDeleteInvoice: deleteInvoice,
+            onCancelRestoredDraft: cancelRestoredDraft
         }
     });
 
@@ -1149,6 +1185,8 @@ async function updateInvoice() {
 }
 
 async function resetForm() {
+    restoredDraftActive = false;
+    setRestoredDraftCancelVisible(false);
     localStorage.removeItem('purchase_invoice_draft');
     purchasesState.dom.supplierSelect.value = '';
     if (purchasesState.supplierAutocomplete) purchasesState.supplierAutocomplete.refresh();
@@ -1186,6 +1224,7 @@ async function resetForm() {
 
     window.history.replaceState({}, document.title, window.location.pathname);
     await loadItems();
+    await loadSuppliers();
     await initializeNewInvoice();
 }
 
@@ -1304,6 +1343,9 @@ async function checkAndRestoreDraft() {
             });
             calculateInvoiceTotal();
         }
+
+        restoredDraftActive = true;
+        setRestoredDraftCancelVisible(true);
 
         if (window.showToast) {
             window.showToast('تم استعادة مسودة الفاتورة التلقائية بنجاح', 'success');

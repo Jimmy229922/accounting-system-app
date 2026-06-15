@@ -110,74 +110,21 @@ function register() {
             const purchasesMonth = Math.max(0, purchasesTotalMonth - purchaseReturnsTotalMonth);
 
             // --- Net profit (sales revenue - COGS this month) ---
-            const salesRows = db.prepare(`
-                SELECT 
-                    sid.item_id,
-                    SUM(sid.quantity) as total_qty,
-                    COALESCE(
-                        (
-                            SELECT pid.cost_price 
-                            FROM purchase_invoice_details pid
-                            JOIN purchase_invoices pi ON pid.invoice_id = pi.id
-                            WHERE pid.item_id = sid.item_id
-                            ORDER BY pi.invoice_date DESC, pi.id DESC
-                            LIMIT 1
-                        ),
-                        (
-                            SELECT ob.cost_price 
-                            FROM opening_balances ob
-                            WHERE ob.item_id = sid.item_id
-                            ORDER BY ob.created_at DESC
-                            LIMIT 1
-                        ),
-                        (
-                            SELECT i.cost_price 
-                            FROM items i 
-                            WHERE i.id = sid.item_id
-                        ),
-                        0
-                    ) as latest_cost
+            // Uses the historical cost_price stored in each invoice detail at the time of the transaction
+            const cogsMonthSales = db.prepare(`
+                SELECT COALESCE(SUM(sid.quantity * sid.cost_price), 0) as total
                 FROM sales_invoice_details sid
                 JOIN sales_invoices si ON sid.invoice_id = si.id
                 WHERE 1=1${salesInvoiceRange.clause}
-                GROUP BY sid.item_id
-            `).all(...salesInvoiceRange.params);
+            `).get(...salesInvoiceRange.params).total;
 
-            const returnsRows = db.prepare(`
-                SELECT 
-                    srd.item_id,
-                    SUM(srd.quantity) as total_qty,
-                    COALESCE(
-                        (
-                            SELECT pid.cost_price 
-                            FROM purchase_invoice_details pid
-                            JOIN purchase_invoices pi ON pid.invoice_id = pi.id
-                            WHERE pid.item_id = srd.item_id
-                            ORDER BY pi.invoice_date DESC, pi.id DESC
-                            LIMIT 1
-                        ),
-                        (
-                            SELECT ob.cost_price 
-                            FROM opening_balances ob
-                            WHERE ob.item_id = srd.item_id
-                            ORDER BY ob.created_at DESC
-                            LIMIT 1
-                        ),
-                        (
-                            SELECT i.cost_price 
-                            FROM items i 
-                            WHERE i.id = srd.item_id
-                        ),
-                        0
-                    ) as latest_cost
+            const cogsMonthReturns = db.prepare(`
+                SELECT COALESCE(SUM(srd.quantity * srd.cost_price), 0) as total
                 FROM sales_return_details srd
                 JOIN sales_returns sr ON srd.return_id = sr.id
                 WHERE 1=1${salesReturnRange.clause}
-                GROUP BY srd.item_id
-            `).all(...salesReturnRange.params);
+            `).get(...salesReturnRange.params).total;
 
-            const cogsMonthSales = salesRows.reduce((sum, row) => sum + (row.total_qty * row.latest_cost), 0);
-            const cogsMonthReturns = returnsRows.reduce((sum, row) => sum + (row.total_qty * row.latest_cost), 0);
             const cogsMonth = Math.max(0, cogsMonthSales - cogsMonthReturns);
             const netProfit = salesMonth - cogsMonth;
 
