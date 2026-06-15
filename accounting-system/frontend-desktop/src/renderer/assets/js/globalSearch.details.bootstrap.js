@@ -123,12 +123,15 @@
             // تحديث الـ Footer
             const footer = this.modal.querySelector('.gsearch-footer');
             footer.innerHTML = `
-                <div class="gsearch-shortcut">
-                    <kbd>Backspace</kbd> ${this.t('globalSearch.backHint', 'للرجوع')}
-                </div>
-                <div class="gsearch-shortcut">
-                    <kbd>Esc</kbd> ${this.t('globalSearch.closeHint', 'للإغلاق')}
-                </div>
+                <button class="gsearch-footer-btn back-btn" onclick="globalSearch.backToSearch()" style="cursor: pointer; display: flex; align-items: center; gap: 8px; background: #f3f4f6; border: 1px solid #d1d5db; padding: 6px 14px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
+                    <kbd style="box-shadow: 0 2px 0 #cbd5e1; background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: bold;">Backspace</kbd>
+                    <span style="font-size: 14px; font-weight: 500; color: #374151;">${this.t('globalSearch.backHint', '\u0644\u0644\u0631\u062c\u0648\u0639')}</span>
+                </button>
+
+                <button class="gsearch-footer-btn close-btn" onclick="globalSearch.close()" style="cursor: pointer; display: flex; align-items: center; gap: 8px; background: #fee2e2; border: 1px solid #fca5a5; padding: 6px 14px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+                    <kbd style="box-shadow: 0 2px 0 #fca5a5; background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: bold;">Esc</kbd>
+                    <span style="font-size: 14px; font-weight: 500; color: #991b1b;">${this.t('globalSearch.closeHint', '\u0644\u0644\u0625\u063a\u0644\u0627\u0642')}</span>
+                </button>
             `;
             
         } catch (error) {

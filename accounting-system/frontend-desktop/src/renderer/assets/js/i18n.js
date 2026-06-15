@@ -33,6 +33,14 @@ function resolvePathCandidates() {
 
 async function loadArabicDictionary() {
     if (arDictionaryCache) return arDictionaryCache;
+    try {
+        if (window.top && window.top !== window && window.top.arDictionaryCache) {
+            arDictionaryCache = window.top.arDictionaryCache;
+            return arDictionaryCache;
+        }
+    } catch (err) {
+        // Try local fetch if the top window cache cannot be reached.
+    }
 
     const paths = resolvePathCandidates();
     for (const p of paths) {
@@ -40,6 +48,13 @@ async function loadArabicDictionary() {
             const res = await fetch(p);
             if (!res.ok) continue;
             arDictionaryCache = await res.json();
+            try {
+                if (window.top) {
+                    window.top.arDictionaryCache = arDictionaryCache;
+                }
+            } catch (err) {
+                // Keep the local cache if the top window cache cannot be written.
+            }
             return arDictionaryCache;
         } catch (err) {
             // Try next candidate path.
