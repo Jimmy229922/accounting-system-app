@@ -1,4 +1,4 @@
-﻿let refreshBtn;
+let refreshBtn;
 let lastUpdatedEl;
 let startDateInput;
 let endDateInput;
@@ -9,6 +9,17 @@ let lastStats = null;
 let chartPeriod = '7';
 let ar = {};
 let currentFilters = { startDate: '', endDate: '' };
+
+function getLocalYMD(d) {
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 10);
+}
+
+const initToday = new Date();
+const initFirstDay = new Date(initToday.getFullYear(), initToday.getMonth(), 1);
+currentFilters.startDate = getLocalYMD(initFirstDay);
+currentFilters.endDate = getLocalYMD(initToday);
+
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 const dashboardRender = window.dashboardPageRender;
 
@@ -88,9 +99,14 @@ function applyDashboardFilters() {
 }
 
 function clearDashboardFilters() {
-    if (startDateInput) startDateInput.value = '';
-    if (endDateInput) endDateInput.value = '';
-    currentFilters = { startDate: '', endDate: '' };
+    const tObj = new Date();
+    const fObj = new Date(tObj.getFullYear(), tObj.getMonth(), 1);
+    const sStr = getLocalYMD(fObj);
+    const eStr = getLocalYMD(tObj);
+    
+    if (startDateInput) startDateInput.value = sStr;
+    if (endDateInput) endDateInput.value = eStr;
+    currentFilters = { startDate: sStr, endDate: eStr };
     loadDashboardStats(currentFilters);
 }
 
@@ -99,6 +115,14 @@ function bindEvents() {
     lastUpdatedEl = document.getElementById('lastUpdated');
     startDateInput = document.getElementById('dashboardFromDate');
     endDateInput = document.getElementById('dashboardToDate');
+    
+    if (startDateInput && !startDateInput.value) {
+        startDateInput.value = currentFilters.startDate;
+    }
+    if (endDateInput && !endDateInput.value) {
+        endDateInput.value = currentFilters.endDate;
+    }
+
     applyFilterBtn = document.getElementById('dashboardApplyBtn');
     clearFilterBtn = document.getElementById('dashboardClearBtn');
     periodLabelEl = document.getElementById('dashboardPeriod');

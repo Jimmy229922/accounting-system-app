@@ -142,9 +142,9 @@
     50% { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0.1); }
 }
 .btn-refresh {
-    background: rgba(37, 99, 235, 0.1);
-    border: 1px solid transparent;
-    color: #2563eb;
+    background: #2563eb;
+    border: 1px solid #2563eb;
+    color: #ffffff;
     padding: 10px 20px;
     border-radius: 8px !important;
     cursor: pointer;
@@ -154,15 +154,15 @@
     gap: 10px;
     transition: all 0.2s ease-in-out;
     backdrop-filter: blur(5px);
-    box-shadow: none;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
     font-size: 0.9rem;
 }
 .btn-refresh:hover {
-    background: #2563eb;
+    background: #1d4ed8;
     color: #ffffff;
-    border-color: #2563eb;
+    border-color: #1d4ed8;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
 }
 @keyframes spin {
     0% { transform: rotate(0deg); }
@@ -859,15 +859,16 @@
     border-color: rgba(165, 180, 252, 0.2);
 }
 [data-theme="dark"] .btn-refresh {
-    background: rgba(59, 130, 246, 0.12);
-    border-color: rgba(59, 130, 246, 0.3);
-    color: #3b82f6;
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 [data-theme="dark"] .btn-refresh:hover {
-    background: #3b82f6;
+    background: #2563eb;
     color: #ffffff;
-    border-color: #3b82f6;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+    border-color: #2563eb;
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
 }
 /* Quick Actions Dark Mode */
 [data-theme="dark"] .action-card {

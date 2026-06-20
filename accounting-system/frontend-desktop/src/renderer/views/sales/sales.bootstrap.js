@@ -2332,6 +2332,7 @@ async function resetForm() {
     localStorage.removeItem('sales_invoice_draft');
     await loadItems();
     await loadCustomers();
+    await loadInvoiceNumberSuggestions();
     await initializeNewInvoice();
     updatePrintBtnState();
 }
