@@ -8,6 +8,27 @@
     margin-bottom: 24px;
 }
 
+.sales-hero-card {
+    position: relative;
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 22px;
+    background:
+        radial-gradient(circle at 90% -20%, rgba(37, 99, 235, 0.18), transparent 42%),
+        radial-gradient(circle at 14% 6%, rgba(14, 165, 233, 0.14), transparent 40%),
+        var(--card-bg);
+    box-shadow: 0 24px 60px var(--shadow-color);
+    overflow: hidden;
+}
+
+.sales-hero-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(125deg, rgba(255, 255, 255, 0.07), transparent 42%);
+    pointer-events: none;
+}
+
 .sales-title-wrap {
     display: flex;
     align-items: center;
@@ -15,15 +36,17 @@
 }
 
 .page-title-icon {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 60px;
-    height: 60px;
-    border-radius: 16px;
-    background: rgba(37, 99, 235, 0.12);
-    color: var(--accent-color);
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.1);
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #2563eb, #0ea5e9);
+    color: #fff;
+    font-size: 1.35rem;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.32);
+    flex-shrink: 0;
 }
 
 [data-theme="dark"] .page-title-icon {
