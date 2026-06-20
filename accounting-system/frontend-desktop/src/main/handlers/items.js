@@ -10,29 +10,7 @@ function register() {
             const stmt = db.prepare(`
                 SELECT 
                     items.*, 
-                    units.name as unit_name,
-                    COALESCE(
-                        (
-                            SELECT sid.sale_price
-                            FROM sales_invoice_details sid
-                            JOIN sales_invoices si ON sid.invoice_id = si.id
-                            WHERE sid.item_id = items.id
-                            ORDER BY si.invoice_date DESC, si.id DESC, sid.id DESC
-                            LIMIT 1
-                        ),
-                        items.sale_price
-                    ) as sale_price,
-                    COALESCE(
-                        (
-                            SELECT pid.cost_price
-                            FROM purchase_invoice_details pid
-                            JOIN purchase_invoices pi ON pid.invoice_id = pi.id
-                            WHERE pid.item_id = items.id
-                            ORDER BY pi.invoice_date DESC, pi.id DESC, pid.id DESC
-                            LIMIT 1
-                        ),
-                        items.cost_price
-                    ) as cost_price
+                    units.name as unit_name
                 FROM items
                 LEFT JOIN units ON items.unit_id = units.id
                 WHERE items.is_deleted = 0
@@ -40,7 +18,7 @@ function register() {
             `);
             return stmt.all();
         } catch (error) {
-            console.error('[get-items] Error during fetching smart prices:', error);
+            console.error('[get-items] Error:', error);
             return [];
         }
     });
