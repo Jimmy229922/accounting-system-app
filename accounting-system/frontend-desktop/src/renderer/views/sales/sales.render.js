@@ -306,7 +306,9 @@
             const match = Number.isFinite(existingItemId) ? allItems.find((i) => i.id === existingItemId) : null;
             unitName = match && match.unit_name ? match.unit_name : '';
             barcodeValue = match && match.barcode ? match.barcode : '';
-            costPrice = match && match.cost_price ? match.cost_price : 0;
+            costPrice = (existingItem.cost_price !== undefined && existingItem.cost_price !== null) 
+                ? existingItem.cost_price 
+                : (match && match.cost_price ? match.cost_price : 0);
         }
 
         row.dataset.costPrice = Number(costPrice).toFixed(2);

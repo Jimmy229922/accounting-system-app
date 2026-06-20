@@ -787,6 +787,69 @@ function register() {
         }
     });
 
+    ipcMain.handle('get-invoice-profit-report', (event, filters) => {
+        try {
+            const { startDate, endDate, customerName } = filters;
+            let sql = `
+                SELECT 
+                    si.id, 
+                    si.invoice_number, 
+                    si.invoice_date, 
+                    c.name as customer_name,
+                    si.total_amount,
+                    COALESCE(SUM(sid.quantity * sid.cost_price), 0) as total_cost,
+                    (si.total_amount - COALESCE(SUM(sid.quantity * sid.cost_price), 0)) as profit_amount
+                FROM sales_invoices si
+                LEFT JOIN customers c ON si.customer_id = c.id
+                LEFT JOIN sales_invoice_details sid ON si.id = sid.invoice_id
+                WHERE 1=1
+            `;
+            let params = [];
+            if (startDate) {
+                sql += ` AND si.invoice_date >= ?`;
+                params.push(startDate);
+            }
+            if (endDate) {
+                sql += ` AND si.invoice_date <= ?`;
+                params.push(endDate);
+            }
+            if (customerName) {
+                sql += ` AND c.name LIKE ?`;
+                params.push(`%${customerName}%`);
+            }
+            sql += ` GROUP BY si.id ORDER BY si.invoice_date DESC, si.id DESC`;
+            
+            const results = db.prepare(sql).all(...params);
+            return { success: true, data: results };
+        } catch (error) {
+            console.error('[get-invoice-profit-report] Error:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('get-invoice-profit-details', (event, invoiceId) => {
+        try {
+            let sql = `
+                SELECT 
+                    sid.id,
+                    i.name as item_name,
+                    sid.quantity,
+                    sid.cost_price,
+                    sid.sale_price,
+                    (sid.sale_price - sid.cost_price) as unit_profit,
+                    ((sid.sale_price - sid.cost_price) * sid.quantity) as total_profit
+                FROM sales_invoice_details sid
+                LEFT JOIN items i ON sid.item_id = i.id
+                WHERE sid.invoice_id = ?
+            `;
+            const results = db.prepare(sql).all(invoiceId);
+            return { success: true, data: results };
+        } catch (error) {
+            console.error('[get-invoice-profit-details] Error:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // --- PDF Export Handlers ---
 
     ipcMain.handle('save-debtor-creditor-pdf', async (event, payload) => {

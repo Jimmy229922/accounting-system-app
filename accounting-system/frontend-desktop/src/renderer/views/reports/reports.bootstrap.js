@@ -14,6 +14,20 @@ let voucherModalTitleEl;
 let voucherModalSubtitleEl;
 let paginationBtnsEl;
 let customerAutocomplete = null;
+
+// Profit Report Elements
+let profitCustomerNameInput;
+let profitStartDateInput;
+let profitEndDateInput;
+let searchProfitBtn;
+let profitTotalProfitEl;
+let profitTableBody;
+let profitDetailsModalEl;
+let profitModalSubtitleEl;
+let profitModalCloseBtn;
+let profitDetailsTableBody;
+let reportsTabsNav;
+
 let ar = {};
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 const reportsRender = window.reportsPageRender;
@@ -125,6 +139,66 @@ function initializeElements() {
     voucherModalSubtitleEl = document.getElementById('voucherModalSubtitle');
     paginationBtnsEl = document.getElementById('paginationBtns');
 
+    profitCustomerNameInput = document.getElementById('profitCustomerName');
+    profitStartDateInput = document.getElementById('profitStartDate');
+    profitEndDateInput = document.getElementById('profitEndDate');
+    searchProfitBtn = document.getElementById('searchProfitBtn');
+    profitTotalProfitEl = document.getElementById('profitTotalProfit');
+    profitTableBody = document.getElementById('profitTableBody');
+    profitDetailsModalEl = document.getElementById('profitDetailsModal');
+    profitModalSubtitleEl = document.getElementById('profitModalSubtitle');
+    profitModalCloseBtn = document.getElementById('profitModalCloseBtn');
+    profitDetailsTableBody = document.getElementById('profitDetailsTableBody');
+    reportsTabsNav = document.querySelector('.reports-tabs-nav');
+
+    if (reportsTabsNav) {
+        reportsTabsNav.addEventListener('click', (e) => {
+            const btn = e.target.closest('.reports-tab-btn');
+            if (!btn) return;
+            document.querySelectorAll('.reports-tab-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = 'transparent';
+                b.style.color = 'var(--text-muted)';
+            });
+            btn.classList.add('active');
+            btn.style.background = 'var(--primary-color)';
+            btn.style.color = 'white';
+            
+            document.querySelectorAll('.reports-tab-content').forEach(c => {
+                c.classList.remove('active');
+                c.style.display = 'none';
+            });
+            const target = document.getElementById(btn.dataset.target);
+            if (target) {
+                target.classList.add('active');
+                target.style.display = 'block';
+            }
+
+            if (btn.dataset.target === 'profit-reports' && !profitTableBody.hasChildNodes()) {
+                setDefaultProfitDateRange();
+                loadProfitReports();
+            }
+        });
+    }
+
+    if (searchProfitBtn) {
+        searchProfitBtn.addEventListener('click', loadProfitReports);
+    }
+
+    if (profitTableBody) {
+        profitTableBody.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-view-profit');
+            if (!btn) return;
+            const invoiceId = btn.dataset.id;
+            const invoiceNumber = btn.dataset.invoiceNumber;
+            openProfitDetailsModal(invoiceId, invoiceNumber);
+        });
+    }
+
+    if (profitModalCloseBtn) {
+        profitModalCloseBtn.addEventListener('click', closeProfitDetailsModal);
+    }
+
     if (searchBtn) {
         searchBtn.addEventListener('click', () => {
             currentPage = 1;
@@ -186,18 +260,38 @@ async function loadCustomers() {
         const customers = await window.electronAPI.getCustomers();
         allCustomers = Array.isArray(customers) ? customers : [];
         customerFilter.innerHTML = `<option value="">${t('reports.allCustomers', 'الكل')}</option>`;
+        
+        if (profitCustomerNameInput) {
+            profitCustomerNameInput.innerHTML = `<option value="">الكل</option>`;
+        }
 
         allCustomers.forEach((customer) => {
             const option = document.createElement('option');
             option.value = customer.id;
             option.textContent = customer.name;
             customerFilter.appendChild(option);
+            
+            if (profitCustomerNameInput) {
+                // Only include customer or both types in sales profit filter (exclude strict supplier)
+                if (customer.type !== 'supplier') {
+                    const profitOption = document.createElement('option');
+                    profitOption.value = customer.name; // Backend filters by name using LIKE %name%
+                    profitOption.textContent = customer.name;
+                    profitCustomerNameInput.appendChild(profitOption);
+                }
+            }
         });
 
         if (customerAutocomplete) {
             customerAutocomplete.refresh();
         } else if (typeof Autocomplete !== 'undefined') {
             customerAutocomplete = new Autocomplete(customerFilter);
+        }
+        
+        if (typeof profitCustomerAutocomplete !== 'undefined' && profitCustomerAutocomplete) {
+            profitCustomerAutocomplete.refresh();
+        } else if (typeof Autocomplete !== 'undefined' && profitCustomerNameInput) {
+            window.profitCustomerAutocomplete = new Autocomplete(profitCustomerNameInput);
         }
     } catch (error) {
         console.error(error);
@@ -492,3 +586,119 @@ async function deleteInvoice(id, type) {
         setStatus(errorMessage, 'error');
     }
 }
+
+function setDefaultProfitDateRange() {
+    if (!profitStartDateInput || !profitEndDateInput) return;
+    const now = new Date();
+    // تعيين التاريخ ليكون بداية الشهر الحالي (يوم 1)
+    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    profitStartDateInput.value = startDate.toISOString().split('T')[0];
+    profitEndDateInput.value = tomorrow.toISOString().split('T')[0];
+}
+
+async function loadProfitReports() {
+    const filters = {
+        startDate: profitStartDateInput.value,
+        endDate: profitEndDateInput.value,
+        customerName: profitCustomerNameInput.value
+    };
+
+    try {
+        const response = await window.electronAPI.getInvoiceProfitReport(filters);
+        if (response && response.success) {
+            renderProfitReports(response.data || []);
+        } else {
+            console.error(response?.error);
+            if (window.showToast) window.showToast('حدث خطأ أثناء تحميل أرباح الفواتير', 'error');
+        }
+    } catch (error) {
+        console.error(error);
+        if (window.showToast) window.showToast('حدث خطأ أثناء تحميل أرباح الفواتير', 'error');
+    }
+}
+
+function renderProfitReports(reports) {
+    profitTableBody.innerHTML = '';
+    let totalProfit = 0;
+
+    if (!reports || reports.length === 0) {
+        profitTableBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">لا توجد فواتير مطابقة</div></td></tr>`;
+        if (profitTotalProfitEl) profitTotalProfitEl.textContent = formatCurrency(0);
+        return;
+    }
+
+    reports.forEach((report) => {
+        totalProfit += Number(report.profit_amount || 0);
+        const row = document.createElement('tr');
+        const profitMargin = report.total_amount > 0 ? ((report.profit_amount / report.total_amount) * 100).toFixed(2) + '%' : '0%';
+        const profitColor = report.profit_amount >= 0 ? '#2e7d32' : '#d32f2f';
+        
+        row.innerHTML = `
+            <td><strong>${escapeHtml(report.invoice_number || report.id)}</strong></td>
+            <td>${formatDateForUi(report.invoice_date)}</td>
+            <td>${escapeHtml(report.customer_name || '-')}</td>
+            <td>${formatCurrency(report.total_amount)}</td>
+            <td>${formatCurrency(report.total_cost)}</td>
+            <td style="color: ${profitColor}; font-weight: bold;">${formatCurrency(report.profit_amount)}</td>
+            <td><span class="badge" style="background-color: ${profitColor}; color: white; padding: 4px 8px; border-radius: 4px;">${profitMargin}</span></td>
+            <td>
+                <button type="button" class="btn-sm btn-edit btn-view-profit" data-id="${report.id}" data-invoice-number="${escapeHtml(report.invoice_number || report.id)}" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 4px; padding: 5px 10px; cursor: pointer;">
+                    <i class="fas fa-eye"></i> التفاصيل
+                </button>
+            </td>
+        `;
+        profitTableBody.appendChild(row);
+    });
+
+    if (profitTotalProfitEl) profitTotalProfitEl.textContent = formatCurrency(totalProfit);
+}
+
+async function openProfitDetailsModal(invoiceId, invoiceNumber) {
+    profitModalSubtitleEl.textContent = `رقم الفاتورة: ${invoiceNumber}`;
+    profitDetailsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px;">جارٍ التحميل...</td></tr>`;
+    profitDetailsModalEl.style.display = 'flex';
+    profitDetailsModalEl.classList.add('is-open');
+
+    try {
+        const response = await window.electronAPI.getInvoiceProfitDetails(Number(invoiceId));
+        if (response && response.success) {
+            renderProfitDetails(response.data || []);
+        } else {
+            profitDetailsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: red;">خطأ في تحميل التفاصيل</td></tr>`;
+        }
+    } catch (error) {
+        profitDetailsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: red;">خطأ في تحميل التفاصيل</td></tr>`;
+    }
+}
+
+function renderProfitDetails(details) {
+    profitDetailsTableBody.innerHTML = '';
+    if (!details || details.length === 0) {
+        profitDetailsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">لا توجد أصناف مرتبطة بهذه الفاتورة</td></tr>`;
+        return;
+    }
+
+    details.forEach(item => {
+        const row = document.createElement('tr');
+        const profitColor = item.total_profit >= 0 ? '#2e7d32' : '#d32f2f';
+        row.innerHTML = `
+            <td>${escapeHtml(item.item_name || '-')}</td>
+            <td>${item.quantity}</td>
+            <td>${formatCurrency(item.cost_price)}</td>
+            <td>${formatCurrency(item.sale_price)}</td>
+            <td>${formatCurrency(item.unit_profit)}</td>
+            <td style="color: ${profitColor}; font-weight: bold;">${formatCurrency(item.total_profit)}</td>
+        `;
+        profitDetailsTableBody.appendChild(row);
+    });
+}
+
+function closeProfitDetailsModal() {
+    profitDetailsModalEl.style.display = 'none';
+    profitDetailsModalEl.classList.remove('is-open');
+}
+

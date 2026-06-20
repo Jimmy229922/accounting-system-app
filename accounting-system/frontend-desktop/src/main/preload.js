@@ -141,6 +141,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getInvoiceWithDetails: (id, type) => invokeChannel('get-invoice-with-details', { id, type }),
     updateSalesInvoice: (data) => invokeChannel('update-sales-invoice', data),
     updatePurchaseInvoice: (data) => invokeChannel('update-purchase-invoice', data),
+    getInvoiceProfitReport: (filters) => invokeChannel('get-invoice-profit-report', filters),
+    getInvoiceProfitDetails: (invoiceId) => invokeChannel('get-invoice-profit-details', invoiceId),
 
     // Settings API
     getSettings: () => invokeChannel('get-settings'),

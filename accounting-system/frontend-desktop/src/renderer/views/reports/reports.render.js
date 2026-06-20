@@ -6,27 +6,44 @@
 
         <main class="content reports-content">
             <div class="reports-page">
-                <section class="reports-hero">
-                    <div class="reports-hero-main">
-                        <div class="page-hero-icon"><i class="fas fa-chart-bar"></i></div>
-                        <div>
-                            <span class="hero-eyebrow">${t('reports.hero.label', 'لوحة متابعة الفواتير')}</span>
-                            <h1>${t('reports.title', 'التقارير العامة')}</h1>
-                            <p>${t('reports.subtitle', 'عرض وإدارة جميع فواتير المبيعات والمشتريات')}</p>
+                <section class="reports-hero" style="background: var(--card-bg, var(--bg-color)); padding: 32px; border-radius: 20px; margin-bottom: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); border: 1px solid var(--border-color); position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: 0; right: 0; width: 100%; height: 6px; background: linear-gradient(90deg, var(--primary-color), var(--secondary-color, #1976d2));"></div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 24px; margin-bottom: 24px;">
+                        <div class="reports-hero-main" style="display: flex; align-items: center; gap: 20px;">
+                            <div class="page-hero-icon" style="background: rgba(var(--primary-rgb, 25, 118, 210), 0.1); color: var(--primary-color); width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 16px; font-size: 1.8rem;"><i class="fas fa-chart-bar"></i></div>
+                            <div>
+                                <span class="hero-eyebrow" style="color: var(--primary-color); font-weight: bold; font-size: 0.9rem; letter-spacing: 0.5px; text-transform: uppercase;">${t('reports.hero.label', 'لوحة متابعة الفواتير')}</span>
+                                <h1 style="margin: 5px 0; font-size: 2rem; color: var(--text-color);">${t('reports.title', 'التقارير العامة')}</h1>
+                                <p style="margin: 0; color: var(--text-muted); font-size: 1rem;">${t('reports.subtitle', 'عرض وإدارة جميع فواتير المبيعات والمشتريات')}</p>
+                            </div>
+                        </div>
+
+                        <div class="reports-tabs-nav" style="display: inline-flex; gap: 8px; background: rgba(0,0,0,0.03); padding: 6px; border-radius: 12px; border: 1px solid var(--border-color);">
+                            <button class="reports-tab-btn active" data-target="general-reports" style="padding: 10px 24px; border: none; background: var(--primary-color); font-weight: 600; font-size: 0.95rem; border-radius: 8px; cursor: pointer; color: white; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px;"><i class="fas fa-list"></i> التقارير العامة</button>
+                            <button class="reports-tab-btn" data-target="profit-reports" style="padding: 10px 24px; border: none; background: transparent; font-weight: 600; font-size: 0.95rem; border-radius: 8px; cursor: pointer; color: var(--text-muted); transition: all 0.3s ease; display: flex; align-items: center; gap: 8px;"><i class="fas fa-chart-line"></i> أرباح المبيعات</button>
                         </div>
                     </div>
 
-                    <div class="hero-stats">
-                        <div class="hero-stat-card">
-                            <span>${t('reports.hero.currentResults', 'النتائج الحالية')}</span>
-                            <strong id="heroResultCount">0</strong>
+                    <div class="hero-stats" style="display: flex; gap: 16px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+                        <div class="hero-stat-card" style="display: flex; align-items: center; gap: 16px; padding-left: 32px; border-left: 1px solid var(--border-color);">
+                            <div style="background: rgba(var(--primary-rgb, 25, 118, 210), 0.1); color: var(--primary-color); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-size: 1.2rem;"><i class="fas fa-file-invoice"></i></div>
+                            <div>
+                                <span style="display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 4px;">${t('reports.hero.currentResults', 'النتائج الحالية')}</span>
+                                <strong id="heroResultCount" style="font-size: 1.5rem; color: var(--text-color);">0</strong>
+                            </div>
                         </div>
-                        <div class="hero-stat-card">
-                            <span>${t('reports.hero.lastRefresh', 'آخر تحديث')}</span>
-                            <strong id="lastUpdatedLabel">-</strong>
+                        <div class="hero-stat-card" style="display: flex; align-items: center; gap: 16px;">
+                            <div style="background: rgba(var(--primary-rgb, 25, 118, 210), 0.1); color: var(--primary-color); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-size: 1.2rem;"><i class="fas fa-sync-alt"></i></div>
+                            <div>
+                                <span style="display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 4px;">${t('reports.hero.lastRefresh', 'آخر تحديث')}</span>
+                                <strong id="lastUpdatedLabel" style="font-size: 1.1rem; color: var(--text-color); direction: ltr; display: inline-block;">-</strong>
+                            </div>
                         </div>
                     </div>
                 </section>
+
+                <div id="general-reports" class="reports-tab-content active" style="display: block;">
 
                 <div id="reportsStatus" class="reports-status status-info">
                     ${t('reports.loading', 'جارٍ تحميل البيانات...')}
@@ -178,6 +195,106 @@
                         <div class="pagination-btns" id="paginationBtns"></div>
                     </div>
                 </section>
+                </div>
+
+                <div id="profit-reports" class="reports-tab-content" style="display: none;">
+                    <div class="profit-hero" style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color, #1976d2)); border-radius: 12px; padding: 24px; color: white; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <div style="background: rgba(255,255,255,0.2); padding: 16px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-chart-line" style="font-size: 2rem;"></i>
+                            </div>
+                            <div>
+                                <h2 style="margin: 0; font-size: 1.5rem; font-weight: bold; color: white;">تفاصيل أرباح المبيعات</h2>
+                                <p style="margin: 5px 0 0; opacity: 0.9; font-size: 0.95rem;">متابعة تفصيلية لأرباح الفواتير والأصناف بدقة</p>
+                            </div>
+                        </div>
+                        <div style="text-align: left; background: rgba(255,255,255,0.1); padding: 16px 24px; border-radius: 12px; min-width: 200px;">
+                             <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 5px;">إجمالي الأرباح للفترة المحددة</div>
+                             <div id="profitTotalProfit" style="font-size: 2rem; font-weight: bold; color: white;">0.00 ${CUR}</div>
+                        </div>
+                    </div>
+
+                    <section class="filters-panel" style="margin-bottom: 24px;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
+                            <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                                <label><i class="fas fa-user"></i> اسم العميل</label>
+                                <select id="profitCustomerName" class="form-control">
+                                    <option value="">الكل</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                                <label><i class="fas fa-calendar-alt"></i> من تاريخ</label>
+                                <input type="date" id="profitStartDate" class="form-control">
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                                <label><i class="fas fa-calendar-alt"></i> إلى تاريخ</label>
+                                <input type="date" id="profitEndDate" class="form-control">
+                            </div>
+                            <div class="form-group" style="flex: 0 0 auto; margin-bottom: 0;">
+                                <button id="searchProfitBtn" type="button" class="btn-primary" style="height: 42px; padding: 0 24px;">
+                                    <i class="fas fa-search"></i>
+                                    <span>بحث</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="table-card">
+                        <div class="table-card-header">
+                            <h3><i class="fas fa-chart-line"></i> فواتير المبيعات</h3>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="table reports-table">
+                                <thead>
+                                    <tr>
+                                        <th>رقم الفاتورة</th>
+                                        <th>التاريخ</th>
+                                        <th>العميل</th>
+                                        <th>إجمالي الفاتورة</th>
+                                        <th>التكلفة</th>
+                                        <th>صافي الربح</th>
+                                        <th>نسبة الربح</th>
+                                        <th>إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="profitTableBody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+            </div>
+
+            <div id="profitDetailsModal" class="voucher-modal-overlay" aria-hidden="true" style="display: none;">
+                <div class="voucher-modal" style="max-width: 1100px; width: 95%; max-height: 90vh; overflow-y: auto; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                    <div class="voucher-modal-header">
+                        <div class="voucher-modal-title-wrap">
+                            <div class="voucher-modal-icon"><i class="fas fa-box-open"></i></div>
+                            <div>
+                                <h3>تفاصيل أرباح الأصناف</h3>
+                                <p id="profitModalSubtitle">رقم الفاتورة: -</p>
+                            </div>
+                        </div>
+                        <button type="button" class="voucher-modal-close" id="profitModalCloseBtn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="voucher-modal-content" style="padding: 20px;">
+                        <table class="table reports-table">
+                            <thead>
+                                <tr>
+                                    <th>الصنف</th>
+                                    <th>الكمية</th>
+                                    <th>التكلفة</th>
+                                    <th>سعر البيع</th>
+                                    <th>ربح الوحدة</th>
+                                    <th>إجمالي الربح</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profitDetailsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <div id="voucherModal" class="voucher-modal-overlay" aria-hidden="true">
