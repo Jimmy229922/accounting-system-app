@@ -17,6 +17,7 @@ const reports = require('./reports');
 const backup = require('./backup');
 const salesReturns = require('./salesReturns');
 const purchaseReturns = require('./purchaseReturns');
+const updater = require('./updater');
 
 function setupIPC() {
     repairWarehouseNamesEncoding();
@@ -41,6 +42,7 @@ function setupIPC() {
     backup.register();
     salesReturns.register();
     purchaseReturns.register();
+    updater.register();
 }
 
 module.exports = { setupIPC };

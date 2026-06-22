@@ -1,6 +1,10 @@
 [
   "auth-session-token",
   "auth-unlocked",
+  "generate-pdf-preview",
   "get-auth-session-token",
-  "invite-unlocked"
+  "get-printers",
+  "invite-unlocked",
+  "print-barcode-labels",
+  "print-current-window"
 ]

@@ -99,8 +99,8 @@ function register() {
         `);
 
         const updateSupplierBalance = db.prepare(`
-            UPDATE customers 
-            SET balance = balance + @amount 
+            UPDATE customers
+            SET balance = balance - @amount
             WHERE id = @id
         `);
 
@@ -188,13 +188,31 @@ function register() {
 
         const transaction = db.transaction(() => {
             // --- REVERSE OLD ---
-            // Reverse Stock (Remove purchased items)
+            // Net Difference Stock Update Validation
+            const stockMap = {};
             for (const item of oldDetails) {
-                db.prepare('UPDATE items SET stock_quantity = stock_quantity - ? WHERE id = ?').run(item.quantity, item.item_id);
+                stockMap[item.item_id] = (stockMap[item.item_id] || 0) - item.quantity;
             }
+            for (const item of items) {
+                stockMap[item.item_id] = (stockMap[item.item_id] || 0) + item.quantity;
+            }
+
+            for (const [itemId, netChange] of Object.entries(stockMap)) {
+                if (netChange < 0) {
+                    const neededReduction = Math.abs(netChange);
+                    const currentStock = db.prepare('SELECT stock_quantity, name FROM items WHERE id = ?').get(itemId);
+                    if (currentStock.stock_quantity < neededReduction) {
+                        throw new Error(`خطأ مخزني: الصنف "${currentStock.name}" تم بيع أجزاء منه ولا يمكن تقليص فاتورة المشتريات بهذا القدر، المتاح حالياً ${currentStock.stock_quantity} فقط.`);
+                    }
+                    db.prepare('UPDATE items SET stock_quantity = stock_quantity - ? WHERE id = ?').run(neededReduction, itemId);
+                } else if (netChange > 0) {
+                    db.prepare('UPDATE items SET stock_quantity = stock_quantity + ? WHERE id = ?').run(netChange, itemId);
+                }
+            }
+
             const oldBalanceDelta = roundMoney((Number(oldInvoice.total_amount) || 0) - (Number(oldInvoice.paid_amount) || 0));
             if (oldBalanceDelta !== 0) {
-                db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(oldBalanceDelta, oldInvoice.supplier_id);
+                db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(oldBalanceDelta, oldInvoice.supplier_id);
             }
             // Delete Treasury
             if (oldInvoice.paid_amount > 0) {
@@ -230,7 +248,7 @@ function register() {
                 INSERT INTO purchase_invoice_details (invoice_id, item_id, quantity, cost_price, total_price)
                 VALUES (@invoice_id, @item_id, @quantity, @cost_price, @total_price)
             `);
-            const updateItemStock = db.prepare('UPDATE items SET stock_quantity = stock_quantity + @quantity, cost_price = @cost_price WHERE id = @item_id');
+            const updateItemCostPrice = db.prepare('UPDATE items SET cost_price = @cost_price WHERE id = @item_id');
 
             for (const item of items) {
                 insertDetail.run({
@@ -240,11 +258,11 @@ function register() {
                     cost_price: item.cost_price,
                     total_price: item.total_price
                 });
-                updateItemStock.run({ quantity: item.quantity, cost_price: item.cost_price, item_id: item.item_id });
+                updateItemCostPrice.run({ cost_price: item.cost_price, item_id: item.item_id });
             }
 
             if (financials.balance_delta !== 0) {
-                db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(financials.balance_delta, supplier_id);
+                db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(financials.balance_delta, supplier_id);
             }
 
             if (financials.paid_amount > 0) {

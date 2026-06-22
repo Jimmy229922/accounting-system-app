@@ -56,6 +56,13 @@ function calculateInvoiceFinancials({ subtotalAmount, discountType, discountValu
     };
 }
 
+function getLatestPurchaseCostPrice(getLatestPurchaseCost, itemId, fallbackCostPrice) {
+    const latestPurchase = getLatestPurchaseCost.get(itemId);
+    const latestCost = Number(latestPurchase?.cost_price);
+    if (Number.isFinite(latestCost)) return latestCost;
+    return Number(fallbackCostPrice) || 0;
+}
+
 function getLastSalesShiftClosing() {
     return db.prepare(`
         SELECT id, period_end_at
@@ -553,7 +560,16 @@ function register() {
         }
 
         // Stock validation: prevent selling more than available
-        const getStock = db.prepare('SELECT id, name, stock_quantity FROM items WHERE id = ?');
+        const getStock = db.prepare('SELECT id, name, stock_quantity, cost_price FROM items WHERE id = ?');
+        const getLatestPurchaseCost = db.prepare(`
+            SELECT pid.cost_price
+            FROM purchase_invoice_details pid
+            JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+            WHERE pid.item_id = ?
+            ORDER BY pi.invoice_date DESC, pi.id DESC, pid.id DESC
+            LIMIT 1
+        `);
+        const itemCosts = {};
         for (const item of items) {
             const dbItem = getStock.get(item.item_id);
             if (!dbItem) {
@@ -562,6 +578,7 @@ function register() {
             if (item.quantity > dbItem.stock_quantity) {
                 return { success: false, error: `الصنف "${dbItem.name}": الكمية المطلوبة (${item.quantity}) أكبر من المتاح (${dbItem.stock_quantity})` };
             }
+            itemCosts[item.item_id] = getLatestPurchaseCostPrice(getLatestPurchaseCost, item.item_id, dbItem.cost_price);
         }
 
         let subtotalAmount = 0;
@@ -582,8 +599,8 @@ function register() {
         `);
 
         const insertDetail = db.prepare(`
-            INSERT INTO sales_invoice_details (invoice_id, item_id, quantity, sale_price, total_price)
-            VALUES (@invoice_id, @item_id, @quantity, @sale_price, @total_price)
+            INSERT INTO sales_invoice_details (invoice_id, item_id, quantity, cost_price, sale_price, total_price)
+            VALUES (@invoice_id, @item_id, @quantity, @cost_price, @sale_price, @total_price)
         `);
 
         const updateItemStock = db.prepare(`
@@ -619,6 +636,7 @@ function register() {
                     invoice_id: invoiceId,
                     item_id: item.item_id,
                     quantity: item.quantity,
+                    cost_price: itemCosts[item.item_id] || 0,
                     sale_price: item.sale_price,
                     total_price: item.total_price
                 });
@@ -690,7 +708,16 @@ function register() {
             }
 
             // Stock validation after reversal: check new quantities fit
-            const getStockForUpdate = db.prepare('SELECT id, name, stock_quantity FROM items WHERE id = ?');
+            const getStockForUpdate = db.prepare('SELECT id, name, stock_quantity, cost_price FROM items WHERE id = ?');
+            const getLatestPurchaseCost = db.prepare(`
+                SELECT pid.cost_price
+                FROM purchase_invoice_details pid
+                JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+                WHERE pid.item_id = ?
+                ORDER BY pi.invoice_date DESC, pi.id DESC, pid.id DESC
+                LIMIT 1
+            `);
+            const itemCosts = {};
             for (const item of items) {
                 const dbItem = getStockForUpdate.get(item.item_id);
                 if (!dbItem) {
@@ -699,6 +726,7 @@ function register() {
                 if (item.quantity > dbItem.stock_quantity) {
                     throw new Error(`الصنف "${dbItem.name}": الكمية المطلوبة (${item.quantity}) أكبر من المتاح (${dbItem.stock_quantity})`);
                 }
+                itemCosts[item.item_id] = getLatestPurchaseCostPrice(getLatestPurchaseCost, item.item_id, dbItem.cost_price);
             }
 
             const oldBalanceDelta = roundMoney((Number(oldInvoice.total_amount) || 0) - (Number(oldInvoice.paid_amount) || 0));
@@ -736,8 +764,8 @@ function register() {
 
             // Insert New Details & Update Stock
             const insertDetail = db.prepare(`
-                INSERT INTO sales_invoice_details (invoice_id, item_id, quantity, sale_price, total_price)
-                VALUES (@invoice_id, @item_id, @quantity, @sale_price, @total_price)
+                INSERT INTO sales_invoice_details (invoice_id, item_id, quantity, cost_price, sale_price, total_price)
+                VALUES (@invoice_id, @item_id, @quantity, @cost_price, @sale_price, @total_price)
             `);
             const updateItemStock = db.prepare('UPDATE items SET stock_quantity = stock_quantity - @quantity WHERE id = @item_id');
 
@@ -746,6 +774,7 @@ function register() {
                     invoice_id: id,
                     item_id: item.item_id,
                     quantity: item.quantity,
+                    cost_price: itemCosts[item.item_id] || 0,
                     sale_price: item.sale_price,
                     total_price: item.total_price
                 });

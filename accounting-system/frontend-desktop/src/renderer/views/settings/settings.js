@@ -207,7 +207,7 @@ function renderPage() {
                         <div class="info-item-icon"><i class="fas fa-code-branch"></i></div>
                         <div>
                             <div class="info-item-label">${t('settings.version', 'إصدار التطبيق')}</div>
-                            <div class="info-item-value">4.5.5</div>
+                            <div class="info-item-value">4.5.6</div>
                         </div>
                     </div>
                     <div class="info-item">

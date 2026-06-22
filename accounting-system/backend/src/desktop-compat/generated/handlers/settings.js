@@ -81,7 +81,6 @@ function register() {
             const itemsCount = db.prepare("SELECT COUNT(*) as count FROM items WHERE is_deleted = 0").get().count;
             const stockValue = db.prepare("SELECT COALESCE(SUM(cost_price * stock_quantity), 0) as total FROM items WHERE is_deleted = 0").get().total;
 
-            // --- Sales & Purchases ---
             const salesTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date = ?").get(today).total;
             const salesReturnsTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE return_date = ?").get(today).total;
             const salesToday = Math.max(0, salesTotalToday - salesReturnsTotalToday);
@@ -111,20 +110,21 @@ function register() {
             const purchasesMonth = Math.max(0, purchasesTotalMonth - purchaseReturnsTotalMonth);
 
             // --- Net profit (sales revenue - COGS this month) ---
+            // Uses the historical cost_price stored in each invoice detail at the time of the transaction
             const cogsMonthSales = db.prepare(`
-                SELECT COALESCE(SUM(sid.quantity * i.cost_price), 0) as total
+                SELECT COALESCE(SUM(sid.quantity * sid.cost_price), 0) as total
                 FROM sales_invoice_details sid
                 JOIN sales_invoices si ON sid.invoice_id = si.id
-                JOIN items i ON sid.item_id = i.id
                 WHERE 1=1${salesInvoiceRange.clause}
             `).get(...salesInvoiceRange.params).total;
+
             const cogsMonthReturns = db.prepare(`
-                SELECT COALESCE(SUM(srd.quantity * i.cost_price), 0) as total
+                SELECT COALESCE(SUM(srd.quantity * srd.cost_price), 0) as total
                 FROM sales_return_details srd
                 JOIN sales_returns sr ON srd.return_id = sr.id
-                JOIN items i ON srd.item_id = i.id
                 WHERE 1=1${salesReturnRange.clause}
             `).get(...salesReturnRange.params).total;
+
             const cogsMonth = Math.max(0, cogsMonthSales - cogsMonthReturns);
             const netProfit = salesMonth - cogsMonth;
 
@@ -140,7 +140,7 @@ function register() {
 
             // --- Receivables & Payables (Using standard balances calculation) ---
             const receivables = db.prepare("SELECT COALESCE(SUM(balance), 0) as total FROM customers WHERE type IN ('customer', 'both') AND balance > 0").get().total;
-            const payables = db.prepare("SELECT COALESCE(SUM(balance), 0) as total FROM customers WHERE type IN ('supplier', 'both') AND balance > 0").get().total;
+            const payables = db.prepare("SELECT COALESCE(SUM(-balance), 0) as total FROM customers WHERE type IN ('supplier', 'both') AND balance < 0").get().total;
 
             // --- Chart data (last 30 days) ---
             const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
@@ -211,6 +211,7 @@ function register() {
                 SELECT i.name, SUM(sid.quantity) as total_qty, SUM(sid.total_price) as total_value
                 FROM sales_invoice_details sid
                 JOIN items i ON sid.item_id = i.id
+                JOIN sales_invoices si ON sid.invoice_id = si.id
                 GROUP BY sid.item_id ORDER BY total_qty DESC LIMIT 5
             `).all();
 

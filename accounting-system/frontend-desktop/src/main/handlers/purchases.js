@@ -212,7 +212,7 @@ function register() {
 
             const oldBalanceDelta = roundMoney((Number(oldInvoice.total_amount) || 0) - (Number(oldInvoice.paid_amount) || 0));
             if (oldBalanceDelta !== 0) {
-                db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(oldBalanceDelta, oldInvoice.supplier_id);
+                db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(oldBalanceDelta, oldInvoice.supplier_id);
             }
             // Delete Treasury
             if (oldInvoice.paid_amount > 0) {
@@ -262,7 +262,7 @@ function register() {
             }
 
             if (financials.balance_delta !== 0) {
-                db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(financials.balance_delta, supplier_id);
+                db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(financials.balance_delta, supplier_id);
             }
 
             if (financials.paid_amount > 0) {
