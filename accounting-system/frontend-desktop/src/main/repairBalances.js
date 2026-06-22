@@ -1,5 +1,5 @@
 const { db } = require('./db');
-const BALANCE_REPAIR_FLAG_KEY = 'balance_repair_v1_completed';
+const BALANCE_REPAIR_FLAG_KEY = 'balance_repair_v2_completed';
 
 function roundMoney(value) {
     const n = Number(value) || 0;
@@ -23,7 +23,7 @@ function runSilentBalanceRepair() {
     `);
 
     const purchasesStmt = db.prepare(`
-        SELECT COALESCE(SUM(total_amount - paid_amount), 0) AS net_purchases
+        SELECT COALESCE(SUM(total_amount), 0) AS net_purchases
         FROM purchase_invoices
         WHERE supplier_id = ?
     `);

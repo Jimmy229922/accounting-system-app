@@ -488,13 +488,6 @@ function register() {
             query += ' ORDER BY trans_date ASC, sort_order ASC, id ASC';
 
             const transactions = db.prepare(query).all(...params);
-            let closingBalance = Number(customer.balance) || 0;
-            if (endDate) {
-                closingBalance -= getCustomerStatementMovementAfterDate(custId, endDate);
-            }
-            const periodMovement = transactions.reduce((sum, trans) => sum + getCustomerStatementTransactionEffect(trans), 0);
-            openingBalance = closingBalance - periodMovement;
-
             // حساب المدين والدائن والرصيد الجاري
             // مدين: مبيعات، سداد، مردود مشتريات
             // دائن: مشتريات، تحصيل، مردود مبيعات
@@ -756,11 +749,7 @@ function register() {
 
             const totalDebit = totalSales + totalPaymentsOut + totalPurchaseReturns;
             const totalCredit = totalPurchases + totalPaymentsIn + totalSalesReturns;
-            let closingBalance = Number(customer.balance) || 0;
-            if (endDate) {
-                closingBalance -= getCustomerStatementMovementAfterDate(custId, endDate);
-            }
-            openingBalance = closingBalance - (totalDebit - totalCredit);
+            const closingBalance = openingBalance + (totalDebit - totalCredit);
 
             return {
                 success: true,
