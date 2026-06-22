@@ -437,23 +437,68 @@ function renderReports(reports) {
     resultCountEl.textContent = fmt(t('reports.resultCount', '{count} فاتورة'), { count: reports.length });
 
     pageData.forEach((report, idx) => {
+        const absoluteIdx = start + idx;
+        const nextReport = reports[absoluteIdx + 1];
+        const prevReport = reports[absoluteIdx - 1];
+
+        const isLinkedToNext = nextReport && 
+                               report.created_at === nextReport.created_at && 
+                               report.invoice_number === nextReport.invoice_number &&
+                               ((report.type === 'sales' && nextReport.type === 'receipt') || 
+                                (report.type === 'purchase' && nextReport.type === 'payment'));
+
+        const isLinkedToPrev = prevReport && 
+                               report.created_at === prevReport.created_at && 
+                               report.invoice_number === prevReport.invoice_number &&
+                               ((prevReport.type === 'sales' && report.type === 'receipt') || 
+                                (prevReport.type === 'purchase' && report.type === 'payment'));
+
         const row = document.createElement('tr');
         const typeMeta = getTypeMeta(report.type);
         const safeDate = formatDateForUi(report.invoice_date);
+        let timeHtml = '';
+        if (report.created_at) {
+            // Append 'Z' to treat SQLite's CURRENT_TIMESTAMP as UTC
+            const d = new Date(report.created_at.replace(' ', 'T') + 'Z');
+            if (!Number.isNaN(d.getTime())) {
+                const timeStr = d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                timeHtml = `<div style="font-size: 0.8em; color: var(--text-muted, #888); margin-top: 4px; direction: ltr; display: inline-block;">${timeStr}</div>`;
+            }
+        }
+        
+        let linkIcon = '';
+        let extraStyle = '';
+        
+        if (isLinkedToNext) {
+            extraStyle = 'border-bottom: 1px dashed rgba(0,0,0,0.25) !important; background-color: rgba(13, 110, 253, 0.04) !important; box-shadow: inset -4px 0 0 var(--primary-color, #0d6efd);';
+        } else if (isLinkedToPrev) {
+            extraStyle = 'border-bottom: 1px solid rgba(150,150,150,0.2) !important; background-color: rgba(13, 110, 253, 0.04) !important; box-shadow: inset -4px 0 0 var(--primary-color, #0d6efd);';
+            linkIcon = '<i class="fas fa-level-up-alt fa-rotate-90" style="color: #888; margin-left: 10px;"></i>';
+        } else {
+            extraStyle = 'border-bottom: 1px solid rgba(150,150,150,0.2);';
+        }
+
         const invoiceNumberValue = (report.type === 'receipt' || report.type === 'payment')
             ? (report.invoice_number || '-')
             : (report.invoice_number || report.id || '-');
         const invoiceCellHtml = window.renderDocNumberCell
             ? window.renderDocNumberCell(invoiceNumberValue, { numberTag: 'strong' })
             : `<strong>${escapeHtml(invoiceNumberValue || '-')}</strong>`;
-        const safeCustomer = escapeHtml(report.customer_name || '-');
+            
+        const finalInvoiceCell = isLinkedToPrev ? `<div style="display:flex; align-items:center;">${linkIcon}${invoiceCellHtml}</div>` : invoiceCellHtml;
+        const finalTypeBadge = isLinkedToPrev ? `<div style="padding-right: 15px; opacity: 0.85;">${typeMeta.badge}</div>` : typeMeta.badge;
 
+        const safeCustomer = escapeHtml(report.customer_name || '-');
         row.className = typeMeta.rowClass;
+        row.style.cssText = extraStyle;
         row.innerHTML = `
-            <td class="index-col">${start + idx + 1}</td>
-            <td class="date-col">${safeDate}</td>
-            <td>${invoiceCellHtml}</td>
-            <td>${typeMeta.badge}</td>
+            <td class="index-col">${absoluteIdx + 1}</td>
+            <td class="date-col" style="text-align: center;">
+                <div>${safeDate}</div>
+                ${timeHtml}
+            </td>
+            <td>${finalInvoiceCell}</td>
+            <td>${finalTypeBadge}</td>
             <td class="name-col">${safeCustomer}</td>
             <td class="amount ${typeMeta.amountClass}">${formatCurrency(report.total_amount)}</td>
             <td>
@@ -473,7 +518,19 @@ function renderReports(reports) {
             </td>
         `;
 
+        if (isLinkedToNext && idx > 0) {
+            const spacerTop = document.createElement('tr');
+            spacerTop.innerHTML = `<td colspan="7" style="height: 4px; background-color: #cbd5e1; border: none !important; padding: 0;"></td>`;
+            reportsTableBody.appendChild(spacerTop);
+        }
+
         reportsTableBody.appendChild(row);
+
+        if (isLinkedToPrev) {
+            const spacerBottom = document.createElement('tr');
+            spacerBottom.innerHTML = `<td colspan="7" style="height: 4px; background-color: #cbd5e1; border: none !important; padding: 0;"></td>`;
+            reportsTableBody.appendChild(spacerBottom);
+        }
     });
 
     renderPagination(reports.length, totalPages);

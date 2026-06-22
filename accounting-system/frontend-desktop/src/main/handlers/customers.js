@@ -27,7 +27,7 @@ function register() {
         db.prepare(`
             SELECT customer_id, SUM(total_amount) as total 
             FROM sales_invoices 
-            WHERE invoice_date > ? AND payment_type != 'cash'
+            WHERE invoice_date > ?
             GROUP BY customer_id
         `).all(futureDate).forEach(r => { futureSalesMap[r.customer_id] = r.total; });
 
@@ -36,38 +36,62 @@ function register() {
         db.prepare(`
             SELECT supplier_id, SUM(total_amount) as total 
             FROM purchase_invoices 
-            WHERE invoice_date > ? AND payment_type != 'cash'
+            WHERE invoice_date > ?
             GROUP BY supplier_id
         `).all(futureDate).forEach(r => { futurePurchasesMap[r.supplier_id] = r.total; });
 
         // Batch: Future sales payments per customer
         const futureSalesPaymentsMap = {};
         db.prepare(`
-            SELECT si.customer_id, SUM(tt.amount) as total 
-            FROM treasury_transactions tt
-            JOIN sales_invoices si ON tt.related_invoice_id = si.id
-            WHERE tt.related_type = 'sales' 
-            AND tt.transaction_date > ?
-            GROUP BY si.customer_id
-        `).all(futureDate).forEach(r => { futureSalesPaymentsMap[r.customer_id] = r.total; });
+            SELECT customer_id, SUM(paid_amount) as total 
+            FROM sales_invoices 
+            WHERE invoice_date > ?
+            GROUP BY customer_id
+        `).all(futureDate).forEach(r => { futureSalesPaymentsMap[r.customer_id] = (futureSalesPaymentsMap[r.customer_id] || 0) + r.total; });
+        db.prepare(`
+            SELECT customer_id, SUM(amount) as total 
+            FROM treasury_transactions
+            WHERE type = 'income'
+            AND COALESCE(related_type, '') != 'purchase_return'
+            AND transaction_date > ?
+            GROUP BY customer_id
+        `).all(futureDate).forEach(r => { futureSalesPaymentsMap[r.customer_id] = (futureSalesPaymentsMap[r.customer_id] || 0) + r.total; });
 
         // Batch: Future purchase payments per supplier
         const futurePurchasePaymentsMap = {};
         db.prepare(`
-            SELECT pi.supplier_id, SUM(tt.amount) as total 
-            FROM treasury_transactions tt
-            JOIN purchase_invoices pi ON tt.related_invoice_id = pi.id
-            WHERE tt.related_type = 'purchase' 
-            AND tt.transaction_date > ?
-            GROUP BY pi.supplier_id
-        `).all(futureDate).forEach(r => { futurePurchasePaymentsMap[r.supplier_id] = r.total; });
+            SELECT customer_id, SUM(amount) as total 
+            FROM treasury_transactions
+            WHERE type = 'expense'
+            AND COALESCE(related_type, '') != 'sales_return'
+            AND transaction_date > ?
+            GROUP BY customer_id
+        `).all(futureDate).forEach(r => { futurePurchasePaymentsMap[r.customer_id] = r.total; });
+
+        // Batch: Future sales returns per customer
+        const futureSalesReturnsMap = {};
+        db.prepare(`
+            SELECT customer_id, SUM(total_amount) as total 
+            FROM sales_returns 
+            WHERE return_date > ?
+            GROUP BY customer_id
+        `).all(futureDate).forEach(r => { futureSalesReturnsMap[r.customer_id] = r.total; });
+
+        // Batch: Future purchase returns per supplier
+        const futurePurchaseReturnsMap = {};
+        db.prepare(`
+            SELECT supplier_id as customer_id, SUM(total_amount) as total 
+            FROM purchase_returns 
+            WHERE return_date > ?
+            GROUP BY supplier_id
+        `).all(futureDate).forEach(r => { futurePurchaseReturnsMap[r.customer_id] = r.total; });
 
         // Batch: Period sales per customer
         const periodSalesMap = {};
         db.prepare(`
             SELECT customer_id, SUM(total_amount) as total 
             FROM sales_invoices 
-            WHERE invoice_date >= ? AND invoice_date <= ? AND payment_type != 'cash'
+            WHERE invoice_date >= ? AND invoice_date <= ?
             GROUP BY customer_id
         `).all(sDate, eDate).forEach(r => { periodSalesMap[r.customer_id] = r.total; });
 
@@ -76,71 +100,92 @@ function register() {
         db.prepare(`
             SELECT supplier_id, SUM(total_amount) as total 
             FROM purchase_invoices 
-            WHERE invoice_date >= ? AND invoice_date <= ? AND payment_type != 'cash'
+            WHERE invoice_date >= ? AND invoice_date <= ?
             GROUP BY supplier_id
         `).all(sDate, eDate).forEach(r => { periodPurchasesMap[r.supplier_id] = r.total; });
 
         // Batch: Period sales payments per customer
         const periodSalesPaymentsMap = {};
         db.prepare(`
-            SELECT si.customer_id, SUM(tt.amount) as total 
-            FROM treasury_transactions tt
-            JOIN sales_invoices si ON tt.related_invoice_id = si.id
-            WHERE tt.related_type = 'sales' 
-            AND tt.transaction_date >= ? AND tt.transaction_date <= ?
-            GROUP BY si.customer_id
-        `).all(sDate, eDate).forEach(r => { periodSalesPaymentsMap[r.customer_id] = r.total; });
+            SELECT customer_id, SUM(paid_amount) as total 
+            FROM sales_invoices 
+            WHERE invoice_date >= ? AND invoice_date <= ?
+            GROUP BY customer_id
+        `).all(sDate, eDate).forEach(r => { periodSalesPaymentsMap[r.customer_id] = (periodSalesPaymentsMap[r.customer_id] || 0) + r.total; });
+        db.prepare(`
+            SELECT customer_id, SUM(amount) as total 
+            FROM treasury_transactions
+            WHERE type = 'income'
+            AND COALESCE(related_type, '') != 'purchase_return'
+            AND transaction_date >= ? AND transaction_date <= ?
+            GROUP BY customer_id
+        `).all(sDate, eDate).forEach(r => { periodSalesPaymentsMap[r.customer_id] = (periodSalesPaymentsMap[r.customer_id] || 0) + r.total; });
 
         // Batch: Period purchase payments per supplier
         const periodPurchasePaymentsMap = {};
         db.prepare(`
-            SELECT pi.supplier_id, SUM(tt.amount) as total 
-            FROM treasury_transactions tt
-            JOIN purchase_invoices pi ON tt.related_invoice_id = pi.id
-            WHERE tt.related_type = 'purchase' 
-            AND tt.transaction_date >= ? AND tt.transaction_date <= ?
-            GROUP BY pi.supplier_id
-        `).all(sDate, eDate).forEach(r => { periodPurchasePaymentsMap[r.supplier_id] = r.total; });
+            SELECT customer_id, SUM(amount) as total 
+            FROM treasury_transactions
+            WHERE type = 'expense'
+            AND COALESCE(related_type, '') != 'sales_return'
+            AND transaction_date >= ? AND transaction_date <= ?
+            GROUP BY customer_id
+        `).all(sDate, eDate).forEach(r => { periodPurchasePaymentsMap[r.customer_id] = r.total; });
+
+        // Batch: Period sales returns per customer
+        const periodSalesReturnsMap = {};
+        db.prepare(`
+            SELECT customer_id, SUM(total_amount) as total 
+            FROM sales_returns 
+            WHERE return_date >= ? AND return_date <= ?
+            GROUP BY customer_id
+        `).all(sDate, eDate).forEach(r => { periodSalesReturnsMap[r.customer_id] = r.total; });
+
+        // Batch: Period purchase returns per supplier
+        const periodPurchaseReturnsMap = {};
+        db.prepare(`
+            SELECT supplier_id as customer_id, SUM(total_amount) as total 
+            FROM purchase_returns 
+            WHERE return_date >= ? AND return_date <= ?
+            GROUP BY supplier_id
+        `).all(sDate, eDate).forEach(r => { periodPurchaseReturnsMap[r.customer_id] = r.total; });
 
         const report = customers.map(customer => {
             const futureSales = futureSalesMap[customer.id] || 0;
             const futurePurchases = futurePurchasesMap[customer.id] || 0;
             const futureSalesPayments = futureSalesPaymentsMap[customer.id] || 0;
             const futurePurchasePayments = futurePurchasePaymentsMap[customer.id] || 0;
+            const futureSalesReturns = futureSalesReturnsMap[customer.id] || 0;
+            const futurePurchaseReturns = futurePurchaseReturnsMap[customer.id] || 0;
+            
             const periodSales = periodSalesMap[customer.id] || 0;
             const periodPurchases = periodPurchasesMap[customer.id] || 0;
             const periodSalesPayments = periodSalesPaymentsMap[customer.id] || 0;
             const periodPurchasePayments = periodPurchasePaymentsMap[customer.id] || 0;
+            const periodSalesReturns = periodSalesReturnsMap[customer.id] || 0;
+            const periodPurchaseReturns = periodPurchaseReturnsMap[customer.id] || 0;
             
-            // Closing Balance = Current - Future Increases + Future Decreases
-            // Increases to Balance: Sales, Purchases
-            // Decreases to Balance: Payments
-            let closingBalance = customer.current_balance
-                - futureSales + futurePurchases
-                + futureSalesPayments - futurePurchasePayments;
-                
-            // Opening Balance = Closing - Period Increases + Period Decreases
-            let openingBalance = closingBalance
-                - periodSales + periodPurchases
-                + periodSalesPayments - periodPurchasePayments;
+            const futureIncreases = futureSales + futurePurchasePayments + futurePurchaseReturns;
+            const futureDecreases = futurePurchases + futureSalesPayments + futureSalesReturns;
+            let closingBalance = customer.current_balance - futureIncreases + futureDecreases;
+            
+            const periodIncreases = periodSales + periodPurchasePayments + periodPurchaseReturns;
+            const periodDecreases = periodPurchases + periodSalesPayments + periodSalesReturns;
+            let openingBalance = closingBalance - periodIncreases + periodDecreases;
                 
             let debitAmount = 0;
             let creditAmount = 0;
             
-            // Determine Debit/Credit for the period based on accounting logic
-            // Customer: Debit = Sales, Credit = Payments
-            // Supplier: Debit = Payments, Credit = Purchases
-            
             if (customer.type === 'customer') {
                 debitAmount = periodSales;
-                creditAmount = periodSalesPayments;
+                creditAmount = periodSalesPayments + periodSalesReturns;
             } else if (customer.type === 'supplier') {
-                debitAmount = periodPurchasePayments;
+                debitAmount = periodPurchasePayments + periodPurchaseReturns;
                 creditAmount = periodPurchases;
             } else {
                 // Both
-                debitAmount = periodSales + periodPurchasePayments;
-                creditAmount = periodSalesPayments + periodPurchases;
+                debitAmount = periodSales + periodPurchasePayments + periodPurchaseReturns;
+                creditAmount = periodSalesPayments + periodPurchases + periodSalesReturns;
             }
             
             return {

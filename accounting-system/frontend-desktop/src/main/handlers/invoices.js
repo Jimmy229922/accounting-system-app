@@ -175,6 +175,15 @@ function register() {
         const invoice = db.prepare(`SELECT * FROM ${invoiceTable} WHERE id = ?`).get(id);
         if (!invoice) return { success: false, error: 'الفاتورة غير موجودة أو تم حذفها من قبل' };
 
+        const returnsTable = isSales ? 'sales_returns' : 'purchase_returns';
+        const hasReturns = db.prepare(`SELECT COUNT(*) as count FROM ${returnsTable} WHERE original_invoice_id = ?`).get(id).count > 0;
+        if (hasReturns) {
+            return {
+                success: false,
+                error: 'لا يمكن حذف هذه الفاتورة لوجود مرتجعات (فواتير إرجاع) مرتبطة بها. يرجى حذف المرتجعات الخاصة بها أولاً.'
+            };
+        }
+
         const details = db.prepare(`SELECT * FROM ${detailsTable} WHERE invoice_id = ?`).all(id);
 
         if (!isSales) {

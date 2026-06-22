@@ -48,7 +48,7 @@ function getCustomerStatementMovementAfterDate(customerId, afterDate) {
             FROM treasury_transactions
             WHERE (customer_id = @custId
                OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = @custId)))
-            AND COALESCE(related_type, '') NOT IN ('sales', 'sales_return', 'purchase_return')
+            AND COALESCE(related_type, '') NOT IN ('sales')
 
             UNION ALL
             SELECT 'sales_return' as sub_type, total_amount as amount, return_date as trans_date
@@ -238,7 +238,8 @@ function register() {
                     i.${numCol} as invoice_number,
                     i.${dateCol} as invoice_date,
                     i.total_amount,
-                    c.name as customer_name
+                    c.name as customer_name,
+                    i.created_at
                 FROM ${table} i
                 LEFT JOIN customers c ON i.${joinCol} = c.id
                 WHERE 1=1
@@ -260,8 +261,48 @@ function register() {
         if (type === 'all' || type === 'sales') {
             queries.push(buildQuery('sales_invoices', 'sales'));
         }
+        if (type === 'all' || type === 'receipt') {
+            // Include paid amount of sales invoices as receipts
+            let salesPaymentSql = `
+                SELECT 
+                    'receipt' as type,
+                    i.id,
+                    i.invoice_number,
+                    i.invoice_date,
+                    i.paid_amount as total_amount,
+                    c.name as customer_name,
+                    i.created_at
+                FROM sales_invoices i
+                LEFT JOIN customers c ON i.customer_id = c.id
+                WHERE i.paid_amount > 0
+            `;
+            if (startDate) salesPaymentSql += ` AND i.invoice_date >= @startDate`;
+            if (endDate) salesPaymentSql += ` AND i.invoice_date <= @endDate`;
+            if (customerId) salesPaymentSql += ` AND i.customer_id = @customerId`;
+            queries.push(salesPaymentSql);
+        }
         if (type === 'all' || type === 'purchase') {
             queries.push(buildQuery('purchase_invoices', 'purchase'));
+        }
+        if (type === 'all' || type === 'payment') {
+            // Include paid amount of purchase invoices as payments
+            let purchasePaymentSql = `
+                SELECT 
+                    'payment' as type,
+                    i.id,
+                    i.invoice_number,
+                    i.invoice_date,
+                    i.paid_amount as total_amount,
+                    c.name as customer_name,
+                    i.created_at
+                FROM purchase_invoices i
+                LEFT JOIN customers c ON i.supplier_id = c.id
+                WHERE i.paid_amount > 0
+            `;
+            if (startDate) purchasePaymentSql += ` AND i.invoice_date >= @startDate`;
+            if (endDate) purchasePaymentSql += ` AND i.invoice_date <= @endDate`;
+            if (customerId) purchasePaymentSql += ` AND i.supplier_id = @customerId`;
+            queries.push(purchasePaymentSql);
         }
         if (type === 'all' || type === 'sales_return') {
             queries.push(buildQuery('sales_returns', 'sales_return'));
@@ -279,7 +320,8 @@ function register() {
                     t.voucher_number as invoice_number,
                     t.transaction_date as invoice_date,
                     t.amount as total_amount,
-                    c.name as customer_name
+                    c.name as customer_name,
+                    t.created_at
                 FROM treasury_transactions t
                 LEFT JOIN customers c ON t.customer_id = c.id
                 WHERE t.type = '${treasuryType}' AND t.customer_id IS NOT NULL
@@ -305,7 +347,7 @@ function register() {
 
         if (queries.length === 0) return [];
 
-        const finalQuery = queries.join(' UNION ALL ') + ' ORDER BY invoice_date ASC';
+        const finalQuery = queries.join(' UNION ALL ') + ' ORDER BY invoice_date ASC, created_at ASC';
         
         return db.prepare(finalQuery).all({ startDate, endDate, customerId });
         } catch (error) {
@@ -410,7 +452,7 @@ function register() {
                         WHERE (customer_id = ?
                            OR (related_type = 'sales' AND related_invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id = ?))
                            OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?)))
-                        AND COALESCE(related_type, '') NOT IN ('sales_return', 'purchase_return')
+                        AND COALESCE(related_type, '') NOT IN ('')
                         AND transaction_date < ?
 
                         UNION ALL
@@ -435,7 +477,7 @@ function register() {
             // جلب جميع الحركات داخل الفترة باستخدام UNION ALL
             const params = [];
             let query = `
-                SELECT id, 'sales' as type, invoice_number as doc_number, invoice_date as trans_date, total_amount, notes, 1 as sort_order
+                SELECT id, 'sales' as type, invoice_number as doc_number, invoice_date as trans_date, total_amount, notes, created_at, 1 as internal_order
                 FROM sales_invoices WHERE customer_id = ?`;
             params.push(custId);
             if (startDate) { query += ' AND invoice_date >= ?'; params.push(startDate); }
@@ -443,7 +485,7 @@ function register() {
 
             query += `
                 UNION ALL
-                SELECT id, 'payment_in' as type, invoice_number as doc_number, invoice_date as trans_date, paid_amount as total_amount, notes, 2 as sort_order
+                SELECT id, 'payment_in' as type, invoice_number as doc_number, invoice_date as trans_date, paid_amount as total_amount, notes, created_at, 2 as internal_order
                 FROM sales_invoices WHERE customer_id = ? AND paid_amount > 0`;
             params.push(custId);
             if (startDate) { query += ' AND invoice_date >= ?'; params.push(startDate); }
@@ -451,7 +493,7 @@ function register() {
 
             query += `
                 UNION ALL
-                SELECT id, 'purchase' as type, invoice_number as doc_number, invoice_date as trans_date, total_amount, notes, 1 as sort_order
+                SELECT id, 'purchase' as type, invoice_number as doc_number, invoice_date as trans_date, total_amount, notes, created_at, 1 as internal_order
                 FROM purchase_invoices WHERE supplier_id = ?`;
             params.push(custId);
             if (startDate) { query += ' AND invoice_date >= ?'; params.push(startDate); }
@@ -460,18 +502,18 @@ function register() {
             query += `
                 UNION ALL
                 SELECT id, CASE WHEN type = 'income' THEN 'payment_in' ELSE 'payment_out' END as type,
-                    voucher_number as doc_number, transaction_date as trans_date, amount as total_amount, description as notes, 3 as sort_order
+                    voucher_number as doc_number, transaction_date as trans_date, amount as total_amount, description as notes, created_at, 1 as internal_order
                 FROM treasury_transactions
                 WHERE (customer_id = ?
                    OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?)))
-                AND COALESCE(related_type, '') NOT IN ('sales', 'sales_return', 'purchase_return')`;
+                AND COALESCE(related_type, '') NOT IN ('sales')`;
             params.push(custId, custId);
             if (startDate) { query += ' AND transaction_date >= ?'; params.push(startDate); }
             if (endDate) { query += ' AND transaction_date <= ?'; params.push(endDate); }
 
             query += `
                 UNION ALL
-                SELECT id, 'sales_return' as type, return_number as doc_number, return_date as trans_date, total_amount, notes, 4 as sort_order
+                SELECT id, 'sales_return' as type, return_number as doc_number, return_date as trans_date, total_amount, notes, created_at, 1 as internal_order
                 FROM sales_returns WHERE customer_id = ?`;
             params.push(custId);
             if (startDate) { query += ' AND return_date >= ?'; params.push(startDate); }
@@ -479,13 +521,13 @@ function register() {
 
             query += `
                 UNION ALL
-                SELECT id, 'purchase_return' as type, return_number as doc_number, return_date as trans_date, total_amount, notes, 4 as sort_order
+                SELECT id, 'purchase_return' as type, return_number as doc_number, return_date as trans_date, total_amount, notes, created_at, 1 as internal_order
                 FROM purchase_returns WHERE supplier_id = ?`;
             params.push(custId);
             if (startDate) { query += ' AND return_date >= ?'; params.push(startDate); }
             if (endDate) { query += ' AND return_date <= ?'; params.push(endDate); }
 
-            query += ' ORDER BY trans_date ASC, sort_order ASC, id ASC';
+            query += ' ORDER BY trans_date ASC, created_at ASC, internal_order ASC, id ASC';
 
             const transactions = db.prepare(query).all(...params);
             // حساب المدين والدائن والرصيد الجاري
@@ -666,7 +708,7 @@ function register() {
                 FROM treasury_transactions
                 WHERE (customer_id = ?
                     OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?)))
-                AND COALESCE(related_type, '') NOT IN ('sales', 'sales_return', 'purchase_return')`;
+                AND COALESCE(related_type, '') NOT IN ('sales')`;
             const paymentParams = [custId, custId];
             if (startDate) { paymentsQuery += ' AND transaction_date >= ?'; paymentParams.push(startDate); }
             if (endDate) { paymentsQuery += ' AND transaction_date <= ?'; paymentParams.push(endDate); }
@@ -720,7 +762,7 @@ function register() {
                         WHERE (customer_id = ?
                            OR (related_type = 'sales' AND related_invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id = ?))
                            OR (related_type = 'purchase' AND related_invoice_id IN (SELECT id FROM purchase_invoices WHERE supplier_id = ?)))
-                        AND COALESCE(related_type, '') NOT IN ('sales_return', 'purchase_return')
+                        AND COALESCE(related_type, '') NOT IN ('')
                         AND transaction_date < ?
 
                         UNION ALL

@@ -226,7 +226,7 @@ function register() {
                     updateSalesInvoice.run({ amount: trans.amount, id: trans.related_invoice_id });
                     
                     const invoice = getSalesInvoice.get(trans.related_invoice_id);
-                    if (invoice && invoice.customer_id) {
+                    if (invoice && invoice.customer_id && !trans.customer_id) {
                         updateCustomer.run({ amount: trans.type === 'expense' ? -trans.amount : trans.amount, id: invoice.customer_id });
                     }
                 } else if (trans.related_type === 'purchase') {
@@ -234,7 +234,7 @@ function register() {
                     updatePurchaseInvoice.run({ amount: trans.amount, id: trans.related_invoice_id });
                     
                     const invoice = getPurchaseInvoice.get(trans.related_invoice_id);
-                    if (invoice && invoice.supplier_id) {
+                    if (invoice && invoice.supplier_id && !trans.customer_id) {
                         updateCustomer.run({ amount: trans.type === 'expense' ? -trans.amount : trans.amount, id: invoice.supplier_id });
                     }
                 }
@@ -267,4 +267,4 @@ function register() {
     });
 }
 
-module.exports = { register };
+module.exports = { register, getCurrentTreasuryBalance };

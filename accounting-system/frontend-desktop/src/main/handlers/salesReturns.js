@@ -1,6 +1,8 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
 const { requirePermission } = require('./auth');
+const { getCurrentTreasuryBalance } = require('./treasury');
+
 
 function register() {
     // =============================================
@@ -75,8 +77,8 @@ function register() {
 
         // Treasury refund for cash sales
         const insertTreasuryTransaction = db.prepare(`
-            INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type)
-            VALUES ('expense', @amount, @date, @description, @invoice_id, 'sales_return')
+            INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, customer_id)
+            VALUES ('expense', @amount, @date, @description, @invoice_id, 'sales_return', @customer_id)
         `);
 
         const transaction = db.transaction((data) => {
@@ -111,18 +113,43 @@ function register() {
             }
 
             // Check original invoice payment type
-            const originalInvoice = db.prepare('SELECT payment_type FROM sales_invoices WHERE id = ?').get(data.original_invoice_id);
+            const originalInvoice = db.prepare('SELECT payment_type, paid_amount, total_amount FROM sales_invoices WHERE id = ?').get(data.original_invoice_id);
             
             if (originalInvoice && originalInvoice.payment_type === 'cash') {
-                // Refund from treasury
-                insertTreasuryTransaction.run({
-                    amount: totalAmount,
-                    date: data.return_date,
-                    description: `مردودات مبيعات - فاتورة رقم ${data.return_number} (مرتجع من فاتورة بيع)`,
-                    invoice_id: returnId
-                });
+                const invoiceDebt = Math.max(0, originalInvoice.total_amount - originalInvoice.paid_amount);
+                const previousReturns = db.prepare('SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE original_invoice_id = ? AND id != ?').get(data.original_invoice_id, returnId).total;
+                
+                const cashRefundedSoFar = Math.max(0, previousReturns - invoiceDebt);
+                const totalCashRefundShouldBe = Math.max(0, (previousReturns + totalAmount) - invoiceDebt);
+                const cashToRefundThisTime = totalCashRefundShouldBe - cashRefundedSoFar;
+                const debtToClearThisTime = totalAmount - cashToRefundThisTime;
+
+                if (cashToRefundThisTime > 0) {
+                    const currentTreasuryBalance = getCurrentTreasuryBalance();
+                    
+                    if (cashToRefundThisTime > currentTreasuryBalance) {
+                        throw new Error('الرصيد الحالي في الخزينة لا يكفي لرد هذا المبلغ نقداً للعميل');
+                    }
+
+                    // Refund from treasury
+                    insertTreasuryTransaction.run({
+                        amount: cashToRefundThisTime,
+                        date: data.return_date,
+                        description: `مردودات مبيعات - فاتورة رقم ${data.return_number} (مرتجع من فاتورة بيع)`,
+                        invoice_id: returnId,
+                        customer_id: data.customer_id
+                    });
+                }
+                
+                if (debtToClearThisTime > 0) {
+                    // Reduce customer balance
+                    updateCustomerBalance.run({
+                        amount: debtToClearThisTime,
+                        id: data.customer_id
+                    });
+                }
             } else {
-                // Reduce customer balance
+                // Reduce customer balance entirely
                 updateCustomerBalance.run({
                     amount: totalAmount,
                     id: data.customer_id
@@ -193,8 +220,8 @@ function register() {
 
         const deleteTreasuryTransaction = db.prepare("DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = 'sales_return'");
         const insertTreasuryTransaction = db.prepare(`
-            INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type)
-            VALUES ('expense', @amount, @date, @description, @invoice_id, 'sales_return')
+            INSERT INTO treasury_transactions (type, amount, transaction_date, description, related_invoice_id, related_type, customer_id)
+            VALUES ('expense', @amount, @date, @description, @invoice_id, 'sales_return', @customer_id)
         `);
 
         const transaction = db.transaction(() => {
@@ -209,12 +236,13 @@ function register() {
                 subtractFromStock.run({ quantity: detail.quantity, item_id: detail.item_id });
             });
 
-            const oldInvoice = getOriginalInvoice.get(existingReturn.original_invoice_id);
-            if (oldInvoice && oldInvoice.payment_type === 'cash') {
-                deleteTreasuryTransaction.run(returnId);
-            } else {
+            const oldTreasuryTx = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM treasury_transactions WHERE related_type = ? AND related_invoice_id = ?').get('sales_return', returnId).total;
+            deleteTreasuryTransaction.run(returnId);
+            
+            const oldBalanceCleared = Number(existingReturn.total_amount) - oldTreasuryTx;
+            if (oldBalanceCleared > 0) {
                 increaseCustomerBalance.run({
-                    amount: Number(existingReturn.total_amount) || 0,
+                    amount: oldBalanceCleared,
                     id: existingReturn.customer_id
                 });
             }
@@ -252,13 +280,38 @@ function register() {
 
             const newInvoice = getOriginalInvoice.get(original_invoice_id);
             if (newInvoice && newInvoice.payment_type === 'cash') {
-                deleteTreasuryTransaction.run(returnId);
-                insertTreasuryTransaction.run({
-                    amount: newTotalAmount,
-                    date: return_date,
-                    description: `مردودات مبيعات - فاتورة رقم ${return_number} (مرتجع من فاتورة بيع)`,
-                    invoice_id: returnId
-                });
+                const invoiceDebt = Math.max(0, newInvoice.total_amount - newInvoice.paid_amount);
+                const previousReturns = db.prepare('SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE original_invoice_id = ? AND id != ?').get(original_invoice_id, returnId).total;
+                
+                const cashRefundedSoFar = Math.max(0, previousReturns - invoiceDebt);
+                const totalCashRefundShouldBe = Math.max(0, (previousReturns + newTotalAmount) - invoiceDebt);
+                const cashToRefundThisTime = totalCashRefundShouldBe - cashRefundedSoFar;
+                const debtToClearThisTime = newTotalAmount - cashToRefundThisTime;
+
+                if (cashToRefundThisTime > 0) {
+                    // When updating, the old transaction was already deleted in the steps above, 
+                    // so currentTreasuryBalance is accurate for the new check.
+                    const currentTreasuryBalance = getCurrentTreasuryBalance();
+                    
+                    if (cashToRefundThisTime > currentTreasuryBalance) {
+                        throw new Error('الرصيد الحالي في الخزينة لا يكفي لرد هذا المبلغ نقداً للعميل');
+                    }
+
+                    insertTreasuryTransaction.run({
+                        amount: cashToRefundThisTime,
+                        date: return_date,
+                        description: `مردودات مبيعات - فاتورة رقم ${return_number} (مرتجع من فاتورة بيع - معدل)`,
+                        invoice_id: returnId,
+                        customer_id: customer_id
+                    });
+                }
+                
+                if (debtToClearThisTime > 0) {
+                    decreaseCustomerBalance.run({
+                        amount: debtToClearThisTime,
+                        id: customer_id
+                    });
+                }
             } else {
                 decreaseCustomerBalance.run({
                     amount: newTotalAmount,
@@ -294,12 +347,12 @@ function register() {
                 }
 
                 // Reverse balance changes
-                const originalInvoice = db.prepare('SELECT payment_type FROM sales_invoices WHERE id = ?').get(returnRecord.original_invoice_id);
-                if (originalInvoice && originalInvoice.payment_type === 'cash') {
-                    // Delete treasury transaction
-                    db.prepare("DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = 'sales_return'").run(returnId);
-                } else {
-                    db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(returnRecord.total_amount, returnRecord.customer_id);
+                const oldTreasuryTx = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM treasury_transactions WHERE related_type = ? AND related_invoice_id = ?').get('sales_return', returnId).total;
+                db.prepare('DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = ?').run(returnId, 'sales_return');
+                
+                const oldBalanceCleared = Number(returnRecord.total_amount) - oldTreasuryTx;
+                if (oldBalanceCleared > 0) {
+                    db.prepare('UPDATE customers SET balance = balance + ? WHERE id = ?').run(oldBalanceCleared, returnRecord.customer_id);
                 }
 
                 // Delete return and its details

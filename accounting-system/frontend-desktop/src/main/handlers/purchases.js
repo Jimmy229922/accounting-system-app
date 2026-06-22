@@ -1,6 +1,8 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
 const { requirePermission } = require('./auth');
+const { getCurrentTreasuryBalance } = require('./treasury');
+
 
 function toPositiveNumber(value) {
     const n = Number(value);
@@ -75,6 +77,14 @@ function register() {
             discountValue: discount_value,
             paidAmount: paid_amount
         });
+
+        if (financials.paid_amount > 0) {
+            const currentTreasuryBalance = getCurrentTreasuryBalance();
+            
+            if (financials.paid_amount > currentTreasuryBalance) {
+                return { success: false, error: 'الرصيد الحالي في الخزينة لا يكفي لدفع هذا المبلغ' };
+            }
+        }
 
         const insertInvoice = db.prepare(`
             INSERT INTO purchase_invoices (supplier_id, invoice_number, invoice_date, total_amount, discount_type, discount_value, discount_amount, paid_amount, remaining_amount, payment_type, notes)
@@ -185,6 +195,15 @@ function register() {
             discountValue: discount_value,
             paidAmount: paid_amount
         });
+
+        if (financials.paid_amount > 0) {
+            const currentTreasuryBalance = getCurrentTreasuryBalance();
+            const effectiveBalance = currentTreasuryBalance + (Number(oldInvoice.paid_amount) || 0);
+            
+            if (financials.paid_amount > effectiveBalance) {
+                return { success: false, error: 'الرصيد الحالي في الخزينة لا يكفي لتعديل المبلغ المدفوع' };
+            }
+        }
 
         const transaction = db.transaction(() => {
             // --- REVERSE OLD ---
