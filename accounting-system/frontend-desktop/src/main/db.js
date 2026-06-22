@@ -250,6 +250,8 @@ function initDB() {
     `);
 
     // 7. Sales Invoices Table (جدول فواتير المبيعات)
+    runAddColumnMigration("ALTER TABLE purchase_invoice_details ADD COLUMN previous_cost_price REAL", 'purchase_invoice_details', 'previous_cost_price');
+
     db.exec(`
         CREATE TABLE IF NOT EXISTS sales_invoices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -254,7 +254,7 @@ function register() {
             const oldTreasuryTx = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM treasury_transactions WHERE related_type = ? AND related_invoice_id = ?').get('purchase_return', returnId).total;
             deleteTreasuryTransaction.run(returnId);
             
-            const oldBalanceCleared = Number(existingReturn.total_amount) - oldTreasuryTx;
+            const oldBalanceCleared = Math.max(0, Number(existingReturn.total_amount) - oldTreasuryTx);
             if (oldBalanceCleared > 0) {
                 decreaseSupplierBalance.run({
                     amount: oldBalanceCleared,
@@ -353,7 +353,7 @@ function register() {
                 const oldTreasuryTx = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM treasury_transactions WHERE related_type = ? AND related_invoice_id = ?').get('purchase_return', returnId).total;
                 db.prepare('DELETE FROM treasury_transactions WHERE related_invoice_id = ? AND related_type = ?').run(returnId, 'purchase_return');
                 
-                const oldBalanceCleared = Number(returnRecord.total_amount) - oldTreasuryTx;
+                const oldBalanceCleared = Math.max(0, Number(returnRecord.total_amount) - oldTreasuryTx);
                 if (oldBalanceCleared > 0) {
                     db.prepare('UPDATE customers SET balance = balance - ? WHERE id = ?').run(oldBalanceCleared, returnRecord.supplier_id);
                 }

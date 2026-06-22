@@ -10,7 +10,7 @@
 
             const promise = window.electronAPI.getStatementItemDetails({ type, id }).then((result) => {
                 if (result && result.success && result.details.length > 0) {
-                    let html = `<td colspan="8"><div class="items-detail-box"><table class="items-inner-table"><thead><tr>
+                    let html = `<td colspan="9"><div class="items-detail-box"><table class="items-inner-table"><thead><tr>
                     <th>#</th>
                     <th>${t('customerReports.itemHeaders.name', 'الصنف')}</th>
                     <th>${t('customerReports.itemHeaders.unit', 'الوحدة')}</th>
@@ -24,7 +24,7 @@
                     html += `</tbody></table></div></td>`;
                     row.innerHTML = html;
                 } else {
-                    row.innerHTML = `<td colspan="8"><div class="items-loading">${t('customerReports.noItems', 'لا توجد أصناف')}</div></td>`;
+                    row.innerHTML = `<td colspan="9"><div class="items-loading">${t('customerReports.noItems', 'لا توجد أصناف')}</div></td>`;
                 }
                 row.dataset.loaded = 'true';
             });

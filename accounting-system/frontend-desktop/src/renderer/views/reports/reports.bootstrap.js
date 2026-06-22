@@ -413,7 +413,7 @@ function renderReports(reports) {
     if (!Array.isArray(reports) || reports.length === 0) {
         reportsTableBody.innerHTML = `
             <tr>
-                <td colspan="7">
+                <td colspan="9">
                     <div class="empty-state">
                         <i class="fas fa-inbox"></i>
                         <h3>${t('reports.noDataTitle', 'لا توجد فواتير')}</h3>
@@ -489,6 +489,9 @@ function renderReports(reports) {
         const finalTypeBadge = isLinkedToPrev ? `<div style="padding-right: 15px; opacity: 0.85;">${typeMeta.badge}</div>` : typeMeta.badge;
 
         const safeCustomer = escapeHtml(report.customer_name || '-');
+        const showInvoicePaymentColumns = report.type === 'sales' || report.type === 'purchase';
+        const paidAmountDisplay = showInvoicePaymentColumns ? formatCurrency(report.paid_amount) : '-';
+        const remainingAmountDisplay = showInvoicePaymentColumns ? formatCurrency(report.remaining_amount) : '-';
         row.className = typeMeta.rowClass;
         row.style.cssText = extraStyle;
         row.innerHTML = `
@@ -501,6 +504,8 @@ function renderReports(reports) {
             <td>${finalTypeBadge}</td>
             <td class="name-col">${safeCustomer}</td>
             <td class="amount ${typeMeta.amountClass}">${formatCurrency(report.total_amount)}</td>
+            <td class="amount">${paidAmountDisplay}</td>
+            <td class="amount">${remainingAmountDisplay}</td>
             <td>
                 <div class="row-actions">
                     ${report.type === 'receipt' || report.type === 'payment' ? `
@@ -520,7 +525,7 @@ function renderReports(reports) {
 
         if (isLinkedToNext && idx > 0) {
             const spacerTop = document.createElement('tr');
-            spacerTop.innerHTML = `<td colspan="7" style="height: 4px; background-color: #cbd5e1; border: none !important; padding: 0;"></td>`;
+            spacerTop.innerHTML = `<td colspan="9" style="height: 4px; background-color: #cbd5e1; border: none !important; padding: 0;"></td>`;
             reportsTableBody.appendChild(spacerTop);
         }
 
@@ -528,7 +533,7 @@ function renderReports(reports) {
 
         if (isLinkedToPrev) {
             const spacerBottom = document.createElement('tr');
-            spacerBottom.innerHTML = `<td colspan="7" style="height: 4px; background-color: #cbd5e1; border: none !important; padding: 0;"></td>`;
+            spacerBottom.innerHTML = `<td colspan="9" style="height: 4px; background-color: #cbd5e1; border: none !important; padding: 0;"></td>`;
             reportsTableBody.appendChild(spacerBottom);
         }
     });
@@ -758,4 +763,3 @@ function closeProfitDetailsModal() {
     profitDetailsModalEl.style.display = 'none';
     profitDetailsModalEl.classList.remove('is-open');
 }
-

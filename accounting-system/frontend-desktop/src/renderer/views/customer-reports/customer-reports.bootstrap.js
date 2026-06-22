@@ -179,7 +179,7 @@ async function loadCustomerReport(customerId) {
     if (!result || !result.success) {
         customerReportTableBody.innerHTML = `
             <tr class="no-data-row">
-                <td colspan="8">
+                <td colspan="9">
                     <i class="fas fa-exclamation-triangle"></i>
                     ${(result && result.error) || t('customerReports.unexpectedError', 'حدث خطأ غير متوقع')}
                 </td>
@@ -238,12 +238,10 @@ async function loadCustomerReport(customerId) {
             : t('customerReports.balanceAgainstUs', 'علينا (دائن)');
 
         obRow.innerHTML = `
-            <td colspan="5" class="ob-label">
+            <td colspan="8" class="ob-label">
                 <i class="fas fa-flag"></i>
                 ${t('customerReports.openingBalance', 'رصيد أول المدة')}
             </td>
-            <td></td>
-            <td></td>
             <td class="running-bal ${obClass}">${formatCurrency(Math.abs(totals.openingBalance))} ${obLabel}</td>
         `;
         customerReportTableBody.appendChild(obRow);
@@ -252,7 +250,7 @@ async function loadCustomerReport(customerId) {
     if (transactions.length === 0 && totals.openingBalance === 0) {
         customerReportTableBody.innerHTML = `
             <tr class="no-data-row">
-                <td colspan="8">
+                <td colspan="9">
                     <i class="fas fa-inbox"></i>
                     ${t('customerReports.noTransactions', 'لا توجد عمليات لهذا العميل')}
                 </td>
@@ -262,29 +260,25 @@ async function loadCustomerReport(customerId) {
             const mainRow = document.createElement('tr');
             mainRow.className = `trans-main-row trans-type-${item.type}`;
             let typeBadge = '';
-            let debitVal = '';
-            let creditVal = '';
             const hasDetails = ['sales', 'purchase', 'sales_return', 'purchase_return'].includes(item.type);
             const rowId = `items-${idx}`;
+            const invoiceTotalDisplay = formatCurrency(item.total_amount);
+            const showInvoicePaymentColumns = item.type === 'sales' || item.type === 'purchase';
+            const paidAmountDisplay = showInvoicePaymentColumns ? formatCurrency(item.paid_amount) : '-';
+            const remainingAmountDisplay = showInvoicePaymentColumns ? formatCurrency(item.remaining_amount) : '-';
 
             if (item.type === 'sales') {
                 typeBadge = `<span class="badge badge-sales"><i class="fas fa-shopping-cart"></i> ${t('customerReports.salesBadge', 'مبيعات')}</span>`;
-                debitVal = item.debit ? formatCurrency(item.debit) : '';
             } else if (item.type === 'purchase') {
                 typeBadge = `<span class="badge badge-purchase"><i class="fas fa-shopping-bag"></i> ${t('customerReports.purchaseBadge', 'مشتريات')}</span>`;
-                creditVal = item.credit ? formatCurrency(item.credit) : '';
             } else if (item.type === 'payment_in') {
                 typeBadge = `<span class="badge badge-receipt"><i class="fas fa-hand-holding-usd"></i> ${t('customerReports.receiptBadge', 'تحصيل')}</span>`;
-                creditVal = item.credit ? formatCurrency(item.credit) : '';
             } else if (item.type === 'payment_out') {
                 typeBadge = `<span class="badge badge-payment"><i class="fas fa-money-bill-wave"></i> ${t('customerReports.paymentBadge', 'سداد')}</span>`;
-                debitVal = item.debit ? formatCurrency(item.debit) : '';
             } else if (item.type === 'sales_return') {
                 typeBadge = `<span class="badge badge-sales-return"><i class="fas fa-undo"></i> ${t('customerReports.salesReturnBadge', 'مردود مبيعات')}</span>`;
-                creditVal = item.credit ? formatCurrency(item.credit) : '';
             } else if (item.type === 'purchase_return') {
                 typeBadge = `<span class="badge badge-purchase-return"><i class="fas fa-undo"></i> ${t('customerReports.purchaseReturnBadge', 'مردود مشتريات')}</span>`;
-                debitVal = item.debit ? formatCurrency(item.debit) : '';
             }
 
             const rb = item.running_balance;
@@ -305,8 +299,9 @@ async function loadCustomerReport(customerId) {
                 <td>${typeBadge}</td>
                 <td>${docNumberCellHtml}</td>
                 <td class="notes-cell">${item.notes || '—'}</td>
-                <td class="amt-cell"><span class="amount debit">${debitVal}</span></td>
-                <td class="amt-cell"><span class="amount credit">${creditVal}</span></td>
+                <td class="amt-cell"><span class="amount">${invoiceTotalDisplay}</span></td>
+                <td class="amt-cell"><span class="amount">${paidAmountDisplay}</span></td>
+                <td class="amt-cell"><span class="amount">${remainingAmountDisplay}</span></td>
                 <td class="running-bal ${rbClass}">${rbText}</td>
             `;
             customerReportTableBody.appendChild(mainRow);
@@ -318,7 +313,7 @@ async function loadCustomerReport(customerId) {
                 detailRow.dataset.loaded = 'false';
                 detailRow.dataset.detailType = item.type;
                 detailRow.dataset.detailId = String(item.id);
-                detailRow.innerHTML = `<td colspan="8"><div class="items-loading"><i class="fas fa-spinner fa-spin"></i> ${t('customerReports.loadingItems', 'جاري تحميل الأصناف...')}</div></td>`;
+                detailRow.innerHTML = `<td colspan="9"><div class="items-loading"><i class="fas fa-spinner fa-spin"></i> ${t('customerReports.loadingItems', 'جاري تحميل الأصناف...')}</div></td>`;
                 customerReportTableBody.appendChild(detailRow);
             }
         });
@@ -370,7 +365,7 @@ async function toggleItems(rowId, btn, type, id) {
         const result = await window.electronAPI.getStatementItemDetails({ type, id });
         if (result && result.success && result.details.length > 0) {
             let itemsHTML = `
-                <td colspan="8">
+                <td colspan="9">
                     <div class="items-detail-box">
                         <table class="items-inner-table">
                             <thead>
@@ -402,7 +397,7 @@ async function toggleItems(rowId, btn, type, id) {
                 </td>`;
             row.innerHTML = itemsHTML;
         } else {
-            row.innerHTML = `<td colspan="8"><div class="items-loading">${t('customerReports.noItems', 'لا توجد أصناف')}</div></td>`;
+            row.innerHTML = `<td colspan="9"><div class="items-loading">${t('customerReports.noItems', 'لا توجد أصناف')}</div></td>`;
         }
         row.dataset.loaded = 'true';
     }

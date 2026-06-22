@@ -130,8 +130,9 @@
                                 <th>${t('customerReports.tableHeaders.type', 'نوع الحركة')}</th>
                                 <th>${t('customerReports.tableHeaders.docNumber', 'رقم المستند')}</th>
                                 <th>${t('customerReports.tableHeaders.description', 'البيان')}</th>
-                                <th>${t('customerReports.tableHeaders.debit', 'لينا (مدين)')}</th>
-                                <th>${t('customerReports.tableHeaders.credit', 'علينا (دائن)')}</th>
+                                <th>${t('customerReports.tableHeaders.invoiceTotal', 'إجمالي الفاتورة')}</th>
+                                <th>${t('customerReports.tableHeaders.paid', 'المدفوع')}</th>
+                                <th>${t('customerReports.tableHeaders.remaining', 'المتبقي')}</th>
                                 <th>${t('customerReports.tableHeaders.runningBalance', 'الرصيد')}</th>
                             </tr>
                         </thead>

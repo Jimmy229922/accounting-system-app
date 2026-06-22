@@ -239,6 +239,19 @@ function register() {
         const denied = requirePermission('customers', 'delete');
         if (denied) return denied;
         try {
+            const linkedRecords = [
+                { label: 'فواتير مبيعات', count: db.prepare('SELECT COUNT(*) as count FROM sales_invoices WHERE customer_id = ?').get(id).count },
+                { label: 'فواتير مشتريات', count: db.prepare('SELECT COUNT(*) as count FROM purchase_invoices WHERE supplier_id = ?').get(id).count },
+                { label: 'مردودات مبيعات', count: db.prepare('SELECT COUNT(*) as count FROM sales_returns WHERE customer_id = ?').get(id).count },
+                { label: 'مردودات مشتريات', count: db.prepare('SELECT COUNT(*) as count FROM purchase_returns WHERE supplier_id = ?').get(id).count },
+                { label: 'حركات خزينة', count: db.prepare('SELECT COUNT(*) as count FROM treasury_transactions WHERE customer_id = ?').get(id).count }
+            ].filter((entry) => entry.count > 0);
+
+            if (linkedRecords.length > 0) {
+                const details = linkedRecords.map((entry) => `${entry.label}: ${entry.count}`).join('، ');
+                return { success: false, error: `لا يمكن حذف هذا السجل لأنه مرتبط ببيانات مسجلة (${details})` };
+            }
+
             db.prepare('DELETE FROM customers WHERE id = ?').run(id);
             return { success: true };
         } catch (error) {

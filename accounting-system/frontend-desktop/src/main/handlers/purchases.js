@@ -92,9 +92,10 @@ function register() {
         `);
 
         const insertDetail = db.prepare(`
-            INSERT INTO purchase_invoice_details (invoice_id, item_id, quantity, cost_price, total_price)
-            VALUES (@invoice_id, @item_id, @quantity, @cost_price, @total_price)
+            INSERT INTO purchase_invoice_details (invoice_id, item_id, quantity, cost_price, previous_cost_price, total_price)
+            VALUES (@invoice_id, @item_id, @quantity, @cost_price, @previous_cost_price, @total_price)
         `);
+        const getItemCost = db.prepare('SELECT cost_price FROM items WHERE id = ?');
 
         const updateItemStock = db.prepare(`
             UPDATE items 
@@ -130,12 +131,18 @@ function register() {
             });
             const invoiceId = info.lastInsertRowid;
 
+            const previousCostsByItem = new Map();
             for (const item of data.items) {
+                if (!previousCostsByItem.has(item.item_id)) {
+                    const currentItem = getItemCost.get(item.item_id);
+                    previousCostsByItem.set(item.item_id, Number(currentItem?.cost_price) || 0);
+                }
                 insertDetail.run({
                     invoice_id: invoiceId,
                     item_id: item.item_id,
                     quantity: item.quantity,
                     cost_price: item.cost_price,
+                    previous_cost_price: previousCostsByItem.get(item.item_id),
                     total_price: item.total_price
                 });
 
@@ -264,17 +271,41 @@ function register() {
             });
 
             const insertDetail = db.prepare(`
-                INSERT INTO purchase_invoice_details (invoice_id, item_id, quantity, cost_price, total_price)
-                VALUES (@invoice_id, @item_id, @quantity, @cost_price, @total_price)
+                INSERT INTO purchase_invoice_details (invoice_id, item_id, quantity, cost_price, previous_cost_price, total_price)
+                VALUES (@invoice_id, @item_id, @quantity, @cost_price, @previous_cost_price, @total_price)
             `);
             const updateItemCostPrice = db.prepare('UPDATE items SET cost_price = @cost_price WHERE id = @item_id');
+            const getItemCost = db.prepare('SELECT cost_price FROM items WHERE id = ?');
+            const getLatestPurchaseCost = db.prepare(`
+                SELECT pid.cost_price
+                FROM purchase_invoice_details pid
+                JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+                WHERE pid.item_id = ? AND pid.invoice_id != ?
+                ORDER BY pi.invoice_date DESC, pi.id DESC, pid.id DESC
+                LIMIT 1
+            `);
+            const previousCostsByItem = new Map();
 
             for (const item of items) {
+                if (!previousCostsByItem.has(item.item_id)) {
+                    const oldDetail = oldDetails.find((detail) => Number(detail.item_id) === Number(item.item_id) && Number.isFinite(Number(detail.previous_cost_price)));
+                    const latestPurchase = getLatestPurchaseCost.get(item.item_id, id);
+                    const currentItem = getItemCost.get(item.item_id);
+                    previousCostsByItem.set(
+                        item.item_id,
+                        Number.isFinite(Number(oldDetail?.previous_cost_price))
+                            ? Number(oldDetail.previous_cost_price)
+                            : Number.isFinite(Number(latestPurchase?.cost_price))
+                                ? Number(latestPurchase.cost_price)
+                                : Number(currentItem?.cost_price) || 0
+                    );
+                }
                 insertDetail.run({
                     invoice_id: id,
                     item_id: item.item_id,
                     quantity: item.quantity,
                     cost_price: item.cost_price,
+                    previous_cost_price: previousCostsByItem.get(item.item_id),
                     total_price: item.total_price
                 });
                 updateItemCostPrice.run({ cost_price: item.cost_price, item_id: item.item_id });
