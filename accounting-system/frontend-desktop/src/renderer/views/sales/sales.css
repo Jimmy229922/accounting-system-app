@@ -515,9 +515,8 @@
 .customer-due-value[data-profit-tooltip]:hover::after {
     content: attr(data-profit-tooltip);
     position: absolute;
-    left: 50%;
+    left: 0;
     bottom: calc(100% + 10px);
-    transform: translateX(-50%);
     z-index: 50;
     min-width: 210px;
     padding: 9px 12px;
@@ -536,9 +535,8 @@
 .customer-due-value[data-profit-tooltip]:hover::before {
     content: '';
     position: absolute;
-    left: 50%;
+    left: 18px;
     bottom: calc(100% + 4px);
-    transform: translateX(-50%);
     z-index: 51;
     border-width: 6px 6px 0 6px;
     border-style: solid;
