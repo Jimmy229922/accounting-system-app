@@ -780,6 +780,7 @@ function register() {
             const { startDate, endDate, customerName } = filters;
             let sql = `
                 SELECT 
+                    'sales' as record_type,
                     si.id, 
                     si.invoice_number, 
                     si.invoice_date, 
@@ -808,7 +809,114 @@ function register() {
             sql += ` GROUP BY si.id ORDER BY si.invoice_date DESC, si.id DESC`;
             
             const results = db.prepare(sql).all(...params);
-            return { success: true, data: results };
+
+            let returnsSql = `
+                SELECT
+                    'sales_return' as record_type,
+                    sr.id,
+                    sr.return_number as invoice_number,
+                    sr.return_date as invoice_date,
+                    c.name as customer_name,
+                    -sr.total_amount as total_amount,
+                    -COALESCE(SUM(srd.quantity * srd.cost_price), 0) as total_cost,
+                    (COALESCE(SUM(srd.quantity * srd.cost_price), 0) - sr.total_amount) as profit_amount
+                FROM sales_returns sr
+                LEFT JOIN customers c ON sr.customer_id = c.id
+                LEFT JOIN sales_return_details srd ON sr.id = srd.return_id
+                WHERE 1=1
+            `;
+            const returnsParams = [];
+            if (startDate) {
+                returnsSql += ` AND sr.return_date >= ?`;
+                returnsParams.push(startDate);
+            }
+            if (endDate) {
+                returnsSql += ` AND sr.return_date <= ?`;
+                returnsParams.push(endDate);
+            }
+            if (customerName) {
+                returnsSql += ` AND c.name LIKE ?`;
+                returnsParams.push(`%${customerName}%`);
+            }
+            returnsSql += ` GROUP BY sr.id`;
+            const returnRows = db.prepare(returnsSql).all(...returnsParams);
+            results.push(...returnRows);
+            results.sort((a, b) => {
+                const dateCompare = String(b.invoice_date || '').localeCompare(String(a.invoice_date || ''));
+                if (dateCompare !== 0) return dateCompare;
+                return Number(b.id || 0) - Number(a.id || 0);
+            });
+
+            let salesTotalSql = `
+                SELECT COALESCE(SUM(si.total_amount), 0) as total
+                FROM sales_invoices si
+                LEFT JOIN customers c ON si.customer_id = c.id
+                WHERE 1=1
+            `;
+            let salesCostSql = `
+                SELECT COALESCE(SUM(sid.quantity * sid.cost_price), 0) as total
+                FROM sales_invoice_details sid
+                JOIN sales_invoices si ON sid.invoice_id = si.id
+                LEFT JOIN customers c ON si.customer_id = c.id
+                WHERE 1=1
+            `;
+            let returnsTotalSql = `
+                SELECT COALESCE(SUM(sr.total_amount), 0) as total
+                FROM sales_returns sr
+                LEFT JOIN customers c ON sr.customer_id = c.id
+                WHERE 1=1
+            `;
+            let returnsCostSql = `
+                SELECT COALESCE(SUM(srd.quantity * srd.cost_price), 0) as total
+                FROM sales_return_details srd
+                JOIN sales_returns sr ON srd.return_id = sr.id
+                LEFT JOIN customers c ON sr.customer_id = c.id
+                WHERE 1=1
+            `;
+            const totalParams = [];
+            const costParams = [];
+            const returnParams = [];
+            const returnCostParams = [];
+            if (startDate) {
+                salesTotalSql += ` AND si.invoice_date >= ?`;
+                salesCostSql += ` AND si.invoice_date >= ?`;
+                returnsTotalSql += ` AND sr.return_date >= ?`;
+                returnsCostSql += ` AND sr.return_date >= ?`;
+                totalParams.push(startDate);
+                costParams.push(startDate);
+                returnParams.push(startDate);
+                returnCostParams.push(startDate);
+            }
+            if (endDate) {
+                salesTotalSql += ` AND si.invoice_date <= ?`;
+                salesCostSql += ` AND si.invoice_date <= ?`;
+                returnsTotalSql += ` AND sr.return_date <= ?`;
+                returnsCostSql += ` AND sr.return_date <= ?`;
+                totalParams.push(endDate);
+                costParams.push(endDate);
+                returnParams.push(endDate);
+                returnCostParams.push(endDate);
+            }
+            if (customerName) {
+                salesTotalSql += ` AND c.name LIKE ?`;
+                salesCostSql += ` AND c.name LIKE ?`;
+                returnsTotalSql += ` AND c.name LIKE ?`;
+                returnsCostSql += ` AND c.name LIKE ?`;
+                totalParams.push(`%${customerName}%`);
+                costParams.push(`%${customerName}%`);
+                returnParams.push(`%${customerName}%`);
+                returnCostParams.push(`%${customerName}%`);
+            }
+
+            const salesTotalMonth = db.prepare(salesTotalSql).get(...totalParams).total;
+            const cogsMonthSales = db.prepare(salesCostSql).get(...costParams).total;
+            const salesReturnsTotalMonth = db.prepare(returnsTotalSql).get(...returnParams).total;
+            const cogsMonthReturns = db.prepare(returnsCostSql).get(...returnCostParams).total;
+            const salesMonth = salesTotalMonth - salesReturnsTotalMonth;
+            const cogsMonth = cogsMonthSales - cogsMonthReturns;
+            const totalProfit = salesMonth - cogsMonth;
+
+            return { success: true, data: results, totalProfit };
         } catch (error) {
             console.error('[get-invoice-profit-report] Error:', error);
             return { success: false, error: error.message };

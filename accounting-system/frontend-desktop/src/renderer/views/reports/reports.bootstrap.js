@@ -40,6 +40,11 @@ function formatCurrency(v) {
     return parseFloat(v || 0).toFixed(2) + ' ' + CUR;
 }
 
+function getLocalYMD(d) {
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 10);
+}
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -655,11 +660,8 @@ function setDefaultProfitDateRange() {
     // تعيين التاريخ ليكون بداية الشهر الحالي (يوم 1)
     const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    profitStartDateInput.value = startDate.toISOString().split('T')[0];
-    profitEndDateInput.value = tomorrow.toISOString().split('T')[0];
+    profitStartDateInput.value = getLocalYMD(startDate);
+    profitEndDateInput.value = getLocalYMD(now);
 }
 
 async function loadProfitReports() {
@@ -672,7 +674,7 @@ async function loadProfitReports() {
     try {
         const response = await window.electronAPI.getInvoiceProfitReport(filters);
         if (response && response.success) {
-            renderProfitReports(response.data || []);
+            renderProfitReports(response.data || [], response.totalProfit);
         } else {
             console.error(response?.error);
             if (window.showToast) window.showToast('حدث خطأ أثناء تحميل أرباح الفواتير', 'error');
@@ -683,24 +685,37 @@ async function loadProfitReports() {
     }
 }
 
-function renderProfitReports(reports) {
+function renderProfitReports(reports, totalProfitValue) {
     profitTableBody.innerHTML = '';
     let totalProfit = 0;
+    const hasTotalProfitValue = totalProfitValue !== undefined && totalProfitValue !== null;
 
     if (!reports || reports.length === 0) {
         profitTableBody.innerHTML = `<tr><td colspan="8"><div class="empty-state">لا توجد فواتير مطابقة</div></td></tr>`;
-        if (profitTotalProfitEl) profitTotalProfitEl.textContent = formatCurrency(0);
+        if (profitTotalProfitEl) profitTotalProfitEl.textContent = formatCurrency(hasTotalProfitValue ? totalProfitValue : 0);
         return;
     }
 
     reports.forEach((report) => {
         totalProfit += Number(report.profit_amount || 0);
         const row = document.createElement('tr');
-        const profitMargin = report.total_amount > 0 ? ((report.profit_amount / report.total_amount) * 100).toFixed(2) + '%' : '0%';
-        const profitColor = report.profit_amount >= 0 ? '#2e7d32' : '#d32f2f';
+        const isReturn = report.record_type === 'sales_return';
+        const profitBase = Math.abs(Number(report.total_amount || 0));
+        const profitMargin = profitBase > 0 ? ((report.profit_amount / profitBase) * 100).toFixed(2) + '%' : '0%';
+        const profitColor = isReturn ? '#d97706' : (report.profit_amount >= 0 ? '#2e7d32' : '#d32f2f');
+        const rowMarker = isReturn ? `<span class="badge" style="background-color: #d97706; color: white; padding: 3px 7px; border-radius: 4px; margin-inline-start: 8px;">مرتجع</span>` : '';
+        const actionHtml = isReturn
+            ? `<span class="badge" style="background-color: rgba(217,119,6,0.14); color: #d97706; padding: 5px 10px; border-radius: 4px;">مرتجع مبيعات</span>`
+            : `<button type="button" class="btn-sm btn-edit btn-view-profit" data-id="${report.id}" data-invoice-number="${escapeHtml(report.invoice_number || report.id)}" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 4px; padding: 5px 10px; cursor: pointer;">
+                    <i class="fas fa-eye"></i> التفاصيل
+                </button>`;
+
+        if (isReturn) {
+            row.style.cssText = 'background: rgba(217, 119, 6, 0.08); box-shadow: inset -4px 0 0 #d97706;';
+        }
         
         row.innerHTML = `
-            <td><strong>${escapeHtml(report.invoice_number || report.id)}</strong></td>
+            <td><strong>${escapeHtml(report.invoice_number || report.id)}</strong>${rowMarker}</td>
             <td>${formatDateForUi(report.invoice_date)}</td>
             <td>${escapeHtml(report.customer_name || '-')}</td>
             <td>${formatCurrency(report.total_amount)}</td>
@@ -713,10 +728,14 @@ function renderProfitReports(reports) {
                 </button>
             </td>
         `;
+        if (isReturn) {
+            const actionCell = row.querySelector('td:last-child');
+            if (actionCell) actionCell.innerHTML = actionHtml;
+        }
         profitTableBody.appendChild(row);
     });
 
-    if (profitTotalProfitEl) profitTotalProfitEl.textContent = formatCurrency(totalProfit);
+    if (profitTotalProfitEl) profitTotalProfitEl.textContent = formatCurrency(hasTotalProfitValue ? totalProfitValue : totalProfit);
 }
 
 async function openProfitDetailsModal(invoiceId, invoiceNumber) {
