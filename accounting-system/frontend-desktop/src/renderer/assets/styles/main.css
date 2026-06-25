@@ -12,7 +12,9 @@ body {
     font-family: 'Cairo', 'Noto Kufi Arabic', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: var(--bg-color, #f4f6fb);
+    background-color: var(--bg-color, #f8fafc);
+    background-image: var(--bg-gradient); /* T3: gradient ناعم في Light Mode */
+    background-attachment: fixed;
     color: var(--text-color);
     min-height: 100vh;
     direction: ltr; /* Keep viewport scrollbar on the right */
@@ -151,11 +153,12 @@ table td {
 }
 
 header {
-    background-color: var(--card-bg);
+    background: var(--header-bg, var(--card-bg)); /* T8: gradient header */
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.08);
     margin-bottom: 20px;
+    border: 1px solid var(--card-border);
 }
 
 .dashboard-widgets {

@@ -192,7 +192,7 @@
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
-    border: 1px solid #1e293b;
+    border: 1px solid var(--card-border); /* T7: استبدال #1e293b بـ variable */
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -232,16 +232,17 @@
     align-items: center;
     justify-content: center;
     font-size: 1.5rem;
-    background: rgba(102, 126, 234, 0.1);
-    color: #667eea;
+    background: rgba(102, 126, 234, 0.18); /* T6: 0.1 → 0.18 */
+    color: #818cf8; /* T6: أفتح للـ Dark */
+    transition: background 0.2s ease;
 }
-.metric-card:nth-child(2) .metric-icon { background: rgba(17, 153, 142, 0.1); color: #11998e; }
-.metric-card:nth-child(3) .metric-icon { background: rgba(255, 153, 102, 0.1); color: #ff9966; }
-.metric-card:nth-child(4) .metric-icon { background: rgba(253, 200, 48, 0.1); color: #F37335; }
-.metric-card:nth-child(5) .metric-icon { background: rgba(8, 145, 178, 0.1); color: #0891b2; }
-.metric-card:nth-child(6) .metric-icon { background: rgba(225, 29, 72, 0.1); color: #e11d48; }
-.metric-card:nth-child(7) .metric-icon { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
-.metric-card:nth-child(8) .metric-icon { background: rgba(5, 150, 105, 0.1); color: #059669; }
+.metric-card:nth-child(2) .metric-icon { background: rgba(17, 153, 142, 0.18); color: #34d399; }
+.metric-card:nth-child(3) .metric-icon { background: rgba(255, 153, 102, 0.18); color: #fb923c; }
+.metric-card:nth-child(4) .metric-icon { background: rgba(253, 200, 48, 0.18); color: #fbbf24; }
+.metric-card:nth-child(5) .metric-icon { background: rgba(8, 145, 178, 0.18); color: #38bdf8; }
+.metric-card:nth-child(6) .metric-icon { background: rgba(225, 29, 72, 0.18); color: #f43f5e; }
+.metric-card:nth-child(7) .metric-icon { background: rgba(139, 92, 246, 0.18); color: #a78bfa; }
+.metric-card:nth-child(8) .metric-icon { background: rgba(5, 150, 105, 0.18); color: #10b981; }
 .metric-label {
     font-size: 0.95rem;
     color: var(--text-secondary);

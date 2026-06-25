@@ -4,8 +4,10 @@
        1. CORE COLORS (Backgrounds & Surfaces)
        ========================================================================= */
     --bg-color: #f8fafc;           /* App main background */
+    --bg-gradient: linear-gradient(160deg, #f0f4ff 0%, #f8fafc 60%, #fafcff 100%); /* T3: gradient ناعم */
     --card-bg: #ffffff;            /* Card/Panel background */
     --secondary-bg: #f8fafc;       /* Headers, Footers, Modals */
+    --header-bg: linear-gradient(135deg, #f8faff 0%, #f3f7ff 100%); /* T8: header gradient */
     --nav-bg: #0f172a;             /* Main Navigation */
     --dropdown-bg: #111827;        /* Dropdown Menus */
 
@@ -64,10 +66,20 @@
    --radius-sm: 10px;
    --radius-md: 12px;
    --radius-lg: 16px;
-   --elevation-sm: 0 6px 20px rgba(15, 23, 42, 0.08);
-   --elevation-md: 0 12px 30px rgba(15, 23, 42, 0.12);
-   --elevation-lg: 0 20px 50px rgba(15, 23, 42, 0.16);
+   --elevation-sm: 0 4px 16px rgba(15, 23, 42, 0.10), 0 1px 4px rgba(15, 23, 42, 0.06); /* T4: أوضح */
+   --elevation-md: 0 12px 32px rgba(15, 23, 42, 0.14), 0 4px 8px rgba(15, 23, 42, 0.06); /* T4: أوضح */
+   --elevation-lg: 0 20px 50px rgba(15, 23, 42, 0.18);
    --focus-outline: rgba(37, 99, 235, 0.35);
+   /* T11: Typography Scale */
+   --text-xs: 0.75rem;
+   --text-sm: 0.875rem;
+   --text-base: 1rem;
+   --text-lg: 1.125rem;
+   --text-xl: 1.25rem;
+   --text-2xl: 1.5rem;
+   /* Sales/Purchase Light Mode */
+   --sales-border: rgba(22, 163, 74, 0.25);
+   --purchase-border: rgba(194, 65, 12, 0.25);
 
     /* =========================================================================
        7. GRADIENTS (Unified Palette)

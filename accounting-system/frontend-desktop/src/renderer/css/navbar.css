@@ -1,6 +1,3 @@
-:root {
-    /* Variables are now defined in main.css */
-}
 
 body {
     margin: 0;
@@ -19,7 +16,7 @@ body {
     padding: 0 24px;
     min-height: 64px;
     box-shadow: var(--shadow-sm);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    border-bottom: 2px solid rgba(37, 99, 235, 0.45); /* T9: accent bottom border */
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -97,13 +94,13 @@ body {
 }
 
 .btn-nav-secondary {
-    background-color: rgba(255, 255, 255, 0.08) !important;
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    background-color: rgba(255, 255, 255, 0.14) !important; /* T10: مرئي أكثر */
+    border: 1px solid rgba(148, 163, 184, 0.45);
     color: var(--nav-text) !important;
 }
 
 .btn-nav-secondary:hover {
-    background-color: rgba(148, 163, 184, 0.2) !important;
+    background-color: rgba(148, 163, 184, 0.28) !important;
 }
 
 /* Global search button in nav */

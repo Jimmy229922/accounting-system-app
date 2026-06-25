@@ -46,8 +46,10 @@
        ========================================================================= */
     --sales-color: #34d875;
     --sales-bg: #064e3b;           /* Deep green background */
+    --sales-border: rgba(52, 216, 117, 0.3);   /* T13: subtle sales border */
     --purchase-color: #fb923c;
     --purchase-bg: #7c2d12;        /* Deep orange background */
+    --purchase-border: rgba(251, 146, 60, 0.3); /* T13: subtle purchase border */
     
     --items-accent: #818cf8;
     --items-accent-light: rgba(129, 140, 248, 0.15);
@@ -82,20 +84,33 @@
     
     --items-gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     --items-gradient-2: linear-gradient(135deg, #059669 0%, #10b981 100%);
+
+    /* T11b: Typography Scale (Dark) */
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    /* T8b: header-bg Dark Mode */
+    --header-bg: linear-gradient(135deg, #131b2e 0%, #0f1729 100%);
+    /* T3b: no gradient in dark — use solid bg */
+    --bg-gradient: none;
 }
 
 /* =========================================================================
    Global Overrides for Dark Mode Elements
    ========================================================================= */
-[data-theme="dark"] button,
-[data-theme="dark"] .btn { 
+/* T1: تضييق الـ selector لحماية الأزرار الملونة من الـ override */
+[data-theme="dark"] button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-nav):not(.btn-refresh):not(.btn-submit):not([class*="btn-"]),
+[data-theme="dark"] .btn:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-nav):not(.btn-refresh):not(.btn-submit) { 
     border-color: var(--border-color); 
     background: #1e293b;
     color: var(--text-color);
 }
 
-[data-theme="dark"] button:hover,
-[data-theme="dark"] .btn:hover { 
+[data-theme="dark"] button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-nav):not(.btn-refresh):not(.btn-submit):not([class*="btn-"]):hover,
+[data-theme="dark"] .btn:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-nav):not(.btn-refresh):not(.btn-submit):hover { 
     background: #2d3b56; 
     border-color: var(--input-border); 
 }
@@ -113,8 +128,8 @@
 
 [data-theme="dark"] ::-webkit-scrollbar { width: 10px; height: 10px; }
 [data-theme="dark"] ::-webkit-scrollbar-track { background: var(--secondary-bg); }
-[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 5px; }
-[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #4d5f7b; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #3d4f6b; border-radius: 5px; } /* T2: رفع contrast */
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #5a7099; }
 
 [data-theme="dark"] input:disabled, 
 [data-theme="dark"] button:disabled, 
@@ -133,8 +148,8 @@
 [data-theme="dark"] .modal, 
 [data-theme="dark"] .modal-content {
     background: var(--card-bg); 
-    border: 1px solid var(--card-border); 
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(112, 181, 255, 0.18); /* T5: glow border */
+    box-shadow: 0 0 0 1px rgba(112, 181, 255, 0.08), 0 25px 60px rgba(0, 0, 0, 0.65); /* T5: depth */
 }
 
 [data-theme="dark"] .modal-header { border-bottom: 1px solid var(--card-border); background: var(--secondary-bg); }
