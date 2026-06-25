@@ -1,6 +1,8 @@
 const { ipcMain } = require('electron');
 const { db } = require('../db');
 const { requirePermission } = require('./auth');
+const { getCurrentTreasuryBalance } = require('./treasury');
+
 
 function toPositiveNumber(value) {
     const n = Number(value);
@@ -62,7 +64,15 @@ function register() {
     ipcMain.handle('save-purchase-invoice', (event, invoiceData) => {
         const denied = requirePermission('purchases', 'add');
         if (denied) return denied;
-        const { supplier_id, invoice_number, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
+                const { supplier_id, invoice_number, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
+
+        if (invoice_number && String(invoice_number).trim() !== '') {
+            const existing = db.prepare('SELECT id FROM purchase_invoices WHERE TRIM(invoice_number) = TRIM(?)').get(String(invoice_number).trim());
+            if (existing) {
+                return { success: false, error: 'رقم الفاتورة مكرر بالفعل في قاعدة البيانات' };
+            }
+        }
+
 
         let subtotalAmount = 0;
         for (const item of items) {
@@ -76,15 +86,24 @@ function register() {
             paidAmount: paid_amount
         });
 
+        if (financials.paid_amount > 0) {
+            const currentTreasuryBalance = getCurrentTreasuryBalance();
+            
+            if (financials.paid_amount > currentTreasuryBalance) {
+                return { success: false, error: 'الرصيد الحالي في الخزينة لا يكفي لدفع هذا المبلغ' };
+            }
+        }
+
         const insertInvoice = db.prepare(`
             INSERT INTO purchase_invoices (supplier_id, invoice_number, invoice_date, total_amount, discount_type, discount_value, discount_amount, paid_amount, remaining_amount, payment_type, notes)
             VALUES (@supplier_id, @invoice_number, @invoice_date, @total_amount, @discount_type, @discount_value, @discount_amount, @paid_amount, @remaining_amount, @payment_type, @notes)
         `);
 
         const insertDetail = db.prepare(`
-            INSERT INTO purchase_invoice_details (invoice_id, item_id, quantity, cost_price, total_price)
-            VALUES (@invoice_id, @item_id, @quantity, @cost_price, @total_price)
+            INSERT INTO purchase_invoice_details (invoice_id, item_id, quantity, cost_price, previous_cost_price, total_price)
+            VALUES (@invoice_id, @item_id, @quantity, @cost_price, @previous_cost_price, @total_price)
         `);
+        const getItemCost = db.prepare('SELECT cost_price FROM items WHERE id = ?');
 
         const updateItemStock = db.prepare(`
             UPDATE items 
@@ -120,12 +139,18 @@ function register() {
             });
             const invoiceId = info.lastInsertRowid;
 
+            const previousCostsByItem = new Map();
             for (const item of data.items) {
+                if (!previousCostsByItem.has(item.item_id)) {
+                    const currentItem = getItemCost.get(item.item_id);
+                    previousCostsByItem.set(item.item_id, Number(currentItem?.cost_price) || 0);
+                }
                 insertDetail.run({
                     invoice_id: invoiceId,
                     item_id: item.item_id,
                     quantity: item.quantity,
                     cost_price: item.cost_price,
+                    previous_cost_price: previousCostsByItem.get(item.item_id),
                     total_price: item.total_price
                 });
 
@@ -169,7 +194,15 @@ function register() {
     ipcMain.handle('update-purchase-invoice', (event, invoiceData) => {
         const denied = requirePermission('purchases', 'edit');
         if (denied) return denied;
-        const { id, supplier_id, invoice_number, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
+                const { id, supplier_id, invoice_number, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
+        
+        if (invoice_number && String(invoice_number).trim() !== '') {
+            const existing = db.prepare('SELECT id FROM purchase_invoices WHERE TRIM(invoice_number) = TRIM(?) AND id != ?').get(String(invoice_number).trim(), id);
+            if (existing) {
+                return { success: false, error: 'رقم الفاتورة مكرر بالفعل في قاعدة البيانات' };
+            }
+        }
+
         
         const oldInvoice = db.prepare('SELECT * FROM purchase_invoices WHERE id = ?').get(id);
         const oldDetails = db.prepare('SELECT * FROM purchase_invoice_details WHERE invoice_id = ?').all(id);
@@ -185,6 +218,15 @@ function register() {
             discountValue: discount_value,
             paidAmount: paid_amount
         });
+
+        if (financials.paid_amount > 0) {
+            const currentTreasuryBalance = getCurrentTreasuryBalance();
+            const effectiveBalance = currentTreasuryBalance + (Number(oldInvoice.paid_amount) || 0);
+            
+            if (financials.paid_amount > effectiveBalance) {
+                return { success: false, error: 'الرصيد الحالي في الخزينة لا يكفي لتعديل المبلغ المدفوع' };
+            }
+        }
 
         const transaction = db.transaction(() => {
             // --- REVERSE OLD ---
@@ -245,17 +287,41 @@ function register() {
             });
 
             const insertDetail = db.prepare(`
-                INSERT INTO purchase_invoice_details (invoice_id, item_id, quantity, cost_price, total_price)
-                VALUES (@invoice_id, @item_id, @quantity, @cost_price, @total_price)
+                INSERT INTO purchase_invoice_details (invoice_id, item_id, quantity, cost_price, previous_cost_price, total_price)
+                VALUES (@invoice_id, @item_id, @quantity, @cost_price, @previous_cost_price, @total_price)
             `);
             const updateItemCostPrice = db.prepare('UPDATE items SET cost_price = @cost_price WHERE id = @item_id');
+            const getItemCost = db.prepare('SELECT cost_price FROM items WHERE id = ?');
+            const getLatestPurchaseCost = db.prepare(`
+                SELECT pid.cost_price
+                FROM purchase_invoice_details pid
+                JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+                WHERE pid.item_id = ? AND pid.invoice_id != ?
+                ORDER BY pi.invoice_date DESC, pi.id DESC, pid.id DESC
+                LIMIT 1
+            `);
+            const previousCostsByItem = new Map();
 
             for (const item of items) {
+                if (!previousCostsByItem.has(item.item_id)) {
+                    const oldDetail = oldDetails.find((detail) => Number(detail.item_id) === Number(item.item_id) && Number.isFinite(Number(detail.previous_cost_price)));
+                    const latestPurchase = getLatestPurchaseCost.get(item.item_id, id);
+                    const currentItem = getItemCost.get(item.item_id);
+                    previousCostsByItem.set(
+                        item.item_id,
+                        Number.isFinite(Number(oldDetail?.previous_cost_price))
+                            ? Number(oldDetail.previous_cost_price)
+                            : Number.isFinite(Number(latestPurchase?.cost_price))
+                                ? Number(latestPurchase.cost_price)
+                                : Number(currentItem?.cost_price) || 0
+                    );
+                }
                 insertDetail.run({
                     invoice_id: id,
                     item_id: item.item_id,
                     quantity: item.quantity,
                     cost_price: item.cost_price,
+                    previous_cost_price: previousCostsByItem.get(item.item_id),
                     total_price: item.total_price
                 });
                 updateItemCostPrice.run({ cost_price: item.cost_price, item_id: item.item_id });

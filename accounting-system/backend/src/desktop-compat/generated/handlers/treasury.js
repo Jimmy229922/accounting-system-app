@@ -201,12 +201,22 @@ function register() {
         const deleteTrans = db.prepare('DELETE FROM treasury_transactions WHERE id = ?');
         
         // Sales Updates
-        const updateSalesInvoice = db.prepare('UPDATE sales_invoices SET paid_amount = paid_amount - @amount, remaining_amount = remaining_amount + @amount WHERE id = @id');
+        const updateSalesInvoice = db.prepare(`
+            UPDATE sales_invoices
+            SET paid_amount = CASE WHEN paid_amount > @amount THEN paid_amount - @amount ELSE 0 END,
+                remaining_amount = total_amount - CASE WHEN paid_amount > @amount THEN paid_amount - @amount ELSE 0 END
+            WHERE id = @id
+        `);
         const updateCustomer = db.prepare('UPDATE customers SET balance = balance + @amount WHERE id = @id');
         const getSalesInvoice = db.prepare('SELECT customer_id FROM sales_invoices WHERE id = ?');
 
         // Purchase Updates
-        const updatePurchaseInvoice = db.prepare('UPDATE purchase_invoices SET paid_amount = paid_amount - @amount, remaining_amount = remaining_amount + @amount WHERE id = @id');
+        const updatePurchaseInvoice = db.prepare(`
+            UPDATE purchase_invoices
+            SET paid_amount = CASE WHEN paid_amount > @amount THEN paid_amount - @amount ELSE 0 END,
+                remaining_amount = total_amount - CASE WHEN paid_amount > @amount THEN paid_amount - @amount ELSE 0 END
+            WHERE id = @id
+        `);
         const getPurchaseInvoice = db.prepare('SELECT supplier_id FROM purchase_invoices WHERE id = ?');
 
         const tx = db.transaction(() => {
@@ -226,7 +236,7 @@ function register() {
                     updateSalesInvoice.run({ amount: trans.amount, id: trans.related_invoice_id });
                     
                     const invoice = getSalesInvoice.get(trans.related_invoice_id);
-                    if (invoice && invoice.customer_id) {
+                    if (invoice && invoice.customer_id && !trans.customer_id) {
                         updateCustomer.run({ amount: trans.type === 'expense' ? -trans.amount : trans.amount, id: invoice.customer_id });
                     }
                 } else if (trans.related_type === 'purchase') {
@@ -234,7 +244,7 @@ function register() {
                     updatePurchaseInvoice.run({ amount: trans.amount, id: trans.related_invoice_id });
                     
                     const invoice = getPurchaseInvoice.get(trans.related_invoice_id);
-                    if (invoice && invoice.supplier_id) {
+                    if (invoice && invoice.supplier_id && !trans.customer_id) {
                         updateCustomer.run({ amount: trans.type === 'expense' ? -trans.amount : trans.amount, id: invoice.supplier_id });
                     }
                 }
@@ -267,4 +277,4 @@ function register() {
     });
 }
 
-module.exports = { register };
+module.exports = { register, getCurrentTreasuryBalance };

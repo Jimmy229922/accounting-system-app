@@ -74,7 +74,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateWarehouse: (data) => invokeChannel('update-warehouse', data),
     deleteWarehouse: (id) => invokeChannel('delete-warehouse', id),
     getOpeningBalances: () => invokeChannel('get-opening-balances'),
-    saveOpeningBalances: (entries) => invokeChannel('save-opening-balances', { entries }),
     addOpeningBalance: (entry) => invokeChannel('add-opening-balance', entry),
     updateOpeningBalance: (entry) => invokeChannel('update-opening-balance', entry),
     deleteOpeningBalance: (id) => invokeChannel('delete-opening-balance', id),
@@ -92,10 +91,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateCustomer: (customer) => invokeChannel('update-customer', customer),
     deleteCustomer: (id) => invokeChannel('delete-customer', id),
 
-    // Suppliers API
-    getSuppliers: () => invokeChannel('get-suppliers'),
-    addSupplier: (supplier) => invokeChannel('add-supplier', supplier),
-    deleteSupplier: (id) => invokeChannel('delete-supplier', id),
+
 
     // Purchase Invoices API
     getPurchaseInvoices: () => invokeChannel('get-purchase-invoices'),
@@ -189,17 +185,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Summary Statement
     getCustomerSummaryStatement: (params) => invokeChannel('get-customer-summary-statement', params),
-
-    // Sales Returns API
-    getSalesReturns: () => invokeChannel('get-sales-returns'),
-    getCustomerSalesInvoices: (customerId) => invokeChannel('get-customer-sales-invoices', customerId),
-    getInvoiceItemsForReturn: (invoiceId, type) => invokeChannel('get-invoice-items-for-return', { invoiceId, type }),
-    saveSalesReturn: (data) => invokeChannel('save-sales-return', data),
-    updateSalesReturn: (data) => invokeChannel('update-sales-return', data),
-    deleteSalesReturn: (id) => invokeChannel('delete-sales-return', id),
-
-    // Purchase Returns API
-    getPurchaseReturns: () => invokeChannel('get-purchase-returns'),
 
     // Sales Returns API
     getSalesReturns: () => invokeChannel('get-sales-returns'),

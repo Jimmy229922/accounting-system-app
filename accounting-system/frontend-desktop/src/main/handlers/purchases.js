@@ -64,7 +64,15 @@ function register() {
     ipcMain.handle('save-purchase-invoice', (event, invoiceData) => {
         const denied = requirePermission('purchases', 'add');
         if (denied) return denied;
-        const { supplier_id, invoice_number, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
+                const { supplier_id, invoice_number, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
+
+        if (invoice_number && String(invoice_number).trim() !== '') {
+            const existing = db.prepare('SELECT id FROM purchase_invoices WHERE TRIM(invoice_number) = TRIM(?)').get(String(invoice_number).trim());
+            if (existing) {
+                return { success: false, error: 'رقم الفاتورة مكرر بالفعل في قاعدة البيانات' };
+            }
+        }
+
 
         let subtotalAmount = 0;
         for (const item of items) {
@@ -186,7 +194,15 @@ function register() {
     ipcMain.handle('update-purchase-invoice', (event, invoiceData) => {
         const denied = requirePermission('purchases', 'edit');
         if (denied) return denied;
-        const { id, supplier_id, invoice_number, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
+                const { id, supplier_id, invoice_number, invoice_date, notes, items, payment_type, discount_type, discount_value, paid_amount } = invoiceData;
+        
+        if (invoice_number && String(invoice_number).trim() !== '') {
+            const existing = db.prepare('SELECT id FROM purchase_invoices WHERE TRIM(invoice_number) = TRIM(?) AND id != ?').get(String(invoice_number).trim(), id);
+            if (existing) {
+                return { success: false, error: 'رقم الفاتورة مكرر بالفعل في قاعدة البيانات' };
+            }
+        }
+
         
         const oldInvoice = db.prepare('SELECT * FROM purchase_invoices WHERE id = ?').get(id);
         const oldDetails = db.prepare('SELECT * FROM purchase_invoice_details WHERE invoice_id = ?').all(id);

@@ -1,5 +1,5 @@
 const { db } = require('./db');
-const BALANCE_REPAIR_FLAG_KEY = 'balance_repair_v2_completed';
+const BALANCE_REPAIR_FLAG_KEY = 'balance_repair_v3_completed';
 
 function roundMoney(value) {
     const n = Number(value) || 0;

@@ -190,7 +190,7 @@ function register() {
 
         const getReturn = db.prepare('SELECT * FROM sales_returns WHERE id = ?');
         const getReturnDetails = db.prepare('SELECT * FROM sales_return_details WHERE return_id = ?');
-        const getOriginalInvoice = db.prepare('SELECT payment_type FROM sales_invoices WHERE id = ?');
+        const getOriginalInvoice = db.prepare('SELECT payment_type, total_amount, paid_amount FROM sales_invoices WHERE id = ?');
 
         const updateReturn = db.prepare(`
             UPDATE sales_returns

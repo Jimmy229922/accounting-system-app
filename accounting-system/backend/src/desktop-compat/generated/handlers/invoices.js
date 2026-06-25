@@ -175,7 +175,17 @@ function register() {
         const invoice = db.prepare(`SELECT * FROM ${invoiceTable} WHERE id = ?`).get(id);
         if (!invoice) return { success: false, error: 'الفاتورة غير موجودة أو تم حذفها من قبل' };
 
+        const returnsTable = isSales ? 'sales_returns' : 'purchase_returns';
+        const hasReturns = db.prepare(`SELECT COUNT(*) as count FROM ${returnsTable} WHERE original_invoice_id = ?`).get(id).count > 0;
+        if (hasReturns) {
+            return {
+                success: false,
+                error: 'لا يمكن حذف هذه الفاتورة لوجود مرتجعات (فواتير إرجاع) مرتبطة بها. يرجى حذف المرتجعات الخاصة بها أولاً.'
+            };
+        }
+
         const details = db.prepare(`SELECT * FROM ${detailsTable} WHERE invoice_id = ?`).all(id);
+        const previousCostsByItem = new Map();
 
         if (!isSales) {
             const quantitiesByItem = new Map();
@@ -183,6 +193,9 @@ function register() {
                 const itemId = Number(item.item_id);
                 if (!Number.isFinite(itemId)) return;
                 quantitiesByItem.set(itemId, (quantitiesByItem.get(itemId) || 0) + (Number(item.quantity) || 0));
+                if (!previousCostsByItem.has(itemId) && Number.isFinite(Number(item.previous_cost_price))) {
+                    previousCostsByItem.set(itemId, Number(item.previous_cost_price));
+                }
             });
 
             const getItemStock = db.prepare('SELECT name, stock_quantity FROM items WHERE id = ?');
@@ -200,6 +213,23 @@ function register() {
         }
 
         const transaction = db.transaction(() => {
+            const restorePurchaseItemCost = !isSales ? db.prepare(`
+                SELECT pid.cost_price
+                FROM purchase_invoice_details pid
+                JOIN purchase_invoices pi ON pid.invoice_id = pi.id
+                WHERE pid.item_id = ? AND pid.invoice_id != ?
+                ORDER BY pi.invoice_date DESC, pi.id DESC, pid.id DESC
+                LIMIT 1
+            `) : null;
+            const getOpeningItemCost = !isSales ? db.prepare(`
+                SELECT cost_price
+                FROM opening_balances
+                WHERE item_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+            `) : null;
+            const updateItemCostPrice = !isSales ? db.prepare('UPDATE items SET cost_price = ? WHERE id = ?') : null;
+
             // 1. Reverse Stock
             for (const item of details) {
                 if (isSales) {
@@ -208,6 +238,24 @@ function register() {
                 } else {
                     // Purchase added stock, so remove it
                     db.prepare('UPDATE items SET stock_quantity = stock_quantity - ? WHERE id = ?').run(item.quantity, item.item_id);
+                }
+            }
+
+            if (!isSales) {
+                const itemIds = new Set(details.map((item) => Number(item.item_id)).filter((itemId) => Number.isFinite(itemId)));
+                for (const itemId of itemIds) {
+                    const latestPurchase = restorePurchaseItemCost.get(itemId, id);
+                    const openingCost = getOpeningItemCost.get(itemId);
+                    const nextCost = Number.isFinite(Number(latestPurchase?.cost_price))
+                        ? Number(latestPurchase.cost_price)
+                        : previousCostsByItem.has(itemId)
+                            ? previousCostsByItem.get(itemId)
+                            : Number.isFinite(Number(openingCost?.cost_price))
+                                ? Number(openingCost.cost_price)
+                                : null;
+                    if (nextCost !== null) {
+                        updateItemCostPrice.run(nextCost, itemId);
+                    }
                 }
             }
 

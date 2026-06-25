@@ -83,7 +83,7 @@ function register() {
 
             const salesTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_invoices WHERE invoice_date = ?").get(today).total;
             const salesReturnsTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_returns WHERE return_date = ?").get(today).total;
-            const salesToday = Math.max(0, salesTotalToday - salesReturnsTotalToday);
+            const salesToday = salesTotalToday - salesReturnsTotalToday;
 
             const salesTotalMonth = db.prepare(`
                 SELECT COALESCE(SUM(total_amount), 0) as total
@@ -93,11 +93,11 @@ function register() {
                 SELECT COALESCE(SUM(total_amount), 0) as total
                 FROM sales_returns WHERE 1=1${returnRange.clause}
             `).get(...returnRange.params).total;
-            const salesMonth = Math.max(0, salesTotalMonth - salesReturnsTotalMonth);
+            const salesMonth = salesTotalMonth - salesReturnsTotalMonth;
 
             const purchasesTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_invoices WHERE invoice_date = ?").get(today).total;
             const purchaseReturnsTotalToday = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_returns WHERE return_date = ?").get(today).total;
-            const purchasesToday = Math.max(0, purchasesTotalToday - purchaseReturnsTotalToday);
+            const purchasesToday = purchasesTotalToday - purchaseReturnsTotalToday;
 
             const purchasesTotalMonth = db.prepare(`
                 SELECT COALESCE(SUM(total_amount), 0) as total
@@ -107,7 +107,7 @@ function register() {
                 SELECT COALESCE(SUM(total_amount), 0) as total
                 FROM purchase_returns WHERE 1=1${returnRange.clause}
             `).get(...returnRange.params).total;
-            const purchasesMonth = Math.max(0, purchasesTotalMonth - purchaseReturnsTotalMonth);
+            const purchasesMonth = purchasesTotalMonth - purchaseReturnsTotalMonth;
 
             // --- Net profit (sales revenue - COGS this month) ---
             // Uses the historical cost_price stored in each invoice detail at the time of the transaction
@@ -125,7 +125,7 @@ function register() {
                 WHERE 1=1${salesReturnRange.clause}
             `).get(...salesReturnRange.params).total;
 
-            const cogsMonth = Math.max(0, cogsMonthSales - cogsMonthReturns);
+            const cogsMonth = cogsMonthSales - cogsMonthReturns;
             const netProfit = salesMonth - cogsMonth;
 
             // --- Treasury balance ---

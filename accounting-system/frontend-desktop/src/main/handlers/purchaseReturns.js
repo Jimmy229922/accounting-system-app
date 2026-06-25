@@ -216,7 +216,7 @@ function register() {
             newTotalAmount += Number(item.total_price) || 0;
         }
 
-        const getOriginalInvoice = db.prepare('SELECT payment_type FROM purchase_invoices WHERE id = ?');
+        const getOriginalInvoice = db.prepare('SELECT payment_type, total_amount, paid_amount FROM purchase_invoices WHERE id = ?');
         const updateReturn = db.prepare(`
             UPDATE purchase_returns
             SET return_number = @return_number,

@@ -20,48 +20,7 @@ function register() {
         }
     });
 
-    ipcMain.handle('save-opening-balances', (event, payload) => {
-        const denied = requirePermission('opening-balance', 'add');
-        if (denied) return denied;
-        const entries = Array.isArray(payload?.entries) ? payload.entries : [];
 
-        const insertBalance = db.prepare(`
-            INSERT INTO opening_balances (item_id, warehouse_id, quantity, cost_price)
-            VALUES (@item_id, @warehouse_id, @quantity, @cost_price)
-        `);
-
-        const clearBalances = db.prepare('DELETE FROM opening_balances');
-        const updateItemStock = db.prepare('UPDATE items SET stock_quantity = @qty, cost_price = CASE WHEN @cost_price > 0 THEN @cost_price ELSE cost_price END WHERE id = @id');
-
-        const tx = db.transaction((rows) => {
-            clearBalances.run();
-
-            const totalsByItem = {};
-            rows.forEach((row) => {
-                const quantity = Number(row.quantity) || 0;
-                const cost_price = Number(row.cost_price) || 0;
-                const item_id = Number(row.item_id);
-                const warehouse_id = Number(row.warehouse_id);
-                if (!item_id || !warehouse_id) return;
-
-                insertBalance.run({ item_id, warehouse_id, quantity, cost_price });
-                totalsByItem[item_id] = (totalsByItem[item_id] || 0) + quantity;
-            });
-
-            Object.entries(totalsByItem).forEach(([itemId, qty]) => {
-                // Use last provided cost for that item if present
-                const lastCost = rows.find((r) => Number(r.item_id) === Number(itemId) && Number(r.cost_price) > 0)?.cost_price || 0;
-                updateItemStock.run({ id: Number(itemId), qty, cost_price: Number(lastCost) || 0 });
-            });
-        });
-
-        try {
-            tx(entries);
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    });
 
     const insertOpeningBalanceGroupStmt = db.prepare('INSERT INTO opening_balance_groups (notes) VALUES (?)');
     const updateOpeningBalanceGroupStmt = db.prepare('UPDATE opening_balance_groups SET notes = ? WHERE id = ?');

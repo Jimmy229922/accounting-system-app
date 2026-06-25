@@ -499,6 +499,39 @@ function initDB() {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_items_barcode ON items(barcode)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_customers_type ON customers(type)`);
+
+    // Resolve duplicate customer codes before creating unique index
+    try {
+        const duplicates = db.prepare(`
+            SELECT code, COUNT(*) as count 
+            FROM customers 
+            WHERE code IS NOT NULL 
+            GROUP BY code 
+            HAVING count > 1
+        `).all();
+
+        if (duplicates.length > 0) {
+            console.log(`[Repair System] Found ${duplicates.length} duplicate customer codes. Resolving...`);
+            const maxCodeResult = db.prepare('SELECT MAX(code) as max_code FROM customers').get();
+            let nextCode = (maxCodeResult?.max_code || 0) + 1;
+            
+            const findRows = db.prepare('SELECT id FROM customers WHERE code = ? ORDER BY id ASC');
+            const updateRow = db.prepare('UPDATE customers SET code = ? WHERE id = ?');
+            
+            for (const dup of duplicates) {
+                const rows = findRows.all(dup.code);
+                // Keep the first row, update the rest
+                for (let i = 1; i < rows.length; i++) {
+                    console.log(`[Repair System] Re-assigning duplicate customer code ${dup.code} for customer ID ${rows[i].id} to ${nextCode}`);
+                    updateRow.run(nextCode++, rows[i].id);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[Repair System] Failed to resolve duplicate customer codes:', err);
+    }
+
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_code_unique ON customers(code) WHERE code IS NOT NULL`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_invoices_customer_id ON sales_invoices(customer_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_invoices_invoice_date ON sales_invoices(invoice_date)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_sales_invoices_invoice_number ON sales_invoices(invoice_number)`);
