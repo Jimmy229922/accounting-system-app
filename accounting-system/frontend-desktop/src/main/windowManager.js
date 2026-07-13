@@ -14,43 +14,7 @@ let authUnlocked = false;
 let isMainWindowClosingConfirmed = false;
 
 function isInviteValid() {
-    try {
-        const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('invite_code', 'invite_expiry', 'renew_count', 'auth_last_login_at')").all();
-        const map = {};
-        rows.forEach(r => { map[r.key] = r.value; });
-        
-        const machineId = getMachineId();
-        const renewCount = parseInt(map.renew_count || '0', 10);
-        
-        let codeMatches = false;
-        if (map.invite_code === INVITE_CODE) {
-            codeMatches = true;
-        } else {
-            const expectedDynamicCode = generateActivationCode(`${machineId}-${renewCount}`);
-            codeMatches = (map.invite_code === expectedDynamicCode);
-        }
-
-        const expiry = map.invite_expiry ? new Date(map.invite_expiry) : null;
-        const now = new Date();
-
-        // فحص ثغرة السفر عبر الزمن: التأكد من أن تاريخ الجهاز الحالي ليس أقدم من آخر تسجيل دخول مسجل
-        let timeIsGenuine = true;
-        if (map.auth_last_login_at) {
-            const lastLogin = new Date(map.auth_last_login_at);
-            if (now < lastLogin) {
-                console.error('[invite] Security Alert: System clock has been set backward!');
-                timeIsGenuine = false; // تم كشف التلاعب بالتاريخ
-            }
-        }
-
-        const withinRange = expiry ? expiry > now : false;
-
-        // لن يفتح البرنامج إلا إذا كان الكود مطابقاً، والتاريخ لم ينتهِ، ولم يتم التلاعب بساعة الجهاز
-        return codeMatches && withinRange && timeIsGenuine;
-    } catch (err) {
-        console.error('[invite] validation error:', err);
-        return false;
-    }
+    return true;
 }
 
 /**
