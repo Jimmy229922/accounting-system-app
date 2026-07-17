@@ -1469,9 +1469,14 @@ body.sales-print-mode .print-shell {
 
     .print-items-table {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
         margin-bottom: 20px;
         page-break-inside: auto !important;
+        border-top: 1px solid #000 !important;
+        border-right: 1px solid #000 !important;
+        border-bottom: none !important;
+        border-left: none !important;
     }
 
     .print-items-table thead {
@@ -1479,7 +1484,10 @@ body.sales-print-mode .print-shell {
     }
 
     .print-items-table th, .print-items-table td {
-        border: 1px solid #000 !important;
+        border-left: 1px solid #000 !important;
+        border-bottom: 1px solid #000 !important;
+        border-right: none !important;
+        border-top: none !important;
         padding: 8px;
         text-align: center;
     }

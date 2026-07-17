@@ -24,7 +24,8 @@
                 itemsBody: null,
                 returnTotal: null,
                 saveBtn: null,
-                historyContent: null
+                historyContent: null,
+                printPreviewModal: null
             }
         };
     }
@@ -40,6 +41,7 @@
         state.dom.returnTotal = document.getElementById('returnTotal');
         state.dom.saveBtn = document.getElementById('saveBtn');
         state.dom.historyContent = document.getElementById('historyContent');
+        state.dom.printPreviewModal = document.getElementById('salesPrintPreviewModal');
         return state.dom;
     }
 

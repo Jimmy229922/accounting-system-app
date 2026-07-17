@@ -1097,12 +1097,29 @@ async function confirmPrintInvoice() {
                         <meta charset="utf-8">
                         <style>
                             body { direction: rtl; font-family: system-ui, sans-serif; padding: 20px; }
-                            .print-items-table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+                            .print-items-table {
+                                width: 100%;
+                                border-collapse: separate !important;
+                                border-spacing: 0 !important;
+                                page-break-inside: auto;
+                                border-top: 1px solid #000 !important;
+                                border-right: 1px solid #000 !important;
+                                border-bottom: none !important;
+                                border-left: none !important;
+                            }
                             .print-items-table thead { display: table-header-group !important; }
                             .print-items-table tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+                            .print-items-table th, .print-items-table td {
+                                border-left: 1px solid #000 !important;
+                                border-bottom: 1px solid #000 !important;
+                                border-right: none !important;
+                                border-top: none !important;
+                                padding: 8px;
+                                text-align: center;
+                            }
                             .print-summary, .print-footer { page-break-inside: avoid !important; break-inside: avoid !important; }
-                            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                            th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                            table:not(.print-items-table) { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                            table:not(.print-items-table) th, table:not(.print-items-table) td { border: 1px solid #ddd; padding: 8px; text-align: right; }
                             th { background-color: #f2f2f2; }
                             .print-header-top { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
                             .print-company-name { font-size: 24px; font-weight: bold; }

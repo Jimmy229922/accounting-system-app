@@ -71,6 +71,26 @@
                     return;
                 }
 
+                 if (action === 'print-return') {
+                    handlers.onPrintReturn();
+                    return;
+                }
+
+                if (action === 'confirm-print-return') {
+                    handlers.onConfirmPrintReturn();
+                    return;
+                }
+
+                if (action === 'close-print-preview') {
+                    handlers.onClosePrintPreview();
+                    return;
+                }
+
+                if (action === 'change-print-printer') {
+                    handlers.onChangePrintPrinter();
+                    return;
+                }
+
                 if (action === 'load-prev-return') {
                     handlers.onLoadPrevReturn();
                     return;

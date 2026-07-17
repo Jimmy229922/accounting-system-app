@@ -20,7 +20,10 @@
                         <h2 class="form-title" style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.3rem; color: var(--primary-color);">
                             <i class="fas fa-file-invoice"></i> ${t('purchaseReturns.newReturnTitle', 'تسجيل مرتجع مشتريات جديد')}
                         </h2>
-                        <div style="display: flex; gap: 8px; margin-inline-start: auto;">
+                        <div style="display: flex; gap: 8px; margin-inline-start: auto; align-items: center;">
+                            <button class="btn btn-outline" type="button" data-action="print-return" id="printReturnBtn" disabled style="padding: 8px 12px; opacity: 0.5; cursor: not-allowed;" title="${t('purchaseReturns.printReturn', 'طباعة المرتجع')}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                            </button>
                             <button class="btn btn-outline" type="button" data-action="load-prev-return" style="padding: 8px 10px;">
                                 ${t('common.actions.previous', 'السابق')}
                             </button>
@@ -118,6 +121,95 @@
                         <i class="fas fa-inbox"></i>
                         <p>${t('common.state.noReturns', 'لا توجد مرتجعات مسجلة')}</p>
                     </div>
+                </div>
+            </div>
+
+            <div id="salesPrintPreviewModal" class="sales-print-preview-modal" style="display: none;" aria-hidden="true">
+                <div class="sales-print-preview-panel" role="dialog" aria-modal="true" aria-label="معاينة مرتجع المشتريات">
+                    <div class="sales-print-preview-header">
+                        <div>
+                            <h3 class="sales-print-preview-title">معاينة مرتجع مشتريات</h3>
+                            <p id="salesPrintPrinterStatus" class="sales-print-preview-subtitle"></p>
+                        </div>
+                        <div class="sales-print-preview-actions">
+                            <button class="btn btn-outline" type="button" data-action="change-print-printer" id="salesPrintChangePrinterBtn" style="display: none;">تغيير الطابعة</button>
+                            <button class="btn btn-success" type="button" data-action="confirm-print-return" id="salesPrintConfirmBtn">طباعة</button>
+                            <button class="btn btn-outline" type="button" data-action="close-print-preview">إغلاق</button>
+                        </div>
+                    </div>
+                    <div id="salesPrintPrinterPicker" class="sales-print-printer-picker" style="display: none;">
+                        <label for="salesPrintPrinterSelect">اختر الطابعة</label>
+                        <select id="salesPrintPrinterSelect" class="form-control"></select>
+                    </div>
+                    <div class="sales-print-preview-body">
+                        <div id="salesPrintPreviewPage" class="sales-print-preview-page"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Print Template -->
+            <div id="printArea" class="print-shell"
+                style="display: none; direction: rtl; font-family: 'Helvetica Neue', Arial, sans-serif; padding: 30px; color: #000; background: #fff;">
+                <div class="print-head" style="text-align: center; margin-bottom: 20px;">
+                    <h2 id="printCompanyName" class="print-company-name"
+                        style="font-size: 28px; font-weight: bold; margin: 0 0 5px 0;"></h2>
+                    <p style="font-size: 15px; margin: 0 0 15px 0;"><span id="printCompanyInfo"></span></p>
+
+                    <div class="print-header-details"
+                        style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 15px; font-weight: 500; border-bottom: 3px solid #000; padding-bottom: 15px;">
+                        <div><strong>المورد:</strong> <span id="printCustomerName"></span></div>
+                        <div><strong>التاريخ:</strong> <span id="printInvoiceDate"></span></div>
+                        <div><strong>رقم المرتجع:</strong> <span id="printInvoiceNumber"></span></div>
+                    </div>
+
+                    <h1
+                        style="font-size: 22px; font-weight: bold; text-decoration: underline; margin: 20px 0 10px 0; letter-spacing: 1px;">
+                        فاتورة مرتجع مشتريات</h1>
+                </div>
+
+                <div class="print-body">
+                    <table class="print-items-table"
+                        style="width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border-top: 2px solid #000; border-right: 2px solid #000; border-bottom: none; border-left: none;">
+                        <thead>
+                            <tr style="background-color: #f5f5f5;">
+                                <th
+                                    style="border-left: 1px solid #000; border-bottom: 2px solid #000; border-right: none; border-top: none; padding: 10px; font-size: 15px; font-weight: bold; text-align: center; width: 5%;">
+                                    م</th>
+                                <th
+                                    style="border-left: 1px solid #000; border-bottom: 2px solid #000; border-right: none; border-top: none; padding: 10px; font-size: 15px; font-weight: bold; text-align: right; width: 55%;">
+                                    الصنف</th>
+                                <th
+                                    style="border-left: 1px solid #000; border-bottom: 2px solid #000; border-right: none; border-top: none; padding: 10px; font-size: 15px; font-weight: bold; text-align: center; width: 10%;">
+                                    الكمية المرتجعة</th>
+                                <th
+                                    style="border-left: 1px solid #000; border-bottom: 2px solid #000; border-right: none; border-top: none; padding: 10px; font-size: 15px; font-weight: bold; text-align: right; width: 15%;">
+                                    السعر</th>
+                                <th
+                                    style="border-left: 1px solid #000; border-bottom: 2px solid #000; border-right: none; border-top: none; padding: 10px; font-size: 15px; font-weight: bold; text-align: right; width: 15%;">
+                                    الإجمالي</th>
+                            </tr>
+                        </thead>
+                        <tbody id="printInvoiceItems" style="font-size: 15px; font-weight: 500;">
+                        </tbody>
+                    </table>
+
+                    <div class="print-summary" style="width: 100%; margin-top: 20px; page-break-inside: avoid; break-inside: avoid;">
+                        <table class="print-summary-table"
+                            style="width: 45%; margin-right: auto; border-collapse: collapse; border: 2px solid #000; font-size: 15px;">
+                            <tr style="border-bottom: 1px solid #000;">
+                                <td style="padding: 8px; text-align: right; font-weight: bold; width: 60%;">إجمالي المرتجع:
+                                </td>
+                                <td id="printInvoiceTotal"
+                                    style="border-right: 1px solid #000; padding: 8px; text-align: left; font-weight: bold; width: 40%;">
+                                    0.00</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="print-footer"
+                    style="margin-top: 40px; text-align: center; font-size: 14px; font-weight: bold; border-top: 1px dashed #000; padding-top: 15px;">
+                    <p id="printFooterText">شكراً لتعاملكم معنا</p>
                 </div>
             </div>
         </div>

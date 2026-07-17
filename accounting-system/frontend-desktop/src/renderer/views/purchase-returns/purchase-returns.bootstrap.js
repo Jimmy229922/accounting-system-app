@@ -1,4 +1,4 @@
-﻿const purchaseReturnsState = window.purchaseReturnsPageState.createInitialState();
+const purchaseReturnsState = window.purchaseReturnsPageState.createInitialState();
 const purchaseReturnsApi = window.purchaseReturnsPageApi;
 const purchaseReturnsRender = window.purchaseReturnsPageRender;
 const purchaseReturnsEvents = window.purchaseReturnsPageEvents;
@@ -142,11 +142,31 @@ function initializeElements() {
             onItemsArrowNavigate: handleItemsArrowNavigation,
             onResetForm: resetForm,
             onSaveReturn: saveReturn,
+            onPrintReturn: printReturn,
+            onConfirmPrintReturn: confirmPrintReturn,
+            onClosePrintPreview: closePrintPreview,
+            onChangePrintPrinter: changePrintPrinter,
             onLoadPrevReturn: () => navigateReturn(-1),
             onLoadNextReturn: () => navigateReturn(1),
             onHistoryPrev: () => changePurchaseReturnsPage(purchaseReturnsState.purchaseReturnsPage - 1),
             onHistoryNext: () => changePurchaseReturnsPage(purchaseReturnsState.purchaseReturnsPage + 1),
             onDeleteReturn: deleteReturn
+        }
+    });
+
+    if (purchaseReturnsState.dom.printPreviewModal) {
+        purchaseReturnsState.dom.printPreviewModal.addEventListener('click', (event) => {
+            if (event.target === purchaseReturnsState.dom.printPreviewModal) {
+                closePrintPreview();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            if (purchaseReturnsState.dom.printPreviewModal?.classList.contains('is-open')) {
+                closePrintPreview();
+            }
         }
     });
 
@@ -587,6 +607,7 @@ function calculateTotal() {
             purchaseReturnsState.dom.saveBtn.removeAttribute('data-invalid');
         }
     }
+    updatePrintBtnState();
 }
 
 function hideItemsSection() {
@@ -599,6 +620,7 @@ function hideItemsSection() {
         purchaseReturnsState.dom.saveBtn.dataset.invalid = 'true';
     }
     purchaseReturnsState.currentInvoiceItems = [];
+    updatePrintBtnState();
 }
 
 function collectSelectedItems() {
@@ -989,4 +1011,304 @@ function updateOriginalInvoicePreview() {
 
     purchaseReturnsState.dom.originalInvoicePreview.classList.add('is-empty');
     purchaseReturnsState.dom.originalInvoicePreviewText.textContent = t('purchaseReturns.noInvoiceSelected', 'لم يتم اختيار فاتورة شراء أصلية بعد');
+}
+
+// ===== Print Returns Functions =====
+
+function updatePrintBtnState() {
+    const printBtn = document.getElementById('printReturnBtn');
+    if (!printBtn) return;
+
+    const supplierId = purchaseReturnsState.dom.supplierSelect?.value;
+    const items = collectSelectedItems();
+    const hasItems = items.length > 0;
+
+    if (supplierId && hasItems) {
+        printBtn.disabled = false;
+        printBtn.style.opacity = '1';
+        printBtn.style.cursor = 'pointer';
+    } else {
+        printBtn.disabled = true;
+        printBtn.style.opacity = '0.5';
+        printBtn.style.cursor = 'not-allowed';
+    }
+}
+
+function getSavedPrintPrinterName() {
+    return localStorage.getItem('sales_saved_print_printer_name') || '';
+}
+
+function savePrintPrinterName(printerName) {
+    if (printerName) {
+        localStorage.setItem('sales_saved_print_printer_name', printerName);
+    }
+}
+
+function clearSavedPrintPrinterName() {
+    localStorage.removeItem('sales_saved_print_printer_name');
+}
+
+async function setPrintPreviewOpen(open) {
+    const modal = purchaseReturnsState.dom.printPreviewModal;
+    if (!modal) return;
+    if (open) {
+        modal.style.display = 'flex';
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+    } else {
+        modal.style.display = 'none';
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+}
+
+async function openPrintPreview() {
+    await setPrintPreviewOpen(true);
+    const previewPage = document.getElementById('salesPrintPreviewPage');
+    if (previewPage) {
+        previewPage.innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:300px; color:#666; font-size: 16px; font-weight: bold;">جاري تجهيز معاينة الطباعة الحقيقية...</div>';
+    }
+    await loadPrintPreviewPrinters({ forceChoose: !getSavedPrintPrinterName() });
+    await syncPrintPreviewContent();
+}
+
+function closePrintPreview() {
+    setPrintPreviewOpen(false);
+}
+
+async function changePrintPrinter() {
+    clearSavedPrintPrinterName();
+    await loadPrintPreviewPrinters({ forceChoose: true });
+}
+
+async function loadPrintPreviewPrinters({ forceChoose = false } = {}) {
+    const select = document.getElementById('salesPrintPrinterSelect');
+    const picker = document.getElementById('salesPrintPrinterPicker');
+    const statusText = document.getElementById('salesPrintPrinterStatus');
+    const changeBtn = document.getElementById('salesPrintChangePrinterBtn');
+
+    if (!window.electronAPI || typeof window.electronAPI.getPrinters !== 'function') {
+        if (statusText) statusText.textContent = 'نظام الطباعة غير مدعوم خارج البيئة التجريبية';
+        return;
+    }
+
+    try {
+        const printers = await window.electronAPI.getPrinters();
+        const savedPrinterName = getSavedPrintPrinterName();
+        const defaultPrinter = printers.find(p => p.isDefault || p.is_default);
+
+        if (!forceChoose && savedPrinterName) {
+            const stillExists = printers.some(p => p.name === savedPrinterName);
+            if (stillExists) {
+                if (statusText) statusText.textContent = `طابعة المرتجع: ${savedPrinterName}`;
+                if (changeBtn) changeBtn.style.display = 'inline-block';
+                if (picker) picker.style.display = 'none';
+                return;
+            }
+        }
+
+        if (statusText) statusText.textContent = 'يرجى اختيار الطابعة المفضلة لطباعة المرتجع:';
+        if (changeBtn) changeBtn.style.display = 'none';
+        if (picker) picker.style.display = 'block';
+
+        if (select) {
+            select.innerHTML = '';
+            printers.forEach(printer => {
+                const opt = document.createElement('option');
+                opt.value = printer.name;
+                opt.textContent = printer.name + (printer.isDefault || printer.is_default ? ' (الافتراضية)' : '');
+                if (printer.isDefault || printer.is_default) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            });
+
+            if (!select.value && printers.length > 0) {
+                select.value = printers[0].name;
+            }
+        }
+    } catch (e) {
+        console.error("Error loading printers:", e);
+        if (statusText) statusText.textContent = 'فشل في استرجاع قائمة الطابعات من النظام';
+    }
+}
+
+async function syncPrintPreviewContent() {
+    const printArea = document.getElementById('printArea');
+    const previewPage = document.getElementById('salesPrintPreviewPage');
+    if (printArea && previewPage) {
+        previewPage.innerHTML = printArea.innerHTML;
+    }
+}
+
+async function confirmPrintReturn() {
+    const printBtn = document.getElementById('salesPrintConfirmBtn');
+    const select = document.getElementById('salesPrintPrinterSelect');
+    const printArea = document.getElementById('printArea');
+    const savedPrinterName = getSavedPrintPrinterName();
+    let selectedPrinterName = savedPrinterName || select?.value || '';
+
+    if (!selectedPrinterName && window.electronAPI && typeof window.electronAPI.getPrinters === 'function') {
+        try {
+            const printers = await window.electronAPI.getPrinters();
+            const defaultPrinter = printers.find(p => p.isDefault || p.is_default);
+            if (defaultPrinter) {
+                selectedPrinterName = defaultPrinter.name;
+            } else if (printers.length > 0) {
+                selectedPrinterName = printers[0].name;
+            }
+        } catch (e) {
+            console.error("Error fetching default printer:", e);
+        }
+    }
+
+    if (printBtn) {
+        printBtn.disabled = true;
+        printBtn.textContent = 'جاري إرسال المرتجع...';
+    }
+
+    try {
+        if (window.electronAPI && typeof window.electronAPI.printCurrentWindow === 'function' && selectedPrinterName) {
+            const printAreaHtml = printArea ? printArea.innerHTML : '';
+            const fullHtmlForPrinting = `
+                <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <style>
+                            body { direction: rtl; font-family: system-ui, sans-serif; padding: 20px; }
+                            .print-items-table {
+                                width: 100%;
+                                border-collapse: separate !important;
+                                border-spacing: 0 !important;
+                                page-break-inside: auto;
+                                border-top: 1px solid #000 !important;
+                                border-right: 1px solid #000 !important;
+                                border-bottom: none !important;
+                                border-left: none !important;
+                            }
+                            .print-items-table thead { display: table-header-group !important; }
+                            .print-items-table tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+                            .print-items-table th, .print-items-table td {
+                                border-left: 1px solid #000 !important;
+                                border-bottom: 1px solid #000 !important;
+                                border-right: none !important;
+                                border-top: none !important;
+                                padding: 8px;
+                                text-align: center;
+                            }
+                            .print-summary, .print-footer { page-break-inside: avoid !important; break-inside: avoid !important; }
+                            table:not(.print-items-table) { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                            table:not(.print-items-table) th, table:not(.print-items-table) td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                            th { background-color: #f2f2f2; }
+                            .print-header-top { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                            .print-company-name { font-size: 24px; font-weight: bold; }
+                            .print-invoice-title { font-size: 20px; font-weight: bold; }
+                            .print-header-details { display: flex; justify-content: space-between; margin-bottom: 20px; }
+                            .print-footer { margin-top: 30px; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }
+                        </style>
+                    </head>
+                    <body>
+                        ${printAreaHtml}
+                    </body>
+                </html>
+            `;
+
+            const result = await window.electronAPI.printCurrentWindow({
+                htmlContent: fullHtmlForPrinting,
+                deviceName: selectedPrinterName
+            });
+
+            if (result && result.success) {
+                savePrintPrinterName(selectedPrinterName);
+                closePrintPreview();
+                Toast.show('تم إرسال فاتورة المرتجع للطابعة', 'success');
+                return;
+            }
+
+            Toast.show((result && result.error) || 'تعذر طباعة المرتجع', 'error');
+            return;
+        }
+
+        Toast.show('تعذر العثور على طابعة متصلة بالنظام، يرجى اختيار طابعة أولاً', 'error');
+    } catch (error) {
+        console.error("Print error:", error);
+    } finally {
+        if (printBtn) {
+            printBtn.disabled = false;
+            printBtn.textContent = 'طباعة';
+        }
+    }
+}
+
+async function printReturn() {
+    const supplierSelect = purchaseReturnsState.dom.supplierSelect;
+    const supplierName = supplierSelect.options[supplierSelect.selectedIndex]?.text || '';
+    const returnNumber = purchaseReturnsState.dom.returnNumberInput.value;
+    const returnDate = purchaseReturnsState.dom.returnDateInput.value || new Date().toLocaleDateString('ar-EG');
+
+    const items = collectSelectedItems();
+    if (items.length === 0) {
+        Toast.show('الرجاء اختيار أصناف صحيحة قبل الطباعة', 'error');
+        return;
+    }
+
+    // حفظ أسماء الأصناف محلياً قبل التصفير
+    const itemNamesMap = {};
+    items.forEach(item => {
+        const itemObj = purchaseReturnsState.currentInvoiceItems.find(i => i.item_id === item.item_id);
+        itemNamesMap[item.item_id] = itemObj ? (itemObj.item_name || itemObj.name || '') : '';
+    });
+
+    const totalAmount = parseFloat(purchaseReturnsState.dom.returnTotal?.textContent || '0') || 0;
+
+    // 2. Submit the return if not locked
+    const wasEditing = !!purchaseReturnsState.editingReturnId;
+    const locked = (typeof isEditLocked === 'function') ? isEditLocked() : false;
+
+    if (!locked) {
+        await saveReturn();
+
+        // Check if submit was successful by seeing if form reset
+        if (supplierSelect.value !== '') {
+            // Form didn't reset, meaning save failed. Stop printing.
+            return;
+        }
+    }
+
+    // 4. Populate Print Area
+    document.getElementById('printInvoiceNumber').textContent = returnNumber || (wasEditing ? 'معدلة' : 'جديدة');
+    document.getElementById('printInvoiceDate').textContent = returnDate;
+    document.getElementById('printCustomerName').textContent = supplierName;
+
+    const printItemsTbody = document.getElementById('printInvoiceItems');
+    printItemsTbody.innerHTML = '';
+    items.forEach((item, index) => {
+        const itemName = itemNamesMap[item.item_id] || '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${itemName}</td>
+            <td>${item.quantity}</td>
+            <td>${parseFloat(item.price).toFixed(2)}</td>
+            <td>${parseFloat(item.total_price).toFixed(2)}</td>
+        `;
+        printItemsTbody.appendChild(tr);
+    });
+
+    document.getElementById('printInvoiceTotal').textContent = totalAmount.toFixed(2);
+
+    // Get settings for company info
+    try {
+        const settings = await window.electronAPI.getSettings();
+        if (settings) {
+            const companyPhone = settings.companyPhone || settings.company_phone || '';
+            document.getElementById('printCompanyName').textContent = settings.companyName || settings.company_name || 'اسم الشركة';
+            document.getElementById('printCompanyInfo').textContent = companyPhone ? `هاتف: ${companyPhone}` : '';
+            document.getElementById('printFooterText').textContent = settings.invoiceFooter || settings.invoice_notes || 'شكراً لتعاملكم معنا';
+        }
+    } catch (e) {
+        console.error('Error fetching settings for print', e);
+    }
+
+    await openPrintPreview();
 }
