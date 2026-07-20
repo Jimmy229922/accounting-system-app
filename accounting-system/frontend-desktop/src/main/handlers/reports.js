@@ -76,6 +76,11 @@ async function prepareShellFrameForPdfCapture(webContents) {
                 const frame = document.getElementById('shellFrame');
                 if (!shellRoot || !frame) return;
 
+                if (window.__pdfShellCaptureState) {
+                    window.__pdfShellCaptureState.captureDepth = (window.__pdfShellCaptureState.captureDepth || 1) + 1;
+                    return;
+                }
+
                 const shellNav = document.querySelector('.shell-top-nav');
                 const shellStage = document.querySelector('.shell-stage');
                 const htmlEl = document.documentElement;
@@ -92,11 +97,14 @@ async function prepareShellFrameForPdfCapture(webContents) {
                     stageOverflow: shellStage ? (shellStage.style.overflow || '') : '',
                     stageBackground: shellStage ? (shellStage.style.background || '') : '',
                     frameHeight: frame.style.height || '',
+                    frameHeightPriority: frame.style.getPropertyPriority('height') || '',
                     frameOverflow: frame.style.overflow || '',
                     frameBorderRadius: frame.style.borderRadius || '',
                     frameBoxShadow: frame.style.boxShadow || '',
                     frameDocHtmlOverflow: '',
                     frameDocBodyOverflow: '',
+                    captureDepth: 1,
+                    parentInjectedStyleId: 'pdf-shell-parent-capture-style',
                     injectedStyleId: 'pdf-shell-capture-style'
                 };
 
@@ -111,6 +119,13 @@ async function prepareShellFrameForPdfCapture(webContents) {
                     shellStage.style.padding = '0';
                     shellStage.style.overflow = 'visible';
                     shellStage.style.background = '#fff';
+                }
+
+                if (!document.getElementById(state.parentInjectedStyleId)) {
+                    const style = document.createElement('style');
+                    style.id = state.parentInjectedStyleId;
+                    style.textContent = '.toast-container { display: none !important; }';
+                    document.head.appendChild(style);
                 }
 
                 frame.style.overflow = 'visible';
@@ -133,16 +148,19 @@ async function prepareShellFrameForPdfCapture(webContents) {
                         if (!frameDoc.getElementById(state.injectedStyleId)) {
                             const style = frameDoc.createElement('style');
                             style.id = state.injectedStyleId;
-                            style.textContent = '.top-nav, .shell-top-nav { display: none !important; } html, body, #app, .content, .report-container { overflow: visible !important; max-height: none !important; height: auto !important; }';
+                            style.textContent = '.top-nav, .shell-top-nav, .toast-container { display: none !important; } html, body, #app, .content, .report-container { overflow: visible !important; max-height: none !important; height: auto !important; }';
                             frameDoc.head.appendChild(style);
                         }
 
+                        const printableRoot = frameDoc.getElementById('summaryPrintView')
+                            || frameDoc.querySelector('.report-container')
+                            || frameBody;
                         const printableHeight = Math.max(
-                            frameHtml ? frameHtml.scrollHeight : 0,
-                            frameBody ? frameBody.scrollHeight : 0,
-                            frameWin.innerHeight || 0
+                            printableRoot ? Math.ceil(printableRoot.getBoundingClientRect().height) : 0,
+                            printableRoot ? printableRoot.scrollHeight : 0,
+                            1
                         );
-                        frame.style.height = String(Math.max(printableHeight + 24, 1200)) + 'px';
+                        frame.style.setProperty('height', String(printableHeight) + 'px', 'important');
                     }
                 } catch (_) {}
 
@@ -164,6 +182,11 @@ async function restoreShellFrameAfterPdfCapture(webContents) {
             (() => {
                 const state = window.__pdfShellCaptureState;
                 if (!state) return;
+
+                if ((state.captureDepth || 1) > 1) {
+                    state.captureDepth -= 1;
+                    return;
+                }
 
                 const shellRoot = document.querySelector('.shell-root');
                 const frame = document.getElementById('shellFrame');
@@ -188,8 +211,17 @@ async function restoreShellFrameAfterPdfCapture(webContents) {
                     shellStage.style.background = state.stageBackground || '';
                 }
 
+                const parentInjectedStyle = document.getElementById(state.parentInjectedStyleId || 'pdf-shell-parent-capture-style');
+                if (parentInjectedStyle && parentInjectedStyle.parentNode) {
+                    parentInjectedStyle.parentNode.removeChild(parentInjectedStyle);
+                }
+
                 if (frame) {
-                    frame.style.height = state.frameHeight || '';
+                    if (state.frameHeight) {
+                        frame.style.setProperty('height', state.frameHeight, state.frameHeightPriority || '');
+                    } else {
+                        frame.style.removeProperty('height');
+                    }
                     frame.style.overflow = state.frameOverflow || '';
                     frame.style.borderRadius = state.frameBorderRadius || '';
                     frame.style.boxShadow = state.frameBoxShadow || '';
@@ -215,6 +247,80 @@ async function restoreShellFrameAfterPdfCapture(webContents) {
         `, true);
     } catch (_) {
         // Ignore restore errors.
+    }
+}
+
+async function printStandaloneCustomerReport(htmlContent, printOptions) {
+    if (typeof htmlContent !== 'string' || !htmlContent.trim()) {
+        throw new Error('Missing customer report HTML');
+    }
+
+    const tempFilePath = path.join(
+        app.getPath('temp'),
+        `accounting-customer-report-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.html`
+    );
+    let printWindow = null;
+    const withTimeout = (promise, timeoutMs, message) => new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+        Promise.resolve(promise).then(
+            (value) => {
+                clearTimeout(timeoutId);
+                resolve(value);
+            },
+            (error) => {
+                clearTimeout(timeoutId);
+                reject(error);
+            }
+        );
+    });
+    const deleteTemporaryFile = async () => {
+        for (let attempt = 1; attempt <= 5; attempt += 1) {
+            try {
+                if (fs.existsSync(tempFilePath)) {
+                    fs.unlinkSync(tempFilePath);
+                }
+                return;
+            } catch (error) {
+                if (attempt === 5) {
+                    console.error('Failed to delete temporary customer report HTML:', error);
+                    return;
+                }
+                await new Promise((resolve) => setTimeout(resolve, attempt * 200));
+            }
+        }
+    };
+
+    try {
+        fs.writeFileSync(tempFilePath, htmlContent, 'utf8');
+        printWindow = new BrowserWindow({
+            show: false,
+            skipTaskbar: true,
+            backgroundColor: '#ffffff',
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                javascript: false,
+                sandbox: true
+            }
+        });
+
+        const loadingStopped = new Promise((resolve) => {
+            printWindow.webContents.once('did-stop-loading', resolve);
+        });
+        await withTimeout(printWindow.loadFile(tempFilePath), 15000, 'Timed out loading customer report HTML');
+        await withTimeout(loadingStopped, 5000, 'Timed out loading customer report resources');
+        await new Promise((resolve) => setTimeout(resolve, 250));
+
+        return await withTimeout(
+            printWindow.webContents.printToPDF(printOptions),
+            30000,
+            'Timed out generating customer report PDF'
+        );
+    } finally {
+        if (printWindow && !printWindow.isDestroyed()) {
+            printWindow.destroy();
+        }
+        await deleteTemporaryFile();
     }
 }
 
@@ -1017,13 +1123,11 @@ function register() {
                 return { success: false, canceled: true };
             }
 
-            await prepareShellFrameForPdfCapture(sourceWebContents);
-
-            const pdfBuffer = await sourceWebContents.printToPDF({
+            const pdfBuffer = await printStandaloneCustomerReport(payload?.htmlContent, {
                 printBackground: true,
                 pageSize: 'A4',
                 landscape: true,
-                marginsType: 0,
+                margins: { top: 0, bottom: 0, left: 0, right: 0 },
                 preferCSSPageSize: true
             });
 
@@ -1045,7 +1149,7 @@ function register() {
                     const textWidth = font.widthOfTextAtSize(text, 9);
                     page.drawText(text, {
                         x: (width - textWidth) / 2,
-                        y: 6,
+                        y: 10,
                         size: 9,
                         font,
                         color: rgb(0.45, 0.45, 0.45)
@@ -1060,8 +1164,6 @@ function register() {
         } catch (error) {
             console.error('[save-customer-report-pdf] error:', error);
             return { success: false, error: error.message };
-        } finally {
-            await restoreShellFrameAfterPdfCapture(sourceWebContents);
         }
     });
 
@@ -1088,14 +1190,12 @@ function register() {
                 return { success: false, canceled: true };
             }
 
-            await prepareShellFrameForPdfCapture(sourceWebContents);
-
-            const pdfBuffer = await sourceWebContents.printToPDF({
+            const pdfBuffer = await printStandaloneCustomerReport(payload?.htmlContent, {
                 printBackground: true,
                 pageSize: 'A4',
                 landscape: false,
-                marginsType: 0,
-                preferCSSPageSize: false
+                margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                preferCSSPageSize: true
             });
 
             const title = path.basename(filePath, path.extname(filePath));
@@ -1114,7 +1214,7 @@ function register() {
                     const textWidth = font.widthOfTextAtSize(text, 9);
                     page.drawText(text, {
                         x: (width - textWidth) / 2,
-                        y: 6,
+                        y: 10,
                         size: 9,
                         font,
                         color: rgb(0.45, 0.45, 0.45)
@@ -1129,8 +1229,6 @@ function register() {
         } catch (error) {
             console.error('[save-customer-summary-pdf] error:', error);
             return { success: false, error: error.message };
-        } finally {
-            await restoreShellFrameAfterPdfCapture(sourceWebContents);
         }
     });
 }

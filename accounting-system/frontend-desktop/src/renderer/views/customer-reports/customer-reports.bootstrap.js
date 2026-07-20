@@ -298,7 +298,7 @@ async function loadCustomerReport(customerId) {
                 <td>${item.trans_date}</td>
                 <td>${typeBadge}</td>
                 <td>${docNumberCellHtml}</td>
-                <td class="notes-cell">${item.notes || '—'}</td>
+                <td class="notes-cell">${escapeHtml(item.notes || '—')}</td>
                 <td class="amt-cell"><span class="amount">${invoiceTotalDisplay}</span></td>
                 <td class="amt-cell"><span class="amount">${paidAmountDisplay}</span></td>
                 <td class="amt-cell"><span class="amount">${remainingAmountDisplay}</span></td>
@@ -362,8 +362,21 @@ async function toggleItems(rowId, btn, type, id) {
     icon.className = isHidden ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
 
     if (isHidden && row.dataset.loaded === 'false') {
-        const result = await window.electronAPI.getStatementItemDetails({ type, id });
-        if (result && result.success && result.details.length > 0) {
+        let result = null;
+        try {
+            result = await window.electronAPI.getStatementItemDetails({ type, id });
+        } catch (error) {
+            console.error('Failed to load customer statement item details:', error);
+        }
+
+        if (!result || !result.success || !Array.isArray(result.details)) {
+            row.classList.remove('expanded');
+            icon.className = 'fas fa-chevron-down';
+            if (window.showToast) window.showToast(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
+            return;
+        }
+
+        if (result.details.length > 0) {
             let itemsHTML = `
                 <td colspan="9">
                     <div class="items-detail-box">
@@ -383,8 +396,8 @@ async function toggleItems(rowId, btn, type, id) {
                 itemsHTML += `
                                 <tr>
                                     <td>${i + 1}</td>
-                                    <td>${itm.item_name}</td>
-                                    <td>${itm.unit_name || '—'}</td>
+                                    <td>${escapeHtml(itm.item_name)}</td>
+                                    <td>${escapeHtml(itm.unit_name || '—')}</td>
                                     <td>${itm.quantity}</td>
                                     <td>${formatCurrency(itm.price || 0)}</td>
                                     <td>${formatCurrency(itm.total_price || 0)}</td>
@@ -535,21 +548,81 @@ document.addEventListener('click', (event) => {
     }
 });
 
+let customerReportPrintModeDepth = 0;
+let customerReportPdfSaveInProgress = false;
+
+function buildCustomerReportPdfDocument(contentHtml, bodyClass) {
+    const pageRule = bodyClass === 'summary-pdf-mode'
+        ? '@page { size: A4 portrait; margin: 7mm 8mm 10mm; }'
+        : '@page { size: A4 landscape; margin: 7mm 8mm 10mm; }';
+    const stylesheetHtml = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]'))
+        .map((link) => {
+            const media = link.media ? ` media="${escapeHtml(link.media)}"` : '';
+            return `<link rel="stylesheet" href="${escapeHtml(link.href)}"${media}>`;
+        })
+        .join('\n');
+    const inlineStyles = Array.from(document.head.querySelectorAll('style'))
+        .map((style) => style.outerHTML)
+        .join('\n');
+
+    return `<!DOCTYPE html>
+        <html lang="ar" dir="rtl" data-theme="light">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline' file:; font-src 'self' file: data:; img-src 'self' file: data:;">
+            ${stylesheetHtml}
+            ${inlineStyles}
+            <style>
+                ${pageRule}
+                html, body { width: auto !important; height: auto !important; min-height: 0 !important; overflow: visible !important; background: #fff !important; }
+                body { margin: 0 !important; padding: 0 !important; }
+                .toast-container, .no-print { display: none !important; }
+                body.customer-report-print-mode .items-detail-box { overflow: visible !important; }
+                body.summary-pdf-mode .summary-items-section > table,
+                body.summary-pdf-mode .summary-items-section > table tbody { page-break-inside: auto !important; break-inside: auto !important; }
+            </style>
+        </head>
+        <body class="${escapeHtml(bodyClass)}" dir="rtl">
+            ${contentHtml}
+        </body>
+        </html>`;
+}
+
+function enterCustomerReportPrintMode() {
+    customerReportPrintModeDepth += 1;
+    if (customerReportPrintModeDepth !== 1) return;
+    document.documentElement.classList.add('customer-report-print-mode');
+    document.body.classList.add('customer-report-print-mode');
+}
+
+function exitCustomerReportPrintMode() {
+    if (customerReportPrintModeDepth === 0) return;
+    customerReportPrintModeDepth -= 1;
+    if (customerReportPrintModeDepth !== 0) return;
+    document.documentElement.classList.remove('customer-report-print-mode');
+    document.body.classList.remove('customer-report-print-mode');
+}
+
 window.printReport = async () => {
     await window.customerReportsUtils.loadAllItemDetails({ t, formatCurrency });
     
     // إضافة الفئة المؤقتة لتأمين التنسيق الأبيض وإخفاء الواجهة
-    document.body.classList.add('customer-report-print-mode');
+    enterCustomerReportPrintMode();
     
     // مهلة أمان لضمان استقرار الـ DOM والـ CSS
     setTimeout(() => {
         window.print();
         // إزالة الفئة بعد فتح نافذة الطباعة
-        document.body.classList.remove('customer-report-print-mode');
+        exitCustomerReportPrintMode();
     }, 800);
 };
 
 window.savePDF = async () => {
+    if (customerReportPdfSaveInProgress) return;
+    customerReportPdfSaveInProgress = true;
+
+    try {
     await window.customerReportsUtils.loadAllItemDetails({ t, formatCurrency });
     const selectedOption = customerSelect.options[customerSelect.selectedIndex];
     const customerName = selectedOption ? selectedOption.textContent.trim() : '';
@@ -557,24 +630,41 @@ window.savePDF = async () => {
     const defaultName = `كشف_حساب_${customerName}_${date}.pdf`;
 
     // Force stable light capture mode for PDF regardless of current UI theme.
-    document.documentElement.classList.add('customer-report-pdf-mode');
-    document.body.classList.add('customer-report-pdf-mode');
+    enterCustomerReportPrintMode();
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
     try {
-        const result = await window.electronAPI.saveCustomerReportPdf({ defaultName });
+        const reportContainer = document.getElementById('reportContainer');
+        if (!reportContainer) {
+            if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+            return;
+        }
+        const htmlContent = buildCustomerReportPdfDocument(
+            reportContainer.outerHTML,
+            'customer-report-print-mode'
+        );
+        const result = await window.electronAPI.saveCustomerReportPdf({ defaultName, htmlContent });
         if (result && result.success) {
             if (window.showToast) window.showToast(t('customerReports.pdfSaved', 'تم حفظ الملف بنجاح'), 'success');
         } else if (result && !result.canceled) {
             if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
         }
     } finally {
-        document.documentElement.classList.remove('customer-report-pdf-mode');
-        document.body.classList.remove('customer-report-pdf-mode');
+        exitCustomerReportPrintMode();
+    }
+    } catch (error) {
+        console.error('Failed to save customer statement PDF:', error);
+        if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+    } finally {
+        customerReportPdfSaveInProgress = false;
     }
 };
 
 window.saveSummaryPDF = async () => {
+    if (customerReportPdfSaveInProgress) return;
+    customerReportPdfSaveInProgress = true;
+
+    try {
     const customerId = customerSelect.value;
     if (!customerId) {
         if (window.showToast) window.showToast(t('customerReports.selectCustomerPlaceholder', 'اختر العميل...'), 'error');
@@ -708,6 +798,7 @@ window.saveSummaryPDF = async () => {
             color: #1a1a1a;
             padding: 20px 24px;
             max-width: 210mm;
+            box-sizing: border-box;
             margin: 0 auto;
         ">
             <!-- Header -->
@@ -769,8 +860,6 @@ window.saveSummaryPDF = async () => {
                 </tfoot>
             </table>
 
-            <!-- Item Aggregation Tables -->
-            ${buildSummaryItemsSection(result, t)}
         </div>
     `;
 
@@ -783,13 +872,22 @@ window.saveSummaryPDF = async () => {
     // Activate PDF capture mode — hides #app, shows only the overlay
     document.body.classList.add('summary-pdf-mode');
 
-    // Wait for layout, then apply smart page breaks for item sections.
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    applySummarySectionPageBreaks(overlay);
-    await new Promise(r => setTimeout(r, 180));
-
     try {
-        const pdfResult = await window.electronAPI.saveCustomerSummaryPdf({ defaultName });
+        // Wait for layout, then apply smart page breaks for item sections.
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        applySummarySectionPageBreaks(overlay);
+        await new Promise(r => setTimeout(r, 180));
+
+        const summaryPrintView = overlay.querySelector('#summaryPrintView');
+        if (!summaryPrintView) {
+            if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+            return;
+        }
+        const htmlContent = buildCustomerReportPdfDocument(
+            summaryPrintView.outerHTML,
+            'summary-pdf-mode'
+        );
+        const pdfResult = await window.electronAPI.saveCustomerSummaryPdf({ defaultName, htmlContent });
         if (pdfResult && pdfResult.success) {
             if (window.showToast) window.showToast(t('customerReports.pdfSaved', 'تم حفظ الملف بنجاح'), 'success');
         } else if (pdfResult && !pdfResult.canceled) {
@@ -799,6 +897,12 @@ window.saveSummaryPDF = async () => {
         // Remove overlay and restore normal view
         document.body.classList.remove('summary-pdf-mode');
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    } catch (error) {
+        console.error('Failed to save customer summary PDF:', error);
+        if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+    } finally {
+        customerReportPdfSaveInProgress = false;
     }
 };
 
@@ -920,50 +1024,18 @@ function applySummarySectionPageBreaks(overlay) {
     const sections = Array.from(summaryView.querySelectorAll('.summary-items-section'));
     if (!sections.length) return;
 
-    const pageHeightPx = measureMillimetersInPixels(297);
+    const pageHeightPx = measureMillimetersInPixels(280);
     if (!Number.isFinite(pageHeightPx) || pageHeightPx <= 0) return;
     const pageContentHeightPx = pageHeightPx;
 
-    const rootRect = summaryView.getBoundingClientRect();
-
-    const getRelativeTop = (element) => element.getBoundingClientRect().top - rootRect.top;
-
-    // Reset to baseline so re-running this function stays deterministic.
     sections.forEach((section) => {
         section.style.pageBreakBefore = 'auto';
         section.style.breakBefore = 'auto';
-        section.style.pageBreakInside = 'avoid';
-        section.style.breakInside = 'avoid-page';
+        const sectionHeight = section.getBoundingClientRect().height;
+        const canFitOnOnePage = Number.isFinite(sectionHeight)
+            && sectionHeight > 0
+            && sectionHeight <= (pageContentHeightPx - 14);
+        section.style.pageBreakInside = canFitOnOnePage ? 'avoid' : 'auto';
+        section.style.breakInside = canFitOnOnePage ? 'avoid-page' : 'auto';
     });
-
-    // Prevent split sections with a safety margin:
-    // If a section (especially empty/small section) is close to the page end,
-    // force it to the next page as one block.
-    for (let pass = 0; pass < 3; pass += 1) {
-        let changed = false;
-
-        for (let index = 0; index < sections.length; index += 1) {
-            const section = sections[index];
-            const sectionHeight = section.getBoundingClientRect().height;
-            if (!Number.isFinite(sectionHeight) || sectionHeight <= 0) continue;
-
-            const top = getRelativeTop(section);
-            const currentPageEnd = (Math.floor(top / pageContentHeightPx) + 1) * pageContentHeightPx;
-            const remainingSpace = currentPageEnd - top;
-            const hasItems = section.dataset.hasItems === '1';
-            const safetyBuffer = hasItems ? 70 : 130;
-            const requiredHeight = sectionHeight + safetyBuffer;
-            const canFitOnOnePage = requiredHeight <= (pageContentHeightPx - 14);
-
-            if (canFitOnOnePage && requiredHeight > remainingSpace) {
-                if (section.style.pageBreakBefore !== 'always') {
-                    section.style.pageBreakBefore = 'always';
-                    section.style.breakBefore = 'page';
-                    changed = true;
-                }
-            }
-        }
-
-        if (!changed) break;
-    }
 }
