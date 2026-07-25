@@ -16,6 +16,7 @@
   "build": {
     "appId": "com.accountingsystem.app",
     "productName": "Accounting System",
+    "artifactName": "Accounting-System-Setup-${version}.${ext}",
     "publish": {
       "provider": "github",
       "owner": "Jimmy229922",
@@ -23,9 +24,11 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "src/main/assets/icon.ico"
+      "icon": "src/main/assets/icon.ico",
+      "artifactName": "Accounting-System-Setup-${version}.${ext}"
     },
     "nsis": {
+      "artifactName": "Accounting-System-Setup-${version}.${ext}",
       "installerIcon": "src/main/assets/icon.ico",
       "uninstallerIcon": "src/main/assets/icon.ico",
       "installerHeaderIcon": "src/main/assets/icon.ico",
