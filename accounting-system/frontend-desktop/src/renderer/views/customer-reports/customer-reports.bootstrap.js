@@ -665,239 +665,240 @@ window.saveSummaryPDF = async () => {
     customerReportPdfSaveInProgress = true;
 
     try {
-    const customerId = customerSelect.value;
-    if (!customerId) {
-        if (window.showToast) window.showToast(t('customerReports.selectCustomerPlaceholder', 'اختر العميل...'), 'error');
-        return;
-    }
-
-    const selectedOption = customerSelect.options[customerSelect.selectedIndex];
-    const customerName = selectedOption ? selectedOption.textContent.trim() : '';
-    const startDate = document.getElementById('dateFrom').value || undefined;
-    const endDate = document.getElementById('dateTo').value || undefined;
-    const date = new Date().toISOString().split('T')[0];
-    const defaultName = `فاتورة_مجمعة_${customerName}_${date}.pdf`;
-
-    // Fetch summary statement data from backend
-    const result = await window.electronAPI.getCustomerSummaryStatement({ customerId, startDate, endDate });
-    if (!result || !result.success) {
-        if (window.showToast) window.showToast(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
-        return;
-    }
-
-    // Also fetch detailed statement for invoice-level rows (date | total | payment | balance)
-    const detailedResult = await window.electronAPI.getCustomerDetailedStatement({ customerId, startDate, endDate });
-    if (!detailedResult || !detailedResult.success) {
-        if (window.showToast) window.showToast(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
-        return;
-    }
-
-    // Get company settings
-    let settings = {};
-    try {
-        settings = await window.electronAPI.getSettings() || {};
-    } catch (_) {}
-
-    // Build period text
-    let periodText = t('customerReports.allPeriods', 'كل الفترات');
-    if (startDate && endDate) periodText = `${startDate}  إلى  ${endDate}`;
-    else if (startDate) periodText = `من ${startDate}`;
-    else if (endDate) periodText = `حتى ${endDate}`;
-
-    const { transactions, totals } = detailedResult;
-    const printDate = new Date().toLocaleDateString('ar-EG');
-
-    // Company info
-    const companyName = settings.companyName || '';
-    let companyInfo = '';
-    if (settings.companyAddress) companyInfo += settings.companyAddress;
-    if (settings.companyPhone) companyInfo += (companyInfo ? ' | ' : '') + settings.companyPhone;
-    const logoHtml = settings.profileImage
-        ? `<img src="${settings.profileImage}" alt="logo" style="width:70px;height:70px;object-fit:cover;border-radius:50%;border:2px solid #333;">`
-        : '';
-
-    // Type labels
-    const typeLabels = {
-        sales: t('customerReports.salesBadge', 'مبيعات'),
-        purchase: t('customerReports.purchaseBadge', 'مشتريات'),
-        payment_in: t('customerReports.receiptBadge', 'تحصيل'),
-        payment_out: t('customerReports.paymentBadge', 'سداد'),
-        sales_return: t('customerReports.salesReturnBadge', 'مردود مبيعات'),
-        purchase_return: t('customerReports.purchaseReturnBadge', 'مردود مشتريات')
-    };
-
-    // Build table rows
-    let rowsHtml = '';
-    let idx = 0;
-
-    if (totals.openingBalance !== 0) {
-        const obLabel = totals.openingBalance > 0
-            ? t('customerReports.balanceForUs', 'لينا (مدين)')
-            : t('customerReports.balanceAgainstUs', 'علينا (دائن)');
-        const openingBalanceClass = totals.openingBalance > 0
-            ? 'summary-cell-balance-positive'
-            : 'summary-cell-balance-negative';
-        rowsHtml += `
-            <tr class="summary-opening-row">
-                <td colspan="3" style="text-align:center;font-weight:800;background:linear-gradient(135deg,#dbeafe,#ede9fe);border:1px solid #999;padding:10px 8px;">
-                    ${t('customerReports.openingBalance', 'رصيد أول المدة')}
-                </td>
-                <td class="summary-cell-balance ${openingBalanceClass}" style="font-weight:800;background:linear-gradient(135deg,#dbeafe,#ede9fe);border:1px solid #999;padding:10px 8px;text-align:center;">
-                    ${formatCurrency(Math.abs(totals.openingBalance))} ${obLabel}
-                </td>
-            </tr>`;
-    }
-
-    for (const trans of transactions) {
-        idx++;
-        const typeLabel = typeLabels[trans.type] || trans.type;
-        const invoiceTotal = (trans.type === 'sales' || trans.type === 'payment_out' || trans.type === 'purchase_return')
-            ? formatCurrency(trans.total_amount)
-            : '';
-        const paymentAmount = (trans.type === 'purchase' || trans.type === 'payment_in' || trans.type === 'sales_return')
-            ? formatCurrency(trans.total_amount)
-            : '';
-
-        const rb = trans.running_balance;
-        const rbLabel = rb > 0 ? t('customerReports.balanceForUs', 'لينا (مدين)') : rb < 0 ? t('customerReports.balanceAgainstUs', 'علينا (دائن)') : '';
-        const rbClass = rb > 0 ? 'color:#047857;' : rb < 0 ? 'color:#b91c1c;' : '';
-        const rbBalanceClass = rb > 0
-            ? 'summary-cell-balance-positive'
-            : rb < 0
-                ? 'summary-cell-balance-negative'
-                : 'summary-cell-balance-neutral';
-
-        rowsHtml += `
-            <tr>
-                <td style="border:1px solid #999;padding:10px 8px;text-align:center;">${trans.trans_date}<br><small style="color:#888;">${typeLabel}</small></td>
-                <td class="summary-cell-debit" style="border:1px solid #999;padding:10px 8px;text-align:center;color:#047857;font-weight:700;">${invoiceTotal}</td>
-                <td class="summary-cell-credit" style="border:1px solid #999;padding:10px 8px;text-align:center;color:#b91c1c;font-weight:700;">${paymentAmount}</td>
-                <td class="summary-cell-balance ${rbBalanceClass}" style="border:1px solid #999;padding:10px 8px;text-align:center;${rbClass}font-weight:800;">${formatCurrency(Math.abs(rb))} ${rbLabel}</td>
-            </tr>`;
-    }
-
-    // Closing balance
-    const closingBal = totals.closingBalance;
-    const closingLabel = closingBal > 0 ? t('customerReports.balanceForUs', 'لينا (مدين)') : closingBal < 0 ? t('customerReports.balanceAgainstUs', 'علينا (دائن)') : '';
-    const closingColor = closingBal > 0 ? '#047857' : closingBal < 0 ? '#b91c1c' : '#333';
-    const closingBalanceClass = closingBal > 0
-        ? 'summary-cell-balance-positive'
-        : closingBal < 0
-            ? 'summary-cell-balance-negative'
-            : 'summary-cell-balance-neutral';
-
-    // Summary totals
-    const totalDebit = totals.totalSales + totals.totalPaymentsOut + totals.totalPurchaseReturns;
-    const totalCredit = totals.totalPurchases + totals.totalPaymentsIn + totals.totalSalesReturns;
-
-    // Build full summary print HTML
-    const summaryHtml = `
-        <div id="summaryPrintView" class="summary-print-view" dir="rtl" style="
-            font-family: 'Cairo','Segoe UI',Tahoma,sans-serif;
-            background: #fff;
-            color: #1a1a1a;
-            padding: 20px 24px;
-            max-width: 210mm;
-            box-sizing: border-box;
-            margin: 0 auto;
-        ">
-            <!-- Header -->
-            <div style="text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:3px double #333;">
-                <div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:6px;">
-                    <div style="width:70px;height:70px;">${logoHtml}</div>
-                    <div style="flex:1;text-align:center;">
-                        <h2 style="font-size:18px;margin:0 0 2px 0;font-weight:800;letter-spacing:0.5px;">
-                            ${t('customerReports.summaryInvoiceTitle', 'فاتورة مجمعة')}
-                        </h2>
-                        <div style="font-size:14px;font-weight:800;margin-top:2px;">${escapeHtml(companyName)}</div>
-                        <div style="font-size:10px;color:#444;margin-top:2px;">${escapeHtml(companyInfo)}</div>
-                    </div>
-                    <div style="width:70px;height:70px;visibility:hidden;"></div>
-                </div>
-                <div style="display:flex;justify-content:center;gap:40px;font-size:11px;color:#333;">
-                    <div><strong>${t('customerReports.printCustomer', 'العميل')}:</strong> ${escapeHtml(customerName)}</div>
-                    <div><strong>${t('customerReports.printPeriod', 'الفترة')}:</strong> ${periodText}</div>
-                    <div><strong>${t('customerReports.printDate', 'تاريخ الطباعة')}:</strong> ${printDate}</div>
-                </div>
-            </div>
-
-            <!-- Summary Table (4 columns) -->
-            <table style="width:100%;border-collapse:collapse;border:2px solid #555;margin-bottom:12px;">
-                <thead>
-                    <tr>
-                        <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
-                            ${t('customerReports.summaryColDate', 'التاريخ / نوع الحركة')}
-                        </th>
-                        <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
-                            ${t('customerReports.summaryColDebit', 'لينا (مدين)')}
-                        </th>
-                        <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
-                            ${t('customerReports.summaryColCredit', 'علينا (دائن)')}
-                        </th>
-                        <th style="background:#d9d9d9;font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
-                            ${t('customerReports.summaryColBalance', 'الرصيد')}
-                        </th>
-                    </tr>
-                </thead>
-                <tbody style="font-size:12px;">
-                    ${rowsHtml}
-                </tbody>
-                <tfoot>
-                    <tr style="background:#f0f0f0;border-top:3px double #333;">
-                        <td style="font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;">
-                            ${t('customerReports.summaryTotals', 'الإجماليات')}
-                        </td>
-                        <td class="summary-cell-debit" style="font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;color:#047857;">
-                            ${formatCurrency(totalDebit)}
-                        </td>
-                        <td class="summary-cell-credit" style="font-size:13px;padding:10px 8px;border:1px solid #999;font-weight:800;text-align:center;color:#b91c1c;">
-                            ${formatCurrency(totalCredit)}
-                        </td>
-                        <td class="summary-cell-balance ${closingBalanceClass}" style="font-size:14px;padding:10px 8px;border:2px solid #555;font-weight:800;text-align:center;color:${closingColor};background:#e8e8e8;">
-                            ${formatCurrency(Math.abs(closingBal))} ${closingLabel}
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
-
-        </div>
-    `;
-
-    // Create a full-page overlay for PDF capture (hides the entire app UI)
-    const overlay = document.createElement('div');
-    overlay.className = 'summary-pdf-overlay';
-    overlay.innerHTML = summaryHtml;
-    document.body.appendChild(overlay);
-
-    // Activate PDF capture mode — hides #app, shows only the overlay
-    document.body.classList.add('summary-pdf-mode');
-
-    try {
-        // Wait for layout, then apply smart page breaks for item sections.
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        applySummarySectionPageBreaks(overlay);
-        await new Promise(r => setTimeout(r, 180));
-
-        const summaryPrintView = overlay.querySelector('#summaryPrintView');
-        if (!summaryPrintView) {
-            if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+        const customerId = customerSelect.value;
+        if (!customerId) {
+            if (window.showToast) window.showToast(t('customerReports.selectCustomerPlaceholder', 'اختر العميل...'), 'error');
             return;
         }
-        const htmlContent = buildCustomerReportPdfDocument(
-            summaryPrintView.outerHTML,
-            'summary-pdf-mode'
-        );
-        const pdfResult = await window.electronAPI.saveCustomerSummaryPdf({ defaultName, htmlContent });
-        if (pdfResult && pdfResult.success) {
-            if (window.showToast) window.showToast(t('customerReports.pdfSaved', 'تم حفظ الملف بنجاح'), 'success');
-        } else if (pdfResult && !pdfResult.canceled) {
-            if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+
+        const selectedOption = customerSelect.options[customerSelect.selectedIndex];
+        const customerName = selectedOption ? selectedOption.textContent.trim() : '';
+        const startDate = document.getElementById('dateFrom').value || undefined;
+        const endDate = document.getElementById('dateTo').value || undefined;
+        const date = new Date().toISOString().split('T')[0];
+        const defaultName = `فاتورة_مجمعة_${customerName}_${date}.pdf`;
+
+        // Fetch summary statement data from backend
+        const result = await window.electronAPI.getCustomerSummaryStatement({ customerId, startDate, endDate });
+        if (!result || !result.success) {
+            if (window.showToast) window.showToast(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
+            return;
         }
-    } finally {
-        // Remove overlay and restore normal view
-        document.body.classList.remove('summary-pdf-mode');
-        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-    }
+
+        // Also fetch detailed statement for invoice-level rows (date | total | payment | balance)
+        const detailedResult = await window.electronAPI.getCustomerDetailedStatement({ customerId, startDate, endDate });
+        if (!detailedResult || !detailedResult.success) {
+            if (window.showToast) window.showToast(t('customerReports.unexpectedError', 'حدث خطأ غير متوقع'), 'error');
+            return;
+        }
+
+        // Get company settings
+        let settings = {};
+        try {
+            settings = await window.electronAPI.getSettings() || {};
+        } catch (_) {}
+
+        // Build period text
+        let periodText = t('customerReports.allPeriods', 'كل الفترات');
+        if (startDate && endDate) periodText = `${startDate}  إلى  ${endDate}`;
+        else if (startDate) periodText = `من ${startDate}`;
+        else if (endDate) periodText = `حتى ${endDate}`;
+
+        const { transactions, totals } = detailedResult;
+        const printDate = new Date().toLocaleDateString('ar-EG');
+
+        // Company info
+        const companyName = settings.companyName || '';
+        let companyInfo = '';
+        if (settings.companyAddress) companyInfo += settings.companyAddress;
+        if (settings.companyPhone) companyInfo += (companyInfo ? ' | ' : '') + settings.companyPhone;
+        const logoHtml = settings.profileImage
+            ? `<img src="${settings.profileImage}" alt="logo" style="width:70px;height:70px;object-fit:cover;border-radius:50%;border:2px solid #000;">`
+            : '';
+
+        // Type labels
+        const typeLabels = {
+            sales: t('customerReports.salesBadge', 'مبيعات'),
+            purchase: t('customerReports.purchaseBadge', 'مشتريات'),
+            payment_in: t('customerReports.receiptBadge', 'تحصيل'),
+            payment_out: t('customerReports.paymentBadge', 'سداد'),
+            sales_return: t('customerReports.salesReturnBadge', 'مردود مبيعات'),
+            purchase_return: t('customerReports.purchaseReturnBadge', 'مردود مشتريات')
+        };
+
+        // Build table rows
+        let rowsHtml = '';
+        let idx = 0;
+
+        if (totals.openingBalance !== 0) {
+            const obLabel = totals.openingBalance > 0
+                ? t('customerReports.balanceForUs', 'لينا (مدين)')
+                : t('customerReports.balanceAgainstUs', 'علينا (دائن)');
+            const openingBalanceClass = totals.openingBalance > 0
+                ? 'summary-cell-balance-positive'
+                : 'summary-cell-balance-negative';
+            const obColor = totals.openingBalance > 0 ? '#059669' : '#dc2626';
+            rowsHtml += `
+                <tr class="summary-opening-row">
+                    <td colspan="3" style="text-align:center;font-weight:800;background:#f0f4f8;border:1.5px solid #000;padding:10px 8px;color:#000;">
+                        ${t('customerReports.openingBalance', 'رصيد أول المدة')}
+                    </td>
+                    <td class="summary-cell-balance ${openingBalanceClass}" style="font-weight:800;background:#f0f4f8;border:1.5px solid #000;padding:10px 8px;text-align:center;color:${obColor};">
+                        ${formatCurrency(Math.abs(totals.openingBalance))} ${obLabel}
+                    </td>
+                </tr>`;
+        }
+
+        for (const trans of transactions) {
+            idx++;
+            const typeLabel = typeLabels[trans.type] || trans.type;
+            const invoiceTotal = (trans.type === 'sales' || trans.type === 'payment_out' || trans.type === 'purchase_return')
+                ? formatCurrency(trans.total_amount)
+                : '';
+            const paymentAmount = (trans.type === 'purchase' || trans.type === 'payment_in' || trans.type === 'sales_return')
+                ? formatCurrency(trans.total_amount)
+                : '';
+
+            const rb = trans.running_balance;
+            const rbLabel = rb > 0 ? t('customerReports.balanceForUs', 'لينا (مدين)') : rb < 0 ? t('customerReports.balanceAgainstUs', 'علينا (دائن)') : '';
+            const rbBalanceClass = rb > 0
+                ? 'summary-cell-balance-positive'
+                : rb < 0
+                    ? 'summary-cell-balance-negative'
+                    : 'summary-cell-balance-neutral';
+            const rbColor = rb > 0 ? '#059669' : rb < 0 ? '#dc2626' : '#000000';
+
+            rowsHtml += `
+                <tr style="color:#000000;font-weight:700;">
+                    <td style="border:1.5px solid #000;padding:10px 8px;text-align:center;color:#000000;font-weight:700;">${trans.trans_date}<br><small style="color:#000000;font-weight:700;font-size:11px;">${typeLabel}</small></td>
+                    <td class="summary-cell-debit" style="border:1.5px solid #000;padding:10px 8px;text-align:center;color:#059669;font-weight:800;font-size:13px;">${invoiceTotal}</td>
+                    <td class="summary-cell-credit" style="border:1.5px solid #000;padding:10px 8px;text-align:center;color:#dc2626;font-weight:800;font-size:13px;">${paymentAmount}</td>
+                    <td class="summary-cell-balance ${rbBalanceClass}" style="border:1.5px solid #000;padding:10px 8px;text-align:center;color:${rbColor};font-weight:800;font-size:13px;">${formatCurrency(Math.abs(rb))} ${rbLabel}</td>
+                </tr>`;
+        }
+
+        // Closing balance
+        const closingBal = totals.closingBalance;
+        const closingLabel = closingBal > 0 ? t('customerReports.balanceForUs', 'لينا (مدين)') : closingBal < 0 ? t('customerReports.balanceAgainstUs', 'علينا (دائن)') : '';
+        const closingBalanceClass = closingBal > 0
+            ? 'summary-cell-balance-positive'
+            : closingBal < 0
+                ? 'summary-cell-balance-negative'
+                : 'summary-cell-balance-neutral';
+        const closingColor = closingBal > 0 ? '#059669' : closingBal < 0 ? '#dc2626' : '#000000';
+
+        // Summary totals
+        const totalDebit = totals.totalSales + totals.totalPaymentsOut + totals.totalPurchaseReturns;
+        const totalCredit = totals.totalPurchases + totals.totalPaymentsIn + totals.totalSalesReturns;
+
+        // Build full summary print HTML
+        const summaryHtml = `
+            <div id="summaryPrintView" class="summary-print-view" dir="rtl" style="
+                font-family: 'Cairo','Segoe UI',Tahoma,sans-serif;
+                background: #fff;
+                color: #000000;
+                padding: 20px 24px;
+                max-width: 210mm;
+                box-sizing: border-box;
+                margin: 0 auto;
+            ">
+                <!-- Header -->
+                <div style="text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:3px double #000;">
+                    <div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:6px;">
+                        <div style="width:70px;height:70px;">${logoHtml}</div>
+                        <div style="flex:1;text-align:center;">
+                            <h2 style="font-size:20px;margin:0 0 2px 0;font-weight:900;letter-spacing:0.5px;color:#000000;">
+                                ${t('customerReports.summaryInvoiceTitle', 'فاتورة مجمعة')}
+                            </h2>
+                            <div style="font-size:15px;font-weight:800;margin-top:2px;color:#000000;">${escapeHtml(companyName)}</div>
+                            <div style="font-size:11px;color:#000000;font-weight:700;margin-top:2px;">${escapeHtml(companyInfo)}</div>
+                        </div>
+                        <div style="width:70px;height:70px;visibility:hidden;"></div>
+                    </div>
+                    <div style="display:flex;justify-content:center;gap:40px;font-size:12px;color:#000000;font-weight:700;">
+                        <div><strong>${t('customerReports.printCustomer', 'العميل')}:</strong> ${escapeHtml(customerName)}</div>
+                        <div><strong>${t('customerReports.printPeriod', 'الفترة')}:</strong> ${periodText}</div>
+                        <div><strong>${t('customerReports.printDate', 'تاريخ الطباعة')}:</strong> ${printDate}</div>
+                    </div>
+                </div>
+
+                <!-- Summary Table (4 columns) -->
+                <table style="width:100%;border-collapse:collapse;border:2px solid #000000;margin-bottom:12px;">
+                    <thead>
+                        <tr>
+                            <th style="background:#e0e0e0;font-size:13px;padding:10px 8px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
+                                ${t('customerReports.summaryColDate', 'التاريخ / نوع الحركة')}
+                            </th>
+                            <th style="background:#e0e0e0;font-size:13px;padding:10px 8px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
+                                ${t('customerReports.summaryColDebit', 'لينا (مدين)')}
+                            </th>
+                            <th style="background:#e0e0e0;font-size:13px;padding:10px 8px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
+                                ${t('customerReports.summaryColCredit', 'علينا (دائن)')}
+                            </th>
+                            <th style="background:#e0e0e0;font-size:13px;padding:10px 8px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
+                                ${t('customerReports.summaryColBalance', 'الرصيد')}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody style="font-size:12px;color:#000000;">
+                        ${rowsHtml}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#f0f0f0;border-top:3px double #000000;">
+                            <td style="font-size:13px;padding:10px 8px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
+                                ${t('customerReports.summaryTotals', 'الإجماليات')}
+                            </td>
+                            <td class="summary-cell-debit" style="font-size:14px;padding:10px 8px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#059669;">
+                            ${formatCurrency(totalDebit)}
+                            </td>
+                            <td class="summary-cell-credit" style="font-size:14px;padding:10px 8px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#dc2626;">
+                                ${formatCurrency(totalCredit)}
+                            </td>
+                            <td class="summary-cell-balance ${closingBalanceClass}" style="font-size:14px;padding:10px 8px;border:2px solid #000000;font-weight:900;text-align:center;color:${closingColor};background:#d8d8d8;">
+                                ${formatCurrency(Math.abs(closingBal))} ${closingLabel}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+            </div>
+        `;
+
+        // Create a full-page overlay for PDF capture (hides the entire app UI)
+        const overlay = document.createElement('div');
+        overlay.className = 'summary-pdf-overlay';
+        overlay.innerHTML = summaryHtml;
+        document.body.appendChild(overlay);
+
+        // Activate PDF capture mode — hides #app, shows only the overlay
+        document.body.classList.add('summary-pdf-mode');
+
+        try {
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            if (typeof applySummarySectionPageBreaks === 'function') {
+                applySummarySectionPageBreaks(overlay);
+            }
+            await new Promise(r => setTimeout(r, 180));
+
+            const summaryPrintView = overlay.querySelector('#summaryPrintView');
+            if (!summaryPrintView) {
+                if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+                return;
+            }
+            const htmlContent = buildCustomerReportPdfDocument(
+                summaryPrintView.outerHTML,
+                'summary-pdf-mode'
+            );
+            const pdfResult = await window.electronAPI.saveCustomerSummaryPdf({ defaultName, htmlContent });
+            if (pdfResult && pdfResult.success) {
+                if (window.showToast) window.showToast(t('customerReports.pdfSaved', 'تم حفظ الملف بنجاح'), 'success');
+            } else if (pdfResult && !pdfResult.canceled) {
+                if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
+            }
+        } finally {
+            document.body.classList.remove('summary-pdf-mode');
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        }
     } catch (error) {
         console.error('Failed to save customer summary PDF:', error);
         if (window.showToast) window.showToast(t('customerReports.pdfError', 'حدث خطأ أثناء الحفظ'), 'error');
@@ -910,10 +911,10 @@ function buildSummaryItemsSection(result, t) {
     let html = '';
 
     const sections = [
-        { key: 'salesItems', title: t('customerReports.summaryItemsSales', 'أصناف المبيعات'), color: '#059669', icon: 'fa-shopping-cart' },
-        { key: 'purchaseItems', title: t('customerReports.summaryItemsPurchases', 'أصناف المشتريات'), color: '#d97706', icon: 'fa-shopping-bag' },
-        { key: 'salesReturnItems', title: t('customerReports.summaryItemsSalesReturns', 'أصناف مردودات المبيعات'), color: '#9333ea', icon: 'fa-undo' },
-        { key: 'purchaseReturnItems', title: t('customerReports.summaryItemsPurchaseReturns', 'أصناف مردودات المشتريات'), color: '#0d9488', icon: 'fa-undo' }
+        { key: 'salesItems', title: t('customerReports.summaryItemsSales', 'أصناف المبيعات'), color: '#000000', icon: 'fa-shopping-cart' },
+        { key: 'purchaseItems', title: t('customerReports.summaryItemsPurchases', 'أصناف المشتريات'), color: '#000000', icon: 'fa-shopping-bag' },
+        { key: 'salesReturnItems', title: t('customerReports.summaryItemsSalesReturns', 'أصناف مردودات المبيعات'), color: '#000000', icon: 'fa-undo' },
+        { key: 'purchaseReturnItems', title: t('customerReports.summaryItemsPurchaseReturns', 'أصناف مردودات المشتريات'), color: '#000000', icon: 'fa-undo' }
     ];
 
     sections.forEach((section, sectionIndex) => {
@@ -932,26 +933,26 @@ function buildSummaryItemsSection(result, t) {
 
         html += `
             <div class="summary-items-section" data-summary-section="${sectionIndex}" data-has-items="${hasItems ? '1' : '0'}" style="${sectionContainerStyle}">
-                <div style="background:${section.color};color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-size:13px;font-weight:700;page-break-after:avoid;break-after:avoid-page;">
+                <div style="background:#000000;color:#ffffff;padding:8px 14px;border-radius:6px 6px 0 0;font-size:13px;font-weight:900;page-break-after:avoid;break-after:avoid-page;border:2px solid #000000;">
                     <i class="fas ${section.icon}"></i> ${section.title}
                 </div>
-                <table style="width:100%;border-collapse:collapse;border:2px solid ${section.color};border-top:none;page-break-before:avoid;break-before:avoid-page;">
+                <table style="width:100%;border-collapse:collapse;border:2px solid #000000;border-top:none;page-break-before:avoid;break-before:avoid-page;">
                     <thead>
                         <tr>
-                            <th style="background:#f3f3f3;font-size:11px;padding:8px 6px;border:1px solid #ccc;font-weight:700;text-align:center;">#</th>
-                            <th style="background:#f3f3f3;font-size:11px;padding:8px 6px;border:1px solid #ccc;font-weight:700;text-align:center;">
+                            <th style="background:#e0e0e0;font-size:12px;padding:8px 6px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">#</th>
+                            <th style="background:#e0e0e0;font-size:12px;padding:8px 6px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
                                 ${t('customerReports.itemHeaders.name', 'الصنف')}
                             </th>
-                            <th style="background:#f3f3f3;font-size:11px;padding:8px 6px;border:1px solid #ccc;font-weight:700;text-align:center;">
+                            <th style="background:#e0e0e0;font-size:12px;padding:8px 6px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
                                 ${t('customerReports.itemHeaders.unit', 'الوحدة')}
                             </th>
-                            <th style="background:#f3f3f3;font-size:11px;padding:8px 6px;border:1px solid #ccc;font-weight:700;text-align:center;">
+                            <th style="background:#e0e0e0;font-size:12px;padding:8px 6px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
                                 ${t('customerReports.summaryItemQty', 'إجمالي الكمية')}
                             </th>
-                            <th style="background:#f3f3f3;font-size:11px;padding:8px 6px;border:1px solid #ccc;font-weight:700;text-align:center;">
+                            <th style="background:#e0e0e0;font-size:12px;padding:8px 6px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
                                 ${t('customerReports.summaryItemAvgPrice', 'متوسط السعر')}
                             </th>
-                            <th style="background:#f3f3f3;font-size:11px;padding:8px 6px;border:1px solid #ccc;font-weight:700;text-align:center;">
+                            <th style="background:#e0e0e0;font-size:12px;padding:8px 6px;border:1.5px solid #000000;font-weight:900;text-align:center;color:#000000;">
                                 ${t('customerReports.summaryItemTotal', 'الإجمالي')}
                             </th>
                         </tr>
@@ -961,24 +962,24 @@ function buildSummaryItemsSection(result, t) {
         if (hasItems) {
             items.forEach((item, i) => {
                 html += `
-                        <tr style="page-break-inside:avoid;">
-                            <td style="font-size:11px;padding:6px;border:1px solid #ddd;text-align:center;">${i + 1}</td>
-                            <td style="font-size:11px;padding:6px;border:1px solid #ddd;text-align:center;font-weight:600;">${escapeHtml(item.item_name)}</td>
-                            <td style="font-size:11px;padding:6px;border:1px solid #ddd;text-align:center;">${escapeHtml(item.unit_name || '—')}</td>
-                            <td style="font-size:11px;padding:6px;border:1px solid #ddd;text-align:center;font-weight:700;">${item.total_qty}</td>
-                            <td style="font-size:11px;padding:6px;border:1px solid #ddd;text-align:center;">${formatCurrency(item.avg_price || 0)}</td>
-                            <td style="font-size:11px;padding:6px;border:1px solid #ddd;text-align:center;font-weight:700;">${formatCurrency(item.total_amount)}</td>
+                        <tr style="page-break-inside:avoid;color:#000000;font-weight:700;">
+                            <td style="font-size:11px;padding:6px;border:1.5px solid #000000;text-align:center;color:#000000;">${i + 1}</td>
+                            <td style="font-size:11px;padding:6px;border:1.5px solid #000000;text-align:center;font-weight:800;color:#000000;">${escapeHtml(item.item_name)}</td>
+                            <td style="font-size:11px;padding:6px;border:1.5px solid #000000;text-align:center;color:#000000;">${escapeHtml(item.unit_name || '—')}</td>
+                            <td style="font-size:11px;padding:6px;border:1.5px solid #000000;text-align:center;font-weight:800;color:#000000;">${item.total_qty}</td>
+                            <td style="font-size:11px;padding:6px;border:1.5px solid #000000;text-align:center;color:#000000;">${formatCurrency(item.avg_price || 0)}</td>
+                            <td style="font-size:11px;padding:6px;border:1.5px solid #000000;text-align:center;font-weight:800;color:#000000;">${formatCurrency(item.total_amount)}</td>
                         </tr>`;
             });
 
             html += `
                     </tbody>
                     <tfoot>
-                        <tr style="background:#f8f8f8;page-break-inside:avoid;">
-                            <td colspan="5" style="font-size:12px;padding:8px;border:1px solid #ccc;text-align:center;font-weight:800;">
+                        <tr style="background:#f0f0f0;page-break-inside:avoid;">
+                            <td colspan="5" style="font-size:12px;padding:8px;border:1.5px solid #000000;text-align:center;font-weight:900;color:#000000;">
                                 ${t('customerReports.summaryTotals', 'الإجماليات')}
                             </td>
-                            <td style="font-size:12px;padding:8px;border:1px solid #ccc;text-align:center;font-weight:800;color:${section.color};">
+                            <td style="font-size:12px;padding:8px;border:1.5px solid #000000;text-align:center;font-weight:900;color:#000000;">
                                 ${formatCurrency(sectionTotal)}
                             </td>
                         </tr>
@@ -988,7 +989,7 @@ function buildSummaryItemsSection(result, t) {
         } else {
             html += `
                         <tr style="page-break-inside:avoid;">
-                            <td colspan="6" style="font-size:12px;padding:14px;border:1px solid #ddd;text-align:center;font-weight:700;color:#555;">
+                            <td colspan="6" style="font-size:12px;padding:14px;border:1.5px solid #000000;text-align:center;font-weight:800;color:#000000;">
                                 ${t('customerReports.noDataMessage', 'لا توجد بيانات')}
                             </td>
                         </tr>
@@ -1025,7 +1026,6 @@ function applySummarySectionPageBreaks(overlay) {
     if (!sections.length) return;
 
     const pageHeightPx = measureMillimetersInPixels(280);
-    if (!Number.isFinite(pageHeightPx) || pageHeightPx <= 0) return;
     const pageContentHeightPx = pageHeightPx;
 
     sections.forEach((section) => {

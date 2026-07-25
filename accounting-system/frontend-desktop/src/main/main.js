@@ -369,7 +369,7 @@ ipcMain.handle('print-current-window', async (event, options = {}) => {
                 printBackground: true,
                 deviceName: typeof deviceName === 'string' ? deviceName : '',
                 pageSize: 'A4',
-                margins: { marginType: 'default' }
+                margins: { marginType: 'none' }
             };
 
             printWindow.webContents.print(printOptions, (success, failureReason) => {
@@ -425,7 +425,7 @@ ipcMain.handle('generate-pdf-preview', async (event, options = {}) => {
                 const pdfBuffer = await previewWindow.webContents.printToPDF({
                     pageSize: 'A4',
                     printBackground: true,
-                    margins: { marginType: 'default' }
+                    margins: { marginType: 'none' }
                 });
                 
                 if (previewWindow && !previewWindow.isDestroyed()) {

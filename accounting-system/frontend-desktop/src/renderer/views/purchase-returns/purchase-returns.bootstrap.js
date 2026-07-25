@@ -1175,36 +1175,94 @@ async function confirmPrintReturn() {
                     <head>
                         <meta charset="utf-8">
                         <style>
-                            body { direction: rtl; font-family: system-ui, sans-serif; padding: 20px; }
+                            @page {
+                                size: A4;
+                                margin: 12mm 12mm 12mm 12mm;
+                            }
+                            * {
+                                box-sizing: border-box;
+                            }
+                            body {
+                                direction: rtl;
+                                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                                padding: 0;
+                                margin: 0;
+                                background: #ffffff !important;
+                                color: #000000 !important;
+                                -webkit-print-color-adjust: exact;
+                                print-color-adjust: exact;
+                            }
+                            .print-shell, #printArea {
+                                padding: 0 !important;
+                                margin: 0 !important;
+                                background: #ffffff !important;
+                                color: #000000 !important;
+                            }
                             .print-items-table {
                                 width: 100%;
-                                border-collapse: separate !important;
-                                border-spacing: 0 !important;
+                                border-collapse: collapse !important;
+                                margin-bottom: 20px;
                                 page-break-inside: auto;
-                                border-top: 1px solid #000 !important;
-                                border-right: 1px solid #000 !important;
-                                border-bottom: none !important;
-                                border-left: none !important;
                             }
-                            .print-items-table thead { display: table-header-group !important; }
-                            .print-items-table tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+                            .print-items-table thead {
+                                display: table-header-group !important;
+                            }
+                            .print-items-table tbody {
+                                display: table-row-group !important;
+                            }
+                            .print-items-table tr {
+                                page-break-inside: avoid !important;
+                                break-inside: avoid !important;
+                            }
                             .print-items-table th, .print-items-table td {
-                                border-left: 1px solid #000 !important;
-                                border-bottom: 1px solid #000 !important;
-                                border-right: none !important;
-                                border-top: none !important;
+                                border: 1px solid #000 !important;
                                 padding: 8px;
                                 text-align: center;
+                                word-break: break-word;
                             }
-                            .print-summary, .print-footer { page-break-inside: avoid !important; break-inside: avoid !important; }
-                            table:not(.print-items-table) { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                            table:not(.print-items-table) th, table:not(.print-items-table) td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-                            th { background-color: #f2f2f2; }
-                            .print-header-top { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-                            .print-company-name { font-size: 24px; font-weight: bold; }
-                            .print-invoice-title { font-size: 20px; font-weight: bold; }
-                            .print-header-details { display: flex; justify-content: space-between; margin-bottom: 20px; }
-                            .print-footer { margin-top: 30px; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }
+                            .print-summary, .print-footer {
+                                page-break-inside: avoid !important;
+                                break-inside: avoid !important;
+                            }
+                            table:not(.print-items-table) {
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-bottom: 20px;
+                            }
+                            table:not(.print-items-table) th, table:not(.print-items-table) td {
+                                border: 1px solid #ddd;
+                                padding: 8px;
+                                text-align: right;
+                            }
+                            th {
+                                background-color: #f2f2f2 !important;
+                            }
+                            .print-header-top {
+                                display: flex;
+                                justify-content: space-between;
+                                margin-bottom: 20px;
+                                border-bottom: 2px solid #333;
+                                padding-bottom: 10px;
+                            }
+                            .print-company-name {
+                                font-size: 24px;
+                                font-weight: bold;
+                            }
+                            .print-invoice-title {
+                                font-size: 20px;
+                                font-weight: bold;
+                            }
+                            .print-header-details {
+                                display: flex;
+                                justify-content: space-between;
+                                margin-bottom: 20px;
+                            }
+                            .print-footer {
+                                margin-top: 30px;
+                                text-align: center;
+                                border-top: 1px solid #ddd;
+                                padding-top: 10px;
+                            }
                         </style>
                     </head>
                     <body>
