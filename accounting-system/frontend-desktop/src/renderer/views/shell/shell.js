@@ -32,7 +32,9 @@ const SHELL_HREF_TO_PERMISSION = [
 const shellState = {
     currentHref: '',
     isNavigating: false,
-    visibleItems: SHELL_ITEMS
+    visibleItems: SHELL_ITEMS,
+    permissions: [],
+    isAdmin: false
 };
 const NAVIGATION_WATCHDOG_MS = 1800;
 let navigationWatchdogTimer = null;
@@ -205,6 +207,8 @@ async function loadShellVisibleItems() {
             return;
         }
 
+        shellState.permissions = result.permissions;
+        shellState.isAdmin = Boolean(result.isAdmin);
         shellState.visibleItems = filterShellItemsByPermissions(
             SHELL_ITEMS,
             result.permissions,
@@ -213,6 +217,29 @@ async function loadShellVisibleItems() {
     } catch (error) {
         console.error('[shell] failed to load permissions:', error);
     }
+}
+
+function getFirstAllowedRoute() {
+    const items = Array.isArray(shellState.visibleItems) ? shellState.visibleItems : [];
+    for (const item of items) {
+        if (Array.isArray(item.children)) {
+            for (const child of item.children) {
+                if (child.href && !isShiftCloseHref(child.href)) {
+                    return child.href;
+                }
+            }
+        } else if (item.href && !isShiftCloseHref(item.href)) {
+            return item.href;
+        }
+    }
+    return DEFAULT_ROUTE;
+}
+
+function isRouteAllowed(routeHref) {
+    if (!routeHref) return false;
+    const page = getPermissionPageForHref(routeHref);
+    if (!page) return true;
+    return canViewPermissionPage(shellState.permissions, shellState.isAdmin, page);
 }
 
 function buildTopNavLink(item) {
@@ -265,7 +292,21 @@ function renderTopNav() {
     `;
 }
 
-function openSearchInCurrentFrame() {
+function openSearch() {
+    if (!window.globalSearch && typeof window.GlobalSearch === 'function') {
+        try {
+            window.globalSearch = new window.GlobalSearch();
+        } catch (_err) {
+            // ignore
+        }
+    }
+
+    const searchInstance = window.globalSearch || (window.top && window.top.globalSearch);
+    if (searchInstance && typeof searchInstance.open === 'function') {
+        searchInstance.open();
+        return;
+    }
+
     const frame = document.getElementById('shellFrame');
     const frameWindow = frame?.contentWindow;
     if (!frameWindow) return;
@@ -278,23 +319,18 @@ function openSearchInCurrentFrame() {
     } catch (_err) {
         // Ignore and fallback to shortcut dispatch.
     }
-
-    try {
-        frameWindow.focus();
-        const event = new KeyboardEvent('keydown', {
-            key: 'k',
-            code: 'KeyK',
-            ctrlKey: true,
-            bubbles: true
-        });
-        frameWindow.document.dispatchEvent(event);
-    } catch (_err) {
-        // ignore
-    }
 }
 
 function bindFrameBridge(frameDoc, frameWindow) {
     if (!frameDoc || !frameWindow) return;
+
+    frameDoc.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && (event.code === 'KeyK' || event.key === '/')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            openSearch();
+        }
+    }, true);
 
     frameDoc.addEventListener('click', (event) => {
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
@@ -358,9 +394,15 @@ function setHistoryRoute(routeHref, replace = false) {
 function navigateTo(rawTarget, options = {}) {
     const { pushHistory = true } = options;
 
+    const defaultRoute = getFirstAllowedRoute();
+    let candidate = rawTarget || defaultRoute;
+    if (!isRouteAllowed(candidate)) {
+        candidate = defaultRoute;
+    }
+
     let targetUrl;
     try {
-        targetUrl = toUrl(rawTarget || DEFAULT_ROUTE);
+        targetUrl = toUrl(candidate);
     } catch (_e) {
         return false;
     }
@@ -448,7 +490,8 @@ function bindShellNavEvents() {
         const searchBtn = event.target.closest('.nav-search-btn');
         if (searchBtn) {
             event.preventDefault();
-            openSearchInCurrentFrame();
+            event.stopPropagation();
+            openSearch();
             return;
         }
 
@@ -469,18 +512,27 @@ function bindShellNavEvents() {
         event.preventDefault();
         navigateTo(href, { pushHistory: true });
     });
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyK' || e.key === '/')) {
+            e.preventDefault();
+            openSearch();
+        }
+    });
 }
 
 function bindHistoryEvents() {
     window.addEventListener('popstate', (event) => {
         const routeHref = event.state && event.state.routeHref;
-        if (routeHref) {
+        const defaultRoute = getFirstAllowedRoute();
+        if (routeHref && isRouteAllowed(routeHref)) {
             navigateTo(routeHref, { pushHistory: false });
             return;
         }
 
         const routeFromHash = parseRouteFromHash();
-        navigateTo(routeFromHash || DEFAULT_ROUTE, { pushHistory: false });
+        const finalRoute = (routeFromHash && isRouteAllowed(routeFromHash)) ? routeFromHash : defaultRoute;
+        navigateTo(finalRoute, { pushHistory: false });
     });
 }
 
@@ -508,7 +560,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             frame.addEventListener('load', onFrameLoaded);
         }
 
-        const initialRoute = parseRouteFromHash() || new URL(DEFAULT_ROUTE, window.location.href).href;
+        const defaultRoute = getFirstAllowedRoute();
+        const routeFromHash = parseRouteFromHash();
+        const isHashAllowed = routeFromHash && isRouteAllowed(routeFromHash);
+        const targetRoute = isHashAllowed ? routeFromHash : defaultRoute;
+        const initialRoute = new URL(targetRoute, window.location.href).href;
+
         renderTopNav();
         setHistoryRoute(initialRoute, true);
         navigateTo(initialRoute, { pushHistory: false });

@@ -113,12 +113,14 @@
         }
     }
 
-    function bindRowsEvents({ dom, handlers }) {
+    function bindRowsEvents({ dom, handlers, state }) {
         if (!dom.invoiceItemsBody) return;
 
         let hoveredRow = null;
 
         function showGlobalCostTooltip(row, cost) {
+            const canView = state ? state.canViewCost : (window.salesState ? window.salesState.canViewCost : false);
+            if (!canView) return;
             let tooltip = document.getElementById('globalCostTooltip');
             if (!tooltip) {
                 tooltip = document.createElement('div');
@@ -144,9 +146,12 @@
             if (row) {
                 hoveredRow = row;
                 if (e.ctrlKey) {
-                    const cost = row.dataset.costPrice;
-                    if (cost && cost !== '0.00') {
-                        showGlobalCostTooltip(row, cost);
+                    const canView = state ? state.canViewCost : (window.salesState ? window.salesState.canViewCost : false);
+                    if (canView) {
+                        const cost = row.dataset.costPrice;
+                        if (cost && cost !== '0.00') {
+                            showGlobalCostTooltip(row, cost);
+                        }
                     }
                 }
             }
@@ -162,9 +167,12 @@
 
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Control' && hoveredRow) {
-                const cost = hoveredRow.dataset.costPrice;
-                if (cost && cost !== '0.00') {
-                    showGlobalCostTooltip(hoveredRow, cost);
+                const canView = state ? state.canViewCost : (window.salesState ? window.salesState.canViewCost : false);
+                if (canView) {
+                    const cost = hoveredRow.dataset.costPrice;
+                    if (cost && cost !== '0.00') {
+                        showGlobalCostTooltip(hoveredRow, cost);
+                    }
                 }
             }
         });

@@ -2,14 +2,20 @@
 <html lang="ar" dir="ltr">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تسجيل الدخول</title>
+    <link rel="stylesheet" href="../../assets/styles/main.css">
+    <link rel="stylesheet" href="../../assets/vendor/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="auth.css">
+    <script src="../../assets/js/theme.js"></script>
 </head>
 <body  dir="rtl">
     <div class="auth-card">
-        <h1 id="titleText" data-i18n="auth.loginTitle">تسجيل الدخول</h1>
+        <div class="auth-header-row">
+            <h1 id="titleText" data-i18n="auth.loginTitle">تسجيل الدخول</h1>
+            <button type="button" class="auth-theme-toggle" data-theme-toggle aria-label="تبديل المظهر" title="تبديل المظهر"></button>
+        </div>
         <p id="subtitleText" data-i18n="auth.loginSubtitle">ادخل اسم المستخدم وكلمة المرور للمتابعة.</p>
         <form id="authForm">
             <div class="form-group">

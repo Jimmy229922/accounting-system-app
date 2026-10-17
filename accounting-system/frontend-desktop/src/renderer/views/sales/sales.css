@@ -630,6 +630,44 @@
     box-shadow: none;
 }
 
+.btn-warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(217, 119, 6, 0.25);
+    border: none;
+}
+
+.btn-warning:hover:not(:disabled) {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    box-shadow: 0 6px 18px rgba(217, 119, 6, 0.35);
+}
+
+.btn-warning:disabled {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);
+    border: none;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: linear-gradient(135deg, #f87171, #ef4444);
+    box-shadow: 0 6px 18px rgba(239, 68, 68, 0.35);
+}
+
+.btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
 .btn-outline {
     background: transparent;
     border: 1px solid var(--table-border);
@@ -1567,10 +1605,43 @@ body.sales-print-mode .print-shell {
     background: linear-gradient(135deg, #10b981, #059669) !important;
     box-shadow: 0 6px 20px rgba(5, 150, 105, 0.25) !important;
 }
+[data-theme="dark"] .btn-warning {
+    background: linear-gradient(135deg, #d97706, #b45309) !important;
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.18) !important;
+    border: none;
+    color: #ffffff !important;
+}
+[data-theme="dark"] .btn-warning:hover:not(:disabled) {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.3) !important;
+}
+[data-theme="dark"] .btn-warning:disabled,
+[data-theme="dark"] button.btn-warning:disabled {
+    background: rgba(245, 158, 11, 0.14) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+    box-shadow: none !important;
+    opacity: 0.8 !important;
+    cursor: not-allowed !important;
+}
 [data-theme="dark"] .btn-danger {
     background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15) !important;
     border: none;
+    color: #ffffff !important;
+}
+[data-theme="dark"] .btn-danger:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    box-shadow: 0 6px 18px rgba(239, 68, 68, 0.25) !important;
+}
+[data-theme="dark"] .btn-danger:disabled,
+[data-theme="dark"] button.btn-danger:disabled {
+    background: rgba(239, 68, 68, 0.14) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.35) !important;
+    box-shadow: none !important;
+    opacity: 0.8 !important;
+    cursor: not-allowed !important;
 }
 
 [data-theme="dark"] .customer-due-value {

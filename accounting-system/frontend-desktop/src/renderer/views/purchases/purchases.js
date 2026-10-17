@@ -1542,7 +1542,7 @@ function updateDeleteBtnState() {
         deleteBtn.style.cursor = 'pointer';
     } else {
         deleteBtn.disabled = true;
-        deleteBtn.style.opacity = '0.5';
+        deleteBtn.style.opacity = '0.8';
         deleteBtn.style.cursor = 'not-allowed';
     }
 }

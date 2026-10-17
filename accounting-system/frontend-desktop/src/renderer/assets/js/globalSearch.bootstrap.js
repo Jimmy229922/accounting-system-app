@@ -6,6 +6,12 @@
 
 class GlobalSearch {
     constructor() {
+        if (window.top && window.top !== window && window.top.globalSearch) {
+            window.globalSearch = window.top.globalSearch;
+            return window.top.globalSearch;
+        }
+
+        window.globalSearch = this;
         this.modal = null;
         this.overlay = null;
         this.input = null;
@@ -636,6 +642,10 @@ class GlobalSearch {
     }
     
     bindSearchButton() {
+        if (window.top && window.top !== window && window.top.globalSearch) {
+            return;
+        }
+
         document.addEventListener('click', (e) => {
             const searchBtn = e.target.closest('.nav-search-btn');
             if (!searchBtn) return;
@@ -717,6 +727,11 @@ class GlobalSearch {
     }
     
     open() {
+        if (window.top && window.top !== window && window.top.globalSearch && window.top.globalSearch !== this) {
+            window.top.globalSearch.open();
+            return;
+        }
+
         this.isOpen = true;
         if (this.currentView !== 'search' && typeof this.backToSearch === 'function') {
             this.backToSearch();
@@ -820,145 +835,184 @@ class GlobalSearch {
             items[this.focusedIndex].scrollIntoView({ block: 'nearest' });
         }
     }
+
+    async canViewPage(pageKey) {
+        try {
+            if (window.permissionManager && typeof window.permissionManager.canView === 'function') {
+                if (typeof window.permissionManager.loadPermissions === 'function') {
+                    await window.permissionManager.loadPermissions();
+                }
+                return window.permissionManager.canView(pageKey);
+            }
+            if (window.electronAPI && typeof window.electronAPI.getMyPermissions === 'function') {
+                const token = localStorage.getItem('auth_session_token') || '';
+                const res = await window.electronAPI.getMyPermissions({ sessionToken: token });
+                if (res && res.isAdmin) return true;
+                if (res && Array.isArray(res.permissions)) {
+                    const perm = res.permissions.find(p => p.page === pageKey);
+                    return Boolean(perm && perm.can_view);
+                }
+            }
+        } catch (_e) {
+            return false;
+        }
+        return true;
+    }
     
     async performSearch(query) {
         try {
             this.results = [];
+
+            const canViewItems = await this.canViewPage('items');
+            const canViewSales = await this.canViewPage('sales');
+            const canViewPurchases = await this.canViewPage('purchases');
+            const canViewSalesReturns = (await this.canViewPage('sales-returns')) && canViewSales;
+            const canViewPurchaseReturns = (await this.canViewPage('purchase-returns')) && canViewPurchases;
+            const canViewTreasury = await this.canViewPage('treasury');
+            const canViewCustomers = await this.canViewPage('customers');
             
-            // البحث في الأصناف
-            const items = await window.electronAPI.getItems();
-            const filteredItems = items.filter(item => 
-                item.name.includes(query) || 
-                (item.barcode && item.barcode.includes(query))
-            ).slice(0, 5);
-            
-            filteredItems.forEach(item => {
-                this.results.push({
-                    type: 'item',
-                    id: item.id,
-                    title: item.name,
-                    subtitle: `${this.t('globalSearch.barcode', 'الباركود')}: ${item.barcode || this.t('globalSearch.noBarcode', 'لا يوجد')} | ${this.t('globalSearch.stock', 'المخزون')}: ${item.stock_quantity || 0}`,
-                    data: item
+            if (canViewItems || canViewSales || canViewPurchases) {
+                const items = await window.electronAPI.getItems();
+                const filteredItems = items.filter(item => 
+                    item.name.includes(query) || 
+                    (item.barcode && item.barcode.includes(query))
+                ).slice(0, 5);
+                
+                filteredItems.forEach(item => {
+                    this.results.push({
+                        type: 'item',
+                        id: item.id,
+                        title: item.name,
+                        subtitle: `${this.t('globalSearch.barcode', 'الباركود')}: ${item.barcode || this.t('globalSearch.noBarcode', 'لا يوجد')} | ${this.t('globalSearch.stock', 'المخزون')}: ${item.stock_quantity || 0}`,
+                        data: item
+                    });
                 });
-            });
+            }
             
-            // البحث في فواتير المبيعات
-            const salesInvoices = await window.electronAPI.getSalesInvoices();
-            const filteredSales = salesInvoices.filter(inv => 
-                inv.invoice_number && inv.invoice_number.includes(query)
-            ).slice(0, 5);
-            
-            filteredSales.forEach(invoice => {
-                this.results.push({
-                    type: 'sales',
-                    id: invoice.id,
-                    title: invoice.invoice_number,
-                    subtitle: `${this.t('globalSearch.customer', 'العميل')}: ${invoice.customer_name || '-'} | ${this.t('globalSearch.amount', 'المبلغ')}: ${(invoice.total_amount || 0).toLocaleString()} | ${invoice.invoice_date}`,
-                    data: invoice
+            if (canViewSales) {
+                const salesInvoices = await window.electronAPI.getSalesInvoices();
+                const filteredSales = salesInvoices.filter(inv => 
+                    inv.invoice_number && inv.invoice_number.includes(query)
+                ).slice(0, 5);
+                
+                filteredSales.forEach(invoice => {
+                    this.results.push({
+                        type: 'sales',
+                        id: invoice.id,
+                        title: invoice.invoice_number,
+                        subtitle: `${this.t('globalSearch.customer', 'العميل')}: ${invoice.customer_name || '-'} | ${this.t('globalSearch.amount', 'المبلغ')}: ${(invoice.total_amount || 0).toLocaleString()} | ${invoice.invoice_date}`,
+                        data: invoice
+                    });
                 });
-            });
+            }
             
-            // البحث في فواتير المشتريات
-            const purchaseInvoices = await window.electronAPI.getPurchaseInvoices();
-            const filteredPurchases = purchaseInvoices.filter(inv => 
-                inv.invoice_number && inv.invoice_number.includes(query)
-            ).slice(0, 5);
-            
-            filteredPurchases.forEach(invoice => {
-                this.results.push({
-                    type: 'purchase',
-                    id: invoice.id,
-                    title: invoice.invoice_number,
-                    subtitle: `${this.t('globalSearch.supplier', 'المورد')}: ${invoice.supplier_name || '-'} | ${this.t('globalSearch.amount', 'المبلغ')}: ${(invoice.total_amount || 0).toLocaleString()} | ${invoice.invoice_date}`,
-                    data: invoice
+            if (canViewPurchases) {
+                const purchaseInvoices = await window.electronAPI.getPurchaseInvoices();
+                const filteredPurchases = purchaseInvoices.filter(inv => 
+                    inv.invoice_number && inv.invoice_number.includes(query)
+                ).slice(0, 5);
+                
+                filteredPurchases.forEach(invoice => {
+                    this.results.push({
+                        type: 'purchase',
+                        id: invoice.id,
+                        title: invoice.invoice_number,
+                        subtitle: `${this.t('globalSearch.supplier', 'المورد')}: ${invoice.supplier_name || '-'} | ${this.t('globalSearch.amount', 'المبلغ')}: ${(invoice.total_amount || 0).toLocaleString()} | ${invoice.invoice_date}`,
+                        data: invoice
+                    });
                 });
-            });
+            }
             
-            // البحث في مرتجعات المبيعات
-            const salesReturns = await window.electronAPI.getSalesReturns();
-            const filteredSalesReturns = salesReturns.filter(ret => 
-                ret.return_number && ret.return_number.includes(query)
-            ).slice(0, 5);
-            
-            filteredSalesReturns.forEach(salesReturn => {
-                this.results.push({
-                    type: 'sales-return',
-                    id: salesReturn.id,
-                    title: salesReturn.return_number,
-                    subtitle: `${this.t('globalSearch.customer', 'العميل')}: ${salesReturn.customer_name || '-'} | ${this.t('globalSearch.amount', 'المبلغ')}: ${(salesReturn.total_amount || 0).toLocaleString()} | ${salesReturn.return_date}`,
-                    data: salesReturn
+            if (canViewSalesReturns) {
+                const salesReturns = await window.electronAPI.getSalesReturns();
+                const filteredSalesReturns = salesReturns.filter(ret => 
+                    ret.return_number && ret.return_number.includes(query)
+                ).slice(0, 5);
+                
+                filteredSalesReturns.forEach(salesReturn => {
+                    this.results.push({
+                        type: 'sales-return',
+                        id: salesReturn.id,
+                        title: salesReturn.return_number,
+                        subtitle: `${this.t('globalSearch.customer', 'العميل')}: ${salesReturn.customer_name || '-'} | ${this.t('globalSearch.amount', 'المبلغ')}: ${(salesReturn.total_amount || 0).toLocaleString()} | ${salesReturn.return_date}`,
+                        data: salesReturn
+                    });
                 });
-            });
+            }
             
-            // البحث في مرتجعات المشتريات
-            const purchaseReturns = await window.electronAPI.getPurchaseReturns();
-            const filteredPurchaseReturns = purchaseReturns.filter(ret => 
-                ret.return_number && ret.return_number.includes(query)
-            ).slice(0, 5);
-            
-            filteredPurchaseReturns.forEach(purchaseReturn => {
-                this.results.push({
-                    type: 'purchase-return',
-                    id: purchaseReturn.id,
-                    title: purchaseReturn.return_number,
-                    subtitle: `${this.t('globalSearch.supplier', 'المورد')}: ${purchaseReturn.supplier_name || '-'} | ${this.t('globalSearch.amount', 'المبلغ')}: ${(purchaseReturn.total_amount || 0).toLocaleString()} | ${purchaseReturn.return_date}`,
-                    data: purchaseReturn
+            if (canViewPurchaseReturns) {
+                const purchaseReturns = await window.electronAPI.getPurchaseReturns();
+                const filteredPurchaseReturns = purchaseReturns.filter(ret => 
+                    ret.return_number && ret.return_number.includes(query)
+                ).slice(0, 5);
+                
+                filteredPurchaseReturns.forEach(purchaseReturn => {
+                    this.results.push({
+                        type: 'purchase-return',
+                        id: purchaseReturn.id,
+                        title: purchaseReturn.return_number,
+                        subtitle: `${this.t('globalSearch.supplier', 'المورد')}: ${purchaseReturn.supplier_name || '-'} | ${this.t('globalSearch.amount', 'المبلغ')}: ${(purchaseReturn.total_amount || 0).toLocaleString()} | ${purchaseReturn.return_date}`,
+                        data: purchaseReturn
+                    });
                 });
-            });
+            }
             
-            // البحث في سندات التحصيل والسداد
-            const transactions = await window.electronAPI.getTreasuryTransactions();
-            const filteredTransactions = transactions.filter(tr => 
-                tr.voucher_number && tr.voucher_number.includes(query)
-            ).slice(0, 5);
-            
-            filteredTransactions.forEach(transaction => {
-                const isReceipt = transaction.type === 'income';
-                this.results.push({
-                    type: isReceipt ? 'receipt' : 'payment',
-                    id: transaction.id,
-                    title: transaction.voucher_number,
-                    subtitle: `${this.t('globalSearch.amount', 'المبلغ')}: ${(transaction.amount || 0).toLocaleString()} | ${transaction.transaction_date || ''}`,
-                    data: transaction
+            if (canViewTreasury) {
+                const transactions = await window.electronAPI.getTreasuryTransactions();
+                const filteredTransactions = transactions.filter(tr => 
+                    tr.voucher_number && tr.voucher_number.includes(query)
+                ).slice(0, 5);
+                
+                filteredTransactions.forEach(transaction => {
+                    const isReceipt = transaction.type === 'income';
+                    this.results.push({
+                        type: isReceipt ? 'receipt' : 'payment',
+                        id: transaction.id,
+                        title: transaction.voucher_number,
+                        subtitle: `${this.t('globalSearch.amount', 'المبلغ')}: ${(transaction.amount || 0).toLocaleString()} | ${transaction.transaction_date || ''}`,
+                        data: transaction
+                    });
                 });
-            });
+            }
             
-            // البحث في العملاء
-            const customers = await window.electronAPI.getCustomers();
-            const filteredCustomers = customers.filter(c => 
-                (c.type === 'customer' || c.type === 'both') && (c.name.includes(query) || (c.code && String(c.code).includes(query)))
-            ).slice(0, 5);
-            
-            filteredCustomers.forEach(customer => {
-                const balance = customer.balance || 0;
-                const balanceText = balance > 0 ? `${this.t('globalSearch.balanceFor', 'له')}: ${balance.toLocaleString()}` : 
-                                   balance < 0 ? `${this.t('globalSearch.balanceAgainst', 'عليه')}: ${Math.abs(balance).toLocaleString()}` : this.t('globalSearch.balanced', 'متزن');
-                this.results.push({
-                    type: 'customer',
-                    id: customer.id,
-                    title: customer.name,
-                    subtitle: `${customer.phone || this.t('globalSearch.noPhone', 'لا يوجد هاتف')} | ${balanceText}`,
-                    data: customer
+            if (canViewCustomers) {
+                const customers = await window.electronAPI.getCustomers();
+                const filteredCustomers = customers.filter(c => 
+                    (c.type === 'customer' || c.type === 'both') && (c.name.includes(query) || (c.code && String(c.code).includes(query)))
+                ).slice(0, 5);
+                
+                filteredCustomers.forEach(customer => {
+                    const balance = customer.balance || 0;
+                    const balanceText = balance > 0 ? `${this.t('globalSearch.balanceFor', 'له')}: ${balance.toLocaleString()}` : 
+                                       balance < 0 ? `${this.t('globalSearch.balanceAgainst', 'عليه')}: ${Math.abs(balance).toLocaleString()}` : this.t('globalSearch.balanced', 'متزن');
+                    this.results.push({
+                        type: 'customer',
+                        id: customer.id,
+                        title: customer.name,
+                        subtitle: `${customer.phone || this.t('globalSearch.noPhone', 'لا يوجد هاتف')} | ${balanceText}`,
+                        data: customer
+                    });
                 });
-            });
-            
-            // البحث في الموردين
-            const filteredSuppliers = customers.filter(c => 
-                (c.type === 'supplier' || c.type === 'both') && (c.name.includes(query) || (c.code && String(c.code).includes(query)))
-            ).slice(0, 5);
-            
-            filteredSuppliers.forEach(supplier => {
-                const balance = supplier.balance || 0;
-                const balanceText = balance > 0 ? `${this.t('globalSearch.balanceFor', 'له')}: ${balance.toLocaleString()}` : 
-                                   balance < 0 ? `${this.t('globalSearch.balanceAgainst', 'عليه')}: ${Math.abs(balance).toLocaleString()}` : this.t('globalSearch.balanced', 'متزن');
-                this.results.push({
-                    type: 'supplier',
-                    id: supplier.id,
-                    title: supplier.name,
-                    subtitle: `${supplier.phone || this.t('globalSearch.noPhone', 'لا يوجد هاتف')} | ${balanceText}`,
-                    data: supplier
-                });
-            });
+                
+                if (canViewPurchases) {
+                    const filteredSuppliers = customers.filter(c => 
+                        (c.type === 'supplier' || c.type === 'both') && (c.name.includes(query) || (c.code && String(c.code).includes(query)))
+                    ).slice(0, 5);
+                    
+                    filteredSuppliers.forEach(supplier => {
+                        const balance = supplier.balance || 0;
+                        const balanceText = balance > 0 ? `${this.t('globalSearch.balanceFor', 'له')}: ${balance.toLocaleString()}` : 
+                                           balance < 0 ? `${this.t('globalSearch.balanceAgainst', 'عليه')}: ${Math.abs(balance).toLocaleString()}` : this.t('globalSearch.balanced', 'متزن');
+                        this.results.push({
+                            type: 'supplier',
+                            id: supplier.id,
+                            title: supplier.name,
+                            subtitle: `${supplier.phone || this.t('globalSearch.noPhone', 'لا يوجد هاتف')} | ${balanceText}`,
+                            data: supplier
+                        });
+                    });
+                }
+            }
             
             this.displayResults();
             
@@ -1139,13 +1193,15 @@ class GlobalSearch {
             // عرض تفاصيل فاتورة البيع في Modal
             await this.showSalesInvoiceDetails(id);
         } else if (type === 'purchase') {
-            // عرض تفاصيل فاتورة الشراء في Modal
+            const allowed = await this.canViewPage('purchases');
+            if (!allowed) return;
             await this.showPurchaseInvoiceDetails(id);
         } else if (type === 'sales-return') {
             // عرض تفاصيل مرتجع بيع في Modal
             await this.showSalesReturnDetails(id);
         } else if (type === 'purchase-return') {
-            // عرض تفاصيل مرتجع شراء في Modal
+            const allowed = await this.canViewPage('purchases');
+            if (!allowed) return;
             await this.showPurchaseReturnDetails(id);
         } else {
             // للعملاء والموردين - الانتقال للصفحة المناسبة
@@ -1190,8 +1246,10 @@ class GlobalSearch {
 }
 
 // تهيئة البحث العام عند تحميل الصفحة
+window.GlobalSearch = GlobalSearch;
 let globalSearch;
 document.addEventListener('DOMContentLoaded', async () => {
     globalSearch = new GlobalSearch();
+    window.globalSearch = globalSearch;
     await globalSearch.loadDictionary();
 });

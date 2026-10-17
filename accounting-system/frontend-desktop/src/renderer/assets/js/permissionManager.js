@@ -271,21 +271,64 @@
         observer.observe(contentArea, { childList: true, subtree: true });
     }
 
+    function getFallbackRoute() {
+        const routes = [
+            { page: 'dashboard', href: '../dashboard/index.html', label: 'العودة للوحة التحكم' },
+            { page: 'sales', href: '../sales/index.html', label: 'العودة للمبيعات' },
+            { page: 'purchases', href: '../purchases/index.html', label: 'العودة للمشتريات' },
+            { page: 'items', href: '../items/items.html', label: 'العودة للأصناف' },
+            { page: 'customers', href: '../customers/index.html', label: 'العودة للعملاء' },
+            { page: 'inventory', href: '../inventory/index.html', label: 'العودة للمخازن' },
+            { page: 'treasury', href: '../payments/receipt.html', label: 'العودة للمقبوضات' },
+            { page: 'reports', href: '../reports/index.html', label: 'العودة للتقارير' },
+            { page: 'customer-reports', href: '../customer-reports/index.html', label: 'العودة لتقارير العملاء' },
+            { page: 'settings', href: '../settings/index.html', label: 'العودة للإعدادات' }
+        ];
+
+        for (const item of routes) {
+            if (canView(item.page)) {
+                return item;
+            }
+        }
+        return null;
+    }
+
     function showNoAccessMessage() {
         const main = document.querySelector('main.content') || document.querySelector('main') || document.body;
         const msg = document.createElement('div');
         msg.className = 'perm-no-access';
+        const fallback = getFallbackRoute();
+        const actionHtml = fallback
+            ? `<a href="${fallback.href}" class="btn-secondary">${fallback.label}</a>`
+            : `<button type="button" class="btn-secondary" onclick="window.history.length > 1 ? window.history.back() : window.location.reload()">العودة للخلف</button>`;
+
         msg.innerHTML = `
             <div class="perm-no-access-card">
                 <i class="fas fa-lock"></i>
                 <h2>ليس لديك صلاحية للوصول لهذه الصفحة</h2>
-                <a href="../dashboard/index.html" class="btn-secondary">العودة للوحة التحكم</a>
+                ${actionHtml}
             </div>
         `;
         // Clear existing content
         const children = main.querySelectorAll(':scope > *:not(nav):not(.top-nav)');
         children.forEach((child) => { child.style.display = 'none'; });
         main.appendChild(msg);
+    }
+
+    function quickUnauthorizedCheck() {
+        const cached = getCachedPermissions();
+        if (!cached) return;
+        cachedPermissions = cached.permissions;
+        cachedIsAdmin = cached.isAdmin;
+        const currentPage = detectCurrentPage();
+        if (!currentPage) return;
+        if (currentPage === '__admin_only__' && !cachedIsAdmin) {
+            showNoAccessMessage();
+            return;
+        }
+        if (!cachedIsAdmin && !canView(currentPage)) {
+            showNoAccessMessage();
+        }
     }
 
     async function init() {
@@ -323,11 +366,12 @@
     // Run after DOM is ready and other scripts have initialized
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            // Delay slightly to let page scripts render first
-            setTimeout(init, 100);
+            quickUnauthorizedCheck();
+            init();
         });
     } else {
-        setTimeout(init, 100);
+        quickUnauthorizedCheck();
+        init();
     }
 
     // Expose API

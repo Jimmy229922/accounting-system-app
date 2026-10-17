@@ -306,9 +306,11 @@
             const match = Number.isFinite(existingItemId) ? allItems.find((i) => i.id === existingItemId) : null;
             unitName = match && match.unit_name ? match.unit_name : '';
             barcodeValue = match && match.barcode ? match.barcode : '';
-            costPrice = (existingItem.cost_price !== undefined && existingItem.cost_price !== null) 
-                ? existingItem.cost_price 
-                : (match && match.cost_price ? match.cost_price : 0);
+            const existingCost = Number(existingItem.cost_price);
+            const matchCost = match ? Number(match.cost_price) : NaN;
+            costPrice = (existingItem.cost_price !== undefined && existingItem.cost_price !== null && Number.isFinite(existingCost))
+                ? existingCost
+                : (Number.isFinite(matchCost) ? matchCost : 0);
         }
 
         row.dataset.costPrice = Number(costPrice).toFixed(2);

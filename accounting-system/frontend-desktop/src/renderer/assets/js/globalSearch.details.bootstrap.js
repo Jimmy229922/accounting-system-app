@@ -22,6 +22,9 @@
             }
             
             const { item, movements, stats } = result;
+            const canViewPurchases = typeof this.canViewPage === 'function'
+                ? await this.canViewPage('purchases')
+                : (window.permissionManager ? window.permissionManager.canView('purchases') : false);
             
             // تحديث الـ Header ليظهر زر الرجوع
             const header = this.modal.querySelector('.gsearch-header');
@@ -101,12 +104,12 @@
                             <div class="gsearch-movement-info">
                                 <div class="gsearch-movement-title">${mov.type_label}</div>
                                 <div class="gsearch-movement-subtitle">
-                                    ${mov.party_name} | ${this.t('globalSearch.invoiceLabel', 'فاتورة')}: ${mov.invoice_number} | ${date}
+                                    ${(mov.type === 'purchase' && !canViewPurchases) ? '' : (mov.party_name ? `${mov.party_name} | ` : '')}${this.t('globalSearch.invoiceLabel', 'فاتورة')}: ${mov.invoice_number} | ${date}
                                 </div>
                             </div>
                             <div class="gsearch-movement-qty">
                                 <div class="gsearch-movement-qty-value ${iconClass}">${qtyPrefix}${mov.quantity}</div>
-                                <div class="gsearch-movement-qty-label">${mov.price.toLocaleString()} ${this.t('globalSearch.priceLabel', 'ج.م')}</div>
+                                ${(isIn && !canViewPurchases) ? '' : `<div class="gsearch-movement-qty-label">${mov.price.toLocaleString()} ${this.t('globalSearch.priceLabel', 'ج.م')}</div>`}
                             </div>
                         </div>
                     `;
@@ -354,6 +357,19 @@
         this.showLoading();
         
         try {
+            const canViewPurchases = typeof this.canViewPage === 'function'
+                ? await this.canViewPage('purchases')
+                : (window.permissionManager ? window.permissionManager.canView('purchases') : false);
+            if (!canViewPurchases) {
+                this.resultsContainer.innerHTML = `
+                    <div class="gsearch-empty">
+                        <i class="fas fa-lock"></i>
+                        <p>${this.t('globalSearch.noAccessPurchases', 'ليس لديك صلاحية لعرض فواتير المشتريات')}</p>
+                    </div>
+                `;
+                return;
+            }
+
             const invoices = await window.electronAPI.getPurchaseInvoices();
             const invoice = invoices.find(inv => inv.id === id);
             
@@ -593,6 +609,19 @@
         this.showLoading();
         
         try {
+            const canViewPurchases = typeof this.canViewPage === 'function'
+                ? await this.canViewPage('purchases')
+                : (window.permissionManager ? window.permissionManager.canView('purchases') : false);
+            if (!canViewPurchases) {
+                this.resultsContainer.innerHTML = `
+                    <div class="gsearch-empty">
+                        <i class="fas fa-lock"></i>
+                        <p>${this.t('globalSearch.noAccessPurchases', 'ليس لديك صلاحية لعرض فواتير المشتريات')}</p>
+                    </div>
+                `;
+                return;
+            }
+
             const returns = await window.electronAPI.getPurchaseReturns();
             const returnDoc = returns.find(ret => ret.id === id);
             

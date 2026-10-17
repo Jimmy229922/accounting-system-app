@@ -1,4 +1,5 @@
 const salesState = window.salesPageState.createInitialState();
+window.salesState = salesState;
 const salesApi = window.salesPageApi;
 const salesRender = window.salesPageRender;
 const salesEvents = window.salesPageEvents;
@@ -13,11 +14,45 @@ function getNavHTML() {
     return '';
 }
 
+async function checkSalesPermissions() {
+    try {
+        const raw = sessionStorage.getItem('user_permissions_cache');
+        if (raw) {
+            const data = JSON.parse(raw);
+            if (data.isAdmin) {
+                salesState.canViewCost = true;
+                return;
+            }
+            if (Array.isArray(data.permissions)) {
+                const perm = data.permissions.find(p => p.page === 'purchases');
+                salesState.canViewCost = Boolean(perm && perm.can_view);
+                return;
+            }
+        }
+        if (window.electronAPI && typeof window.electronAPI.getMyPermissions === 'function') {
+            const token = localStorage.getItem('auth_session_token') || '';
+            const res = await window.electronAPI.getMyPermissions({ sessionToken: token });
+            if (res && res.isAdmin) {
+                salesState.canViewCost = true;
+                return;
+            }
+            if (res && Array.isArray(res.permissions)) {
+                const perm = res.permissions.find(p => p.page === 'purchases');
+                salesState.canViewCost = Boolean(perm && perm.can_view);
+                return;
+            }
+        }
+    } catch (_e) {
+        salesState.canViewCost = false;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Reset submitting state just in case
     salesState.isSubmitting = false;
 
     try {
+        await checkSalesPermissions();
         if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
             salesState.ar = await window.i18n.loadArabicDictionary();
         }
@@ -95,6 +130,7 @@ function initializeElements() {
 
     salesEvents.bindRowsEvents({
         dom: salesState.dom,
+        state: salesState,
         handlers: {
             onItemSelect,
             onRowInput,
@@ -1991,9 +2027,15 @@ function updateProfitIndicator(row) {
     const indicator = row.querySelector('.profit-indicator');
     if (!indicator) return;
 
+    if (!salesState.canViewCost) {
+        indicator.innerHTML = '';
+        indicator.className = 'profit-indicator';
+        return;
+    }
+
     const select = row.querySelector('.item-select');
     const selectedOption = select.options[select.selectedIndex];
-    const unitCostPrice = parseFloat(selectedOption?.dataset?.cost) || 0;
+    const unitCostPrice = parseFloat(row.dataset.costPrice) || parseFloat(selectedOption?.dataset?.cost) || 0;
     const unitSalePrice = parseLocaleFloat(row.querySelector('.price-input').value) || 0;
 
     let qtyRaw = parseLocaleFloat(row.querySelector('.quantity-input').value);
@@ -2152,7 +2194,11 @@ function calculateInvoiceTotal() {
     }
 
     if (salesState.dom.invoiceRemainingSpan) {
-        salesState.dom.invoiceRemainingSpan.dataset.profitTooltip = `صافي ربح الفاتورة: ${invoiceProfit.toFixed(2)}`;
+        if (salesState.canViewCost) {
+            salesState.dom.invoiceRemainingSpan.dataset.profitTooltip = `صافي ربح الفاتورة: ${invoiceProfit.toFixed(2)}`;
+        } else {
+            delete salesState.dom.invoiceRemainingSpan.dataset.profitTooltip;
+        }
         if (financials.customerRemaining > 0) {
             salesState.dom.invoiceRemainingSpan.textContent = fmt(t('sales.customerDuePositive', 'لينا (مدين) {amount}'), { amount: financials.customerRemaining.toFixed(2) });
             salesState.dom.invoiceRemainingSpan.className = 'customer-due-value due-positive';
@@ -2214,7 +2260,7 @@ function updateDeleteBtnState() {
         deleteBtn.style.cursor = 'pointer';
     } else {
         deleteBtn.disabled = true;
-        deleteBtn.style.opacity = '0.5';
+        deleteBtn.style.opacity = '0.8';
         deleteBtn.style.cursor = 'not-allowed';
     }
 }
@@ -2227,6 +2273,8 @@ function collectInvoiceItemsFromForm() {
         const item_id = parseInt(row.querySelector('.item-select').value, 10);
         const quantity = parseLocaleFloat(row.querySelector('.quantity-input').value);
         const sale_price = parseLocaleFloat(row.querySelector('.price-input').value);
+        const rawCostPrice = parseLocaleFloat(row.dataset.costPrice);
+        const cost_price = Number.isFinite(rawCostPrice) && rawCostPrice >= 0 ? rawCostPrice : undefined;
 
         const quantityOk = Number.isFinite(quantity) && quantity > 0;
         const priceOk = Number.isFinite(sale_price) && sale_price >= 0;
@@ -2245,6 +2293,7 @@ function collectInvoiceItemsFromForm() {
             item_id,
             quantity,
             sale_price,
+            cost_price,
             total_price: quantity * sale_price
         });
     });
@@ -2515,7 +2564,7 @@ window.saveInvoiceDraft = function () {
         const editingInvoiceId = salesState.editingInvoiceId || null;
         const isEditLocked = salesState.isEditLocked || false;
         const originalTotals = salesState.originalInvoiceItemTotalsByItemId || {};
-        
+
         const invoiceDate = salesState.dom.invoiceDateInput?.value || '';
         const invoiceNumber = document.getElementById('invoiceNumber')?.value || '';
         const notes = document.getElementById('invoiceNotes')?.value || '';
@@ -2525,20 +2574,20 @@ window.saveInvoiceDraft = function () {
         const paidAmount = salesState.dom.paidAmountInput?.value || '';
 
         if (items.length > 0 || customerId || editingInvoiceId) {
-            localStorage.setItem('sales_invoice_draft', JSON.stringify({ 
-                items, 
-                customerId, 
-                editingInvoiceId, 
-                isEditLocked, 
+            localStorage.setItem('sales_invoice_draft', JSON.stringify({
+                items,
+                customerId,
+                editingInvoiceId,
+                isEditLocked,
                 originalInvoiceItemTotalsByItemId: originalTotals,
-                invoiceDate, 
-                invoiceNumber, 
-                notes, 
-                paymentType, 
-                discountType, 
-                discountValue, 
+                invoiceDate,
+                invoiceNumber,
+                notes,
+                paymentType,
+                discountType,
+                discountValue,
                 paidAmount,
-                timestamp: Date.now() 
+                timestamp: Date.now()
             }));
         }
     } catch (err) { console.error('Failed to save draft:', err); }
@@ -2571,30 +2620,30 @@ async function checkAndRestoreDraft() {
         if (draft.invoiceDate && salesState.dom.invoiceDateInput) {
             salesState.dom.invoiceDateInput.value = draft.invoiceDate;
         }
-        
+
         if (draft.invoiceNumber) {
             const invoiceNumberInput = document.getElementById('invoiceNumber');
             if (invoiceNumberInput) invoiceNumberInput.value = draft.invoiceNumber;
         }
-        
+
         if (draft.notes) {
             const notesInput = document.getElementById('invoiceNotes');
             if (notesInput) notesInput.value = draft.notes;
         }
-        
+
         if (draft.paymentType) {
             const paymentTypeInput = document.getElementById('paymentType');
             if (paymentTypeInput) paymentTypeInput.value = draft.paymentType;
         }
-        
+
         if (draft.discountType && salesState.dom.discountTypeSelect) {
             salesState.dom.discountTypeSelect.value = draft.discountType;
         }
-        
+
         if (draft.discountValue && salesState.dom.discountValueInput) {
             salesState.dom.discountValueInput.value = draft.discountValue;
         }
-        
+
         if (draft.paidAmount && salesState.dom.paidAmountInput) {
             salesState.dom.paidAmountInput.value = draft.paidAmount;
         }

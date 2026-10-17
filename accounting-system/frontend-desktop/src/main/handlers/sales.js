@@ -56,11 +56,17 @@ function calculateInvoiceFinancials({ subtotalAmount, discountType, discountValu
     };
 }
 
-function getLatestPurchaseCostPrice(getLatestPurchaseCost, itemId, fallbackCostPrice) {
-    const latestPurchase = getLatestPurchaseCost.get(itemId);
+function getLatestPurchaseCostPrice(getLatestPurchaseCost, itemId, fallbackCostPrice, itemCostPrice) {
+    const passedCost = Number(itemCostPrice);
+    if (Number.isFinite(passedCost) && passedCost > 0) return passedCost;
+    const fallbackCost = Number(fallbackCostPrice);
+    if (Number.isFinite(fallbackCost) && fallbackCost > 0) return fallbackCost;
+    const latestPurchase = getLatestPurchaseCost ? getLatestPurchaseCost.get(itemId) : null;
     const latestCost = Number(latestPurchase?.cost_price);
-    if (Number.isFinite(latestCost)) return latestCost;
-    return Number(fallbackCostPrice) || 0;
+    if (Number.isFinite(latestCost) && latestCost > 0) return latestCost;
+    if (Number.isFinite(passedCost) && passedCost >= 0) return passedCost;
+    if (Number.isFinite(fallbackCost) && fallbackCost >= 0) return fallbackCost;
+    return 0;
 }
 
 function getLastSalesShiftClosing() {
@@ -578,7 +584,7 @@ function register() {
             if (item.quantity > dbItem.stock_quantity) {
                 return { success: false, error: `الصنف "${dbItem.name}": الكمية المطلوبة (${item.quantity}) أكبر من المتاح (${dbItem.stock_quantity})` };
             }
-            itemCosts[item.item_id] = getLatestPurchaseCostPrice(getLatestPurchaseCost, item.item_id, dbItem.cost_price);
+            itemCosts[item.item_id] = getLatestPurchaseCostPrice(getLatestPurchaseCost, item.item_id, dbItem.cost_price, item.cost_price);
         }
 
         let subtotalAmount = 0;
@@ -726,7 +732,7 @@ function register() {
                 if (item.quantity > dbItem.stock_quantity) {
                     throw new Error(`الصنف "${dbItem.name}": الكمية المطلوبة (${item.quantity}) أكبر من المتاح (${dbItem.stock_quantity})`);
                 }
-                itemCosts[item.item_id] = getLatestPurchaseCostPrice(getLatestPurchaseCost, item.item_id, dbItem.cost_price);
+                itemCosts[item.item_id] = getLatestPurchaseCostPrice(getLatestPurchaseCost, item.item_id, dbItem.cost_price, item.cost_price);
             }
 
             const oldBalanceDelta = roundMoney((Number(oldInvoice.total_amount) || 0) - (Number(oldInvoice.paid_amount) || 0));
