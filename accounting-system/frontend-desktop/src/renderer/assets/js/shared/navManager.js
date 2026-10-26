@@ -142,7 +142,14 @@ function buildTopNavItems(prefix) {
             ]
         },
         { key: 'common.nav.inventory', fallback: 'Inventory', href: withPrefix('inventory/index.html') },
-        { key: 'common.nav.finance', fallback: 'Finance', href: withPrefix('finance/index.html') },
+        {
+            key: 'common.nav.financialTransactions',
+            fallback: 'التعاملات المالية',
+            children: [
+                { key: 'common.nav.financeAndTreasury', fallback: 'المالية والخزينة', href: withPrefix('finance/index.html') },
+                { key: 'common.nav.expenses', fallback: 'الخوارج', href: withPrefix('expenses/index.html') }
+            ]
+        },
         { key: 'common.nav.receipt', fallback: 'Receipt', href: withPrefix('payments/receipt.html') },
         { key: 'common.nav.payment', fallback: 'Payment', href: withPrefix('payments/payment.html') },
         {

@@ -243,6 +243,284 @@
         .btn-warning { background-color: #f59e0b; color: white; }
         .btn-warning:hover { background-color: #d97706; }
 
+.doc-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+}
+
+.doc-modal.is-open {
+    display: flex;
+}
+
+.doc-modal-card {
+    background: #ffffff;
+    width: 100%;
+    max-width: 680px;
+    border-radius: 20px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: modalPop 0.25s ease-out;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+@keyframes modalPop {
+    from { transform: scale(0.96) translateY(-10px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.doc-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.doc-modal-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.doc-modal-title i {
+    font-size: 1.15rem;
+    color: #0f172a;
+}
+
+.doc-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #94a3b8;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+.doc-modal-close:hover {
+    color: #e11d48;
+    background-color: #fee2e2;
+}
+
+.doc-modal-body {
+    padding: 24px 28px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.doc-modal-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.doc-modal-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.doc-modal-group.full-width {
+    grid-column: span 2;
+}
+
+.doc-modal-label {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.doc-modal-label .req-star {
+    color: #ef4444;
+    font-weight: bold;
+}
+
+.doc-modal-input,
+.doc-modal-select,
+.doc-modal-textarea {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.95rem;
+    color: #0f172a;
+    background: #ffffff;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.doc-modal-input:focus,
+.doc-modal-select:focus,
+.doc-modal-textarea:focus {
+    outline: none;
+    border-color: #0f172a;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
+}
+
+.doc-modal-input-readonly {
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+    color: #1e293b !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px;
+    cursor: default;
+    text-align: center;
+}
+
+.currency-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.currency-input-wrapper .doc-modal-input {
+    padding-inline-start: 55px;
+    text-align: right;
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.currency-badge {
+    position: absolute;
+    inset-inline-start: 10px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #64748b;
+    pointer-events: none;
+}
+
+.doc-modal-textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.doc-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 16px 28px 24px;
+    border-top: 1px solid #f8fafc;
+    background: #f8fafc;
+}
+
+.btn-doc-submit {
+    background-color: #0f172a;
+    color: #ffffff;
+    border: 1.5px solid #0f172a;
+    border-radius: 10px;
+    padding: 11px 26px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.15s, transform 0.1s, box-shadow 0.15s;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.2);
+}
+
+.btn-doc-submit:hover {
+    background-color: #1e293b;
+    transform: translateY(-1px);
+}
+
+.btn-doc-cancel {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1.5px solid #0f172a;
+    border-radius: 10px;
+    padding: 11px 22px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.btn-doc-cancel:hover {
+    background-color: #f1f5f9;
+}
+
+[data-theme="dark"] .doc-modal-card {
+    background: #1e293b;
+    border-color: rgba(148, 163, 184, 0.2);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
+}
+[data-theme="dark"] .doc-modal-header {
+    border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+[data-theme="dark"] .doc-modal-title,
+[data-theme="dark"] .doc-modal-title i,
+[data-theme="dark"] .doc-modal-label {
+    color: #f8fafc;
+}
+[data-theme="dark"] .doc-modal-input,
+[data-theme="dark"] .doc-modal-select,
+[data-theme="dark"] .doc-modal-textarea {
+    background: #0f172a;
+    border-color: rgba(148, 163, 184, 0.25);
+    color: #f8fafc;
+}
+[data-theme="dark"] .doc-modal-input:focus,
+[data-theme="dark"] .doc-modal-select:focus,
+[data-theme="dark"] .doc-modal-textarea:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+[data-theme="dark"] .doc-modal-input-readonly {
+    background-color: #090d16 !important;
+    border-color: rgba(148, 163, 184, 0.2) !important;
+    color: #cbd5e1 !important;
+}
+[data-theme="dark"] .currency-badge {
+    background: #1e293b;
+    border-color: rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
+}
+[data-theme="dark"] .doc-modal-footer {
+    background: #172033;
+    border-top-color: rgba(148, 163, 184, 0.1);
+}
+[data-theme="dark"] .btn-doc-submit {
+    background-color: #38bdf8;
+    color: #0f172a;
+    border-color: #38bdf8;
+    box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
+}
+[data-theme="dark"] .btn-doc-submit:hover {
+    background-color: #7dd3fc;
+}
+[data-theme="dark"] .btn-doc-cancel {
+    background-color: transparent;
+    color: #f8fafc;
+    border-color: #94a3b8;
+}
+[data-theme="dark"] .btn-doc-cancel:hover {
+    background-color: rgba(148, 163, 184, 0.15);
+}
+
         /* Modal */
         .modal {
             display: none; 

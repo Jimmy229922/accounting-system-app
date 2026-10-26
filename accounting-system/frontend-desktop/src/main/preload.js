@@ -115,6 +115,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteTreasuryTransaction: (id) => invokeChannel('delete-treasury-transaction', id),
     searchTreasuryByVoucher: (voucherNumber) => invokeChannel('search-treasury-by-voucher', voucherNumber),
 
+    // Expenses API
+    getExpenses: () => invokeChannel('get-expenses'),
+    getNextExpenseVoucherNumber: () => invokeChannel('get-next-expense-voucher-number'),
+    addExpense: (data) => invokeChannel('add-expense', data),
+    updateExpense: (data) => invokeChannel('update-expense', data),
+    deleteExpense: (id) => invokeChannel('delete-expense', id),
+
     // Inventory API
     getItemTransactions: (itemId, startDate = null, endDate = null) => invokeChannel('get-item-transactions', { itemId, startDate, endDate }),
     getDamagedStockEntries: (filters = {}) => invokeChannel('get-damaged-stock-entries', filters),

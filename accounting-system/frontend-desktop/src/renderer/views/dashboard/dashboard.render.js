@@ -133,7 +133,17 @@
                         <div class="metric-icon"><i class="fas fa-coins"></i></div>
                     </div>
                     <h3 class="metric-value" id="netProfit">—</h3>
-                    <p class="metric-label">${t('dashboard.netProfit', 'صافي الربح التقديري')}</p>
+                    <p class="metric-label">${t('dashboard.netProfit', 'صافي الربح التقديري (بعد الخوارج)')}</p>
+                    <div style="margin-top: 8px; font-size: 0.78rem; border-top: 1px dashed var(--border-color, rgba(148, 163, 184, 0.3)); padding-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; justify-content: space-between; color: var(--text-muted, #64748b);">
+                            <span><i class="fas fa-hand-holding-heart" style="color: var(--share-god-color, #0284c7); margin-inline-end: 4px;"></i>${t('dashboard.shareForGod', 'لله (10%):')}</span>
+                            <strong id="shareForGod" style="color: var(--share-god-color, #0284c7);">—</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; color: var(--text-muted, #64748b);">
+                            <span><i class="fas fa-award" style="color: var(--final-profit-color, #047857); margin-inline-end: 4px;"></i>${t('dashboard.finalNetProfit', 'الصافي بعد الـ 10%:')}</span>
+                            <strong id="finalNetProfit" style="color: var(--final-profit-color, #047857);">—</strong>
+                        </div>
+                    </div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-header">

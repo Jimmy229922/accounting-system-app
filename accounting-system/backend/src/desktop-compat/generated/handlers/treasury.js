@@ -118,7 +118,7 @@ function register() {
             `);
 
             const tx = db.transaction(() => {
-                stmt.run({ type, amount, date, description, customer_id, voucher_number, related_type });
+                stmt.run({ type, amount, date, description, customer_id: transaction.customer_id || null, voucher_number, related_type });
                 
                 if (customer_id) {
                     updateBalance.run({ amount: type === 'expense' ? amount : -amount, id: customer_id });
@@ -172,6 +172,11 @@ function register() {
                 WHERE id = @id
             `);
 
+            const targetCustomerId = transaction.customer_id !== undefined
+                ? (transaction.customer_id || null)
+                : (existing.customer_id || null);
+            const targetAmount = Number(transaction.amount);
+
             const tx = db.transaction(() => {
                 // 1. Revert old balance effect
                 if (existing.customer_id) {
@@ -179,11 +184,18 @@ function register() {
                 }
 
                 // 2. Update transaction
-                stmt.run(transaction);
+                stmt.run({
+                    id,
+                    type,
+                    amount: targetAmount,
+                    date: transaction.date || transaction.transaction_date || existing.transaction_date,
+                    description: transaction.description !== undefined ? transaction.description : existing.description,
+                    customer_id: targetCustomerId
+                });
 
                 // 3. Apply new balance effect
-                if (transaction.customer_id) {
-                    updateBalance.run({ amount: type === 'expense' ? transaction.amount : -transaction.amount, id: transaction.customer_id });
+                if (targetCustomerId) {
+                    updateBalance.run({ amount: type === 'expense' ? targetAmount : -targetAmount, id: targetCustomerId });
                 }
             });
 

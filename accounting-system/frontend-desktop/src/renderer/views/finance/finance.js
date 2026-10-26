@@ -1,6 +1,5 @@
-﻿let treasuryBalanceEl;
+let treasuryBalanceEl;
 let transactionsTableBody;
-let transactionForm;
 let transDateInput;
 let newTransactionBtn;
 let transactionsById = new Map();
@@ -45,13 +44,13 @@ function showFinanceToast(message, type = 'info') {
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-    if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
-        ar = await window.i18n.loadArabicDictionary();
-    }
-    renderPage();
-    initializeElements();
-    transDateInput.valueAsDate = new Date();
-    loadFinanceData();
+        if (window.i18n && typeof window.i18n.loadArabicDictionary === 'function') {
+            ar = await window.i18n.loadArabicDictionary();
+        }
+        renderPage();
+        initializeElements();
+        transDateInput.valueAsDate = new Date();
+        loadFinanceData();
     } catch (error) {
         console.error('Initialization Error:', error);
         if (window.toast && typeof window.toast.error === 'function') {
@@ -128,73 +127,110 @@ function renderPage() {
                 </div>
             </div>
 
-            <!-- Transaction Form -->
-            <div id="transactionForm" class="form-card">
-                <div class="form-header">
-                    <h3>${t('finance.newTransactionTitle', 'تسجيل حركة مالية جديدة')}</h3>
-                    <button class="btn btn-outline btn-sm" data-action="hide-form">${t('finance.close', 'إغلاق')}</button>
-                </div>
-                
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>${t('finance.transType', 'نوع الحركة')}</label>
-                        <select id="transType" class="form-control">
-                            <option value="income">${t('finance.incomeType', 'قبض (إيداع)')}</option>
-                            <option value="expense">${t('finance.expenseType', 'صرف (سحب)')}</option>
-                        </select>
+            <div id="newTransactionModal" class="doc-modal">
+                <div class="doc-modal-card">
+                    <div class="doc-modal-header">
+                        <button type="button" class="doc-modal-close" data-action="hide-form">&times;</button>
+                        <h3 class="doc-modal-title">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                            ${t('finance.newTransactionTitle', 'إضافة حركة مالية')}
+                        </h3>
                     </div>
-                    <div class="form-group">
-                        <label>${t('finance.amount', 'المبلغ')}</label>
-                        <input type="number" id="transAmount" class="form-control" placeholder="0.00" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label>${t('finance.date', 'التاريخ')}</label>
-                        <input type="date" id="transDate" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label>${t('finance.descriptionLabel', 'الوصف / البيان')}</label>
-                        <input type="text" id="transDesc" class="form-control" placeholder="${t('finance.descriptionPlaceholder', 'وصف الحركة')}">
-                    </div>
-                </div>
+                    <div class="doc-modal-body">
+                        <div class="doc-modal-row">
+                            <div class="doc-modal-group">
+                                <label class="doc-modal-label"># ${t('finance.tableHeaders.voucherNumber', 'رقم المستند')}</label>
+                                <input type="text" id="transVoucherNumber" class="doc-modal-input doc-modal-input-readonly" readonly placeholder="RCV-0001">
+                            </div>
+                            <div class="doc-modal-group">
+                                <label class="doc-modal-label"><i class="far fa-calendar-alt"></i> ${t('finance.date', 'التاريخ')}</label>
+                                <input type="date" id="transDate" class="doc-modal-input">
+                            </div>
+                        </div>
 
-                <div style="text-align: left;">
-                    <button class="btn btn-outline" data-action="hide-form">${t('finance.cancel', 'إلغاء')}</button>
-                    <button class="btn btn-success" data-action="save-transaction">${t('finance.saveTransaction', 'حفظ الحركة')}</button>
+                        <div class="doc-modal-row">
+                            <div class="doc-modal-group">
+                                <label class="doc-modal-label">${t('finance.transType', 'نوع الحركة')}</label>
+                                <select id="transType" class="doc-modal-select">
+                                    <option value="income">${t('finance.incomeType', 'قبض (إيداع)')}</option>
+                                    <option value="expense">${t('finance.expenseType', 'صرف (سحب)')}</option>
+                                </select>
+                            </div>
+                            <div class="doc-modal-group">
+                                <label class="doc-modal-label"><span class="req-star">*</span> <i class="fas fa-money-bill-wave"></i> ${t('finance.amount', 'المبلغ')}</label>
+                                <div class="currency-input-wrapper">
+                                    <span class="currency-badge">ج.م</span>
+                                    <input type="number" id="transAmount" class="doc-modal-input" placeholder="0.00" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="doc-modal-group full-width">
+                            <label class="doc-modal-label"><span class="req-star">*</span> <i class="fas fa-pen"></i> ${t('finance.descriptionLabel', 'البيان')}</label>
+                            <input type="text" id="transDesc" class="doc-modal-input" placeholder="${t('finance.descriptionPlaceholder', 'اكتب هنا وصفاً موجزاً للحركة...')}">
+                        </div>
+                    </div>
+                    <div class="doc-modal-footer">
+                        <button type="button" class="btn-doc-submit" data-action="save-transaction">
+                            <i class="fas fa-check-circle"></i> ${t('finance.saveAndApprove', 'حفظ واعتماد')}
+                        </button>
+                        <button type="button" class="btn-doc-cancel" data-action="hide-form">${t('finance.cancel', 'إلغاء')}</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Edit Transaction Modal -->
-            <div id="editModal" class="modal">
-                <div class="modal-content">
-                    <span class="close" data-action="close-edit-modal">&times;</span>
-                    <h3>${t('finance.editTransactionTitle', 'تعديل حركة')}</h3>
+            <div id="editModal" class="doc-modal">
+                <div class="doc-modal-card">
+                    <div class="doc-modal-header">
+                        <button type="button" class="doc-modal-close" data-action="close-edit-modal">&times;</button>
+                        <h3 class="doc-modal-title">
+                            <i class="fas fa-edit"></i>
+                            ${t('finance.editTransactionTitle', 'تعديل حركة مالية')}
+                        </h3>
+                    </div>
                     <input type="hidden" id="editTransId">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>${t('finance.transType', 'نوع الحركة')}</label>
-                            <select id="editTransType" class="form-control">
-                                <option value="income">${t('finance.incomeType', 'قبض (إيداع)')}</option>
-                                <option value="expense">${t('finance.expenseType', 'صرف (سحب)')}</option>
-                            </select>
+                    <input type="hidden" id="editTransCustomerId">
+                    <div class="doc-modal-body">
+                        <div class="doc-modal-row">
+                            <div class="doc-modal-group">
+                                <label class="doc-modal-label"># ${t('finance.tableHeaders.voucherNumber', 'رقم المستند')}</label>
+                                <input type="text" id="editTransVoucher" class="doc-modal-input doc-modal-input-readonly" readonly>
+                            </div>
+                            <div class="doc-modal-group">
+                                <label class="doc-modal-label"><i class="far fa-calendar-alt"></i> ${t('finance.date', 'التاريخ')}</label>
+                                <input type="date" id="editTransDate" class="doc-modal-input">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>${t('finance.amount', 'المبلغ')}</label>
-                            <input type="number" id="editTransAmount" class="form-control" step="0.01" min="0">
+                        <div class="doc-modal-row">
+                            <div class="doc-modal-group">
+                                <label class="doc-modal-label">${t('finance.transType', 'نوع الحركة')}</label>
+                                <select id="editTransType" class="doc-modal-select">
+                                    <option value="income">${t('finance.incomeType', 'قبض (إيداع)')}</option>
+                                    <option value="expense">${t('finance.expenseType', 'صرف (سحب)')}</option>
+                                </select>
+                            </div>
+                            <div class="doc-modal-group">
+                                <label class="doc-modal-label"><span class="req-star">*</span> <i class="fas fa-money-bill-wave"></i> ${t('finance.amount', 'المبلغ')}</label>
+                                <div class="currency-input-wrapper">
+                                    <span class="currency-badge">ج.م</span>
+                                    <input type="number" id="editTransAmount" class="doc-modal-input" step="0.01" min="0">
+                                </div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>${t('finance.date', 'التاريخ')}</label>
-                            <input type="date" id="editTransDate" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label>${t('finance.descriptionShort', 'الوصف')}</label>
-                            <input type="text" id="editTransDesc" class="form-control">
+                        <div class="doc-modal-group full-width">
+                            <label class="doc-modal-label"><span class="req-star">*</span> <i class="fas fa-pen"></i> ${t('finance.descriptionShort', 'الوصف')}</label>
+                            <input type="text" id="editTransDesc" class="doc-modal-input">
                         </div>
                     </div>
-                    <button class="btn btn-primary" data-action="update-transaction">${t('finance.saveEdits', 'حفظ التعديلات')}</button>
+                    <div class="doc-modal-footer">
+                        <button type="button" class="btn-doc-submit" data-action="update-transaction">
+                            <i class="fas fa-check-circle"></i> ${t('finance.saveChanges', 'حفظ التعديلات')}
+                        </button>
+                        <button type="button" class="btn-doc-cancel" data-action="close-edit-modal">${t('finance.cancel', 'إلغاء')}</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Transactions Table -->
             <div class="table-card">
                 <table class="table">
                     <thead>
@@ -209,7 +245,6 @@ function renderPage() {
                         </tr>
                     </thead>
                     <tbody id="transactionsTableBody">
-                        <!-- Data loaded via JS -->
                     </tbody>
                 </table>
             </div>
@@ -220,11 +255,15 @@ function renderPage() {
 function initializeElements() {
     treasuryBalanceEl = document.getElementById('treasuryBalance');
     transactionsTableBody = document.getElementById('transactionsTableBody');
-    transactionForm = document.getElementById('transactionForm');
     transDateInput = document.getElementById('transDate');
     newTransactionBtn = document.getElementById('newTransactionBtn');
     document.getElementById('app').addEventListener('click', handleAppClick);
     document.addEventListener('click', handleOutsideModalClick);
+
+    const typeSelect = document.getElementById('transType');
+    if (typeSelect) {
+        typeSelect.addEventListener('change', updateNextVoucherPreview);
+    }
 }
 
 async function loadFinanceData() {
@@ -241,14 +280,13 @@ async function loadFinanceData() {
         treasuryBalanceEl.className = 'stat-value negative';
     }
 
-    // Calculate stats from transactions
     let totalIncome = 0;
     let totalExpense = 0;
     let todayIncome = 0;
     let todayExpense = 0;
     const today = new Date().toISOString().slice(0, 10);
 
-    financialTransactions.forEach(tr => {
+    financialTransactions.forEach((tr) => {
         if (tr.type === 'income') {
             totalIncome += tr.amount;
             if (tr.transaction_date === today) todayIncome += tr.amount;
@@ -271,7 +309,7 @@ function renderTransactions(transactions) {
     transactionsTableBody.innerHTML = '';
     transactionsById = new Map();
     
-    transactions.forEach(tr => {
+    transactions.forEach((tr) => {
         transactionsById.set(String(tr.id), tr);
         const row = document.createElement('tr');
         const typeBadge = tr.type === 'income' 
@@ -282,14 +320,12 @@ function renderTransactions(transactions) {
         if (tr.related_type === 'sales') relatedText = fmt(t('finance.relatedSales', 'فاتورة بيع #{id}'), { id: tr.related_invoice_id });
         if (tr.related_type === 'purchase') relatedText = fmt(t('finance.relatedPurchase', 'فاتورة شراء #{id}'), { id: tr.related_invoice_id });
 
-        // Show voucher number if exists
         const voucherCell = window.renderDocNumberCell
             ? window.renderDocNumberCell(tr.voucher_number, { numberTag: 'span', numberClassName: 'finance-voucher-number' })
             : (tr.voucher_number
                 ? `<span style="font-weight: 600; color: var(--accent-color);">${tr.voucher_number}</span>`
                 : `<span style="color: var(--text-muted); font-size: 0.85rem;">${t('finance.noVoucher', '-')}</span>`);
 
-        // Disable edit for auto-generated transactions, but allow delete
         const isAuto = tr.related_invoice_id != null;
         const actions = isAuto ? 
             `<span style="color: #999; font-size: 0.8rem; margin-left: 8px;">${t('finance.autoLabel', '(آلي)')}</span>
@@ -358,20 +394,34 @@ function handleAppClick(event) {
     }
 }
 
-function showForm() {
-    transactionForm.style.display = 'block';
-    newTransactionBtn.style.display = 'none';
+async function showForm() {
+    const modal = document.getElementById('newTransactionModal');
+    if (!modal) return;
+    modal.classList.add('is-open');
+    if (transDateInput) transDateInput.valueAsDate = new Date();
+    await updateNextVoucherPreview();
 }
 
 function hideForm() {
-    transactionForm.style.display = 'none';
-    newTransactionBtn.style.display = 'flex';
+    const modal = document.getElementById('newTransactionModal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
     
-    // Clear inputs
     document.getElementById('transAmount').value = '';
     document.getElementById('transDesc').value = '';
     document.getElementById('transType').value = 'income';
-    transDateInput.valueAsDate = new Date();
+    if (transDateInput) transDateInput.valueAsDate = new Date();
+}
+
+async function updateNextVoucherPreview() {
+    const type = document.getElementById('transType')?.value || 'income';
+    const voucherInput = document.getElementById('transVoucherNumber');
+    if (voucherInput && window.electronAPI && typeof window.electronAPI.getNextTreasuryVoucherNumber === 'function') {
+        const res = await window.electronAPI.getNextTreasuryVoucherNumber(type);
+        if (res && res.success) {
+            voucherInput.value = res.voucher_number;
+        }
+    }
 }
 
 async function saveTransaction() {
@@ -393,7 +443,8 @@ async function saveTransaction() {
         type,
         amount,
         date,
-        description
+        description,
+        customer_id: null
     });
 
     if (result.success) {
@@ -404,8 +455,6 @@ async function saveTransaction() {
         showFinanceToast(fmt(t('finance.toast.saveError', 'حدث خطأ: {error}'), { error: result.error }), 'error');
     }
 }
-
-// --- Edit & Delete Functions ---
 
 async function deleteTransaction(id) {
     const confirmed = typeof window.showConfirmDialog === 'function'
@@ -424,16 +473,22 @@ async function deleteTransaction(id) {
 
 function openEditModal(transaction) {
     document.getElementById('editTransId').value = transaction.id;
+    const customerEl = document.getElementById('editTransCustomerId');
+    if (customerEl) customerEl.value = transaction.customer_id || '';
     document.getElementById('editTransType').value = transaction.type;
     document.getElementById('editTransAmount').value = transaction.amount;
     document.getElementById('editTransDate').value = transaction.transaction_date;
     document.getElementById('editTransDesc').value = transaction.description;
+    const voucherEl = document.getElementById('editTransVoucher');
+    if (voucherEl) voucherEl.value = transaction.voucher_number || '-';
     
-    document.getElementById('editModal').style.display = 'block';
+    const modal = document.getElementById('editModal');
+    if (modal) modal.classList.add('is-open');
 }
 
 function closeEditModal() {
-    document.getElementById('editModal').style.display = 'none';
+    const modal = document.getElementById('editModal');
+    if (modal) modal.classList.remove('is-open');
 }
 
 async function updateTransaction() {
@@ -442,6 +497,8 @@ async function updateTransaction() {
     const amount = parseFloat(document.getElementById('editTransAmount').value);
     const date = document.getElementById('editTransDate').value;
     const description = document.getElementById('editTransDesc').value;
+    const customerIdVal = document.getElementById('editTransCustomerId')?.value;
+    const customer_id = customerIdVal ? Number(customerIdVal) : null;
 
     if (!amount || amount <= 0) {
         showFinanceToast(t('finance.toast.invalidAmount', 'الرجاء إدخال مبلغ صحيح'), 'error');
@@ -453,7 +510,8 @@ async function updateTransaction() {
         type,
         amount,
         date,
-        description
+        description,
+        customer_id
     });
 
     if (result.success) {
@@ -465,10 +523,13 @@ async function updateTransaction() {
     }
 }
 
-// Close modal when clicking outside
 function handleOutsideModalClick(event) {
-    const modal = document.getElementById('editModal');
-    if (event.target == modal) {
-        modal.style.display = "none";
+    const newModal = document.getElementById('newTransactionModal');
+    if (event.target === newModal) {
+        hideForm();
+    }
+    const editModal = document.getElementById('editModal');
+    if (event.target === editModal) {
+        closeEditModal();
     }
 }

@@ -21,6 +21,7 @@ const SHELL_HREF_TO_PERMISSION = [
     { pattern: 'opening-balance/', page: 'opening-balance' },
     { pattern: 'inventory/', page: 'inventory' },
     { pattern: 'finance/', page: 'finance' },
+    { pattern: 'expenses/', page: 'finance' },
     { pattern: 'payments/receipt', page: 'treasury' },
     { pattern: 'payments/payment', page: 'treasury' },
     { pattern: 'reports/debtor-creditor', page: 'reports' },

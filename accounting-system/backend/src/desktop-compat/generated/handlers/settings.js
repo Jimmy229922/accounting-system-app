@@ -125,8 +125,17 @@ function register() {
                 WHERE 1=1${salesReturnRange.clause}
             `).get(...salesReturnRange.params).total;
 
+            const expenseRange = buildRangeClause('transaction_date', startDate, endDate);
+            const expensesTotalMonth = db.prepare(`
+                SELECT COALESCE(SUM(amount), 0) as total
+                FROM expenses WHERE 1=1${expenseRange.clause}
+            `).get(...expenseRange.params).total;
+
             const cogsMonth = cogsMonthSales - cogsMonthReturns;
-            const netProfit = salesMonth - cogsMonth;
+            const grossProfit = salesMonth - cogsMonth;
+            const netProfit = grossProfit - expensesTotalMonth;
+            const shareForGod = netProfit > 0 ? Number((netProfit * 0.10).toFixed(2)) : 0;
+            const finalNetProfit = netProfit > 0 ? Number((netProfit - shareForGod).toFixed(2)) : netProfit;
 
             // --- Treasury balance ---
             const treasuryIncome = db.prepare(`
@@ -262,7 +271,7 @@ function register() {
             return {
                 customersCount, suppliersCount, itemsCount, stockValue,
                 salesToday, salesMonth, purchasesToday, purchasesMonth,
-                netProfit, treasuryBalance, receivables, payables,
+                netProfit, shareForGod, finalNetProfit, treasuryBalance, receivables, payables,
                 chartData: { dailySales, dailyPurchases },
                 recentTransactions,
                 profitDetails: {
@@ -272,7 +281,11 @@ function register() {
                     cogsMonthSales,
                     cogsMonthReturns,
                     cogsMonth,
-                    netProfit
+                    grossProfit,
+                    expensesTotalMonth,
+                    netProfit,
+                    shareForGod,
+                    finalNetProfit
                 },
                 alerts: { lowStockItems, highReceivables, oldInvoices },
                 todaySummary: {

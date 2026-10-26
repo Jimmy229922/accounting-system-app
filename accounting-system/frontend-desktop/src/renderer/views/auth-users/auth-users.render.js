@@ -40,7 +40,13 @@
                     </div>
                 </li>
                 <li><a href="../inventory/index.html">${t('common.nav.inventory')}</a></li>
-                <li><a href="../finance/index.html">${t('common.nav.finance')}</a></li>
+                <li class="dropdown">
+                    <a href="#">${t('common.nav.financialTransactions', 'التعاملات المالية')}</a>
+                    <div class="dropdown-content">
+                        <a href="../finance/index.html">${t('common.nav.financeAndTreasury', 'المالية والخزينة')}</a>
+                        <a href="../expenses/index.html">${t('common.nav.expenses', 'الخوارج')}</a>
+                    </div>
+                </li>
                 <li><a href="../payments/receipt.html">${t('common.nav.receipt')}</a></li>
                 <li><a href="../payments/payment.html">${t('common.nav.payment')}</a></li>
                 <li class="dropdown">

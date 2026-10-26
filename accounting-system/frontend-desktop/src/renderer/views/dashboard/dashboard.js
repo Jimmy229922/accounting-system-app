@@ -11,8 +11,10 @@ let ar = {};
 let currentFilters = { startDate: '', endDate: '' };
 
 function getLocalYMD(d) {
-    const tzOffset = d.getTimezoneOffset() * 60000;
-    return (new Date(d.getTime() - tzOffset)).toISOString().slice(0, 10);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 const initToday = new Date();
@@ -311,6 +313,10 @@ async function loadDashboardStats(filters = currentFilters) {
         document.getElementById('salesMonth').textContent = money(stats.salesMonth);
         document.getElementById('purchasesMonth').textContent = money(stats.purchasesMonth);
         document.getElementById('netProfit').textContent = money(stats.netProfit);
+        const shareEl = document.getElementById('shareForGod');
+        if (shareEl) shareEl.textContent = money(stats.shareForGod);
+        const finalProfitEl = document.getElementById('finalNetProfit');
+        if (finalProfitEl) finalProfitEl.textContent = money(stats.finalNetProfit);
         document.getElementById('treasuryBalance').textContent = money(stats.treasuryBalance);
         document.getElementById('stockValue').textContent = money(stats.stockValue);
         document.getElementById('itemsCount').textContent = stats.itemsCount || 0;
@@ -407,14 +413,35 @@ window.showNetProfitDetails = function() {
                     </div>
                 </div>
 
-                <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 15px;">
-                    <h4 style="margin: 0 0 5px 0; color: var(--text-color, #fff); font-size: 1.1rem; text-align: center;">الخلاصة (صافي المبيعات - التكلفة)</h4>
-                    <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 10px;">
-                        <strong style="color: #10b981; font-size: 1.4rem;">${m(p.netProfit)}</strong>
+                <div style="background: var(--secondary-bg, rgba(15,23,42,0.6)); border: 1px solid var(--border-color, rgba(255,255,255,0.05)); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #ef4444; font-size: 1rem;"><i class="fas fa-receipt" style="margin-inline-end:5px;"></i> ثالثاً: الخوارج المسجلة (المخصومة)</h4>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span style="color: var(--text-muted, #cbd5e1)">إجمالي خوارج الفترة:</span>
+                        <strong style="color: #ef4444">${m(p.expensesTotalMonth)}</strong>
                     </div>
-                    <div style="text-align: center; margin-top: 12px; font-size: 0.8rem; color: var(--text-muted, #94a3b8); line-height: 1.6;">
-                        <i class="fas fa-info-circle"></i> يمثل هذا الرقم "مجمل الربح التجاري" من البضاعة، ولا يخصم منه المصروفات الإدارية المسجلة بالخزينة لضمان دقة قياس أداء حركة الأصناف.
+                </div>
+
+                <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 15px; margin-bottom: 12px;">
+                    <h4 class="profit-before-god-title" style="margin: 0 0 5px 0; color: var(--final-profit-color, #047857); font-size: 1rem; font-weight: 700;"><i class="fas fa-coins" style="margin-inline-end:5px;"></i> رابعاً: صافي الربح التقديري (بعد الخوارج)</h4>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                        <span style="color: var(--text-muted, #64748b)">الربح قبل استقطاع نسبة لله:</span>
+                        <strong class="profit-before-god-value" style="color: var(--final-profit-color, #047857); font-size: 1.25rem; font-weight: 800;">${m(p.netProfit)}</strong>
                     </div>
+                </div>
+
+                <div style="background: rgba(2, 132, 199, 0.06); border: 1px solid rgba(2, 132, 199, 0.25); border-radius: 8px; padding: 15px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="share-god-title" style="color: var(--share-god-color, #0284c7); font-weight: 700;"><i class="fas fa-hand-holding-heart" style="margin-inline-end: 6px;"></i> خامساً: المستقطع لوجه الله (10%):</span>
+                        <strong class="share-god-value" style="color: var(--share-god-color, #0284c7); font-size: 1.25rem; font-weight: 800;">${m(p.shareForGod)}</strong>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted, #64748b); margin-top: 6px;">
+                        تُحسب تلقائياً بنسبة 10% من صافي الربح المتحقق بعد خصم الخوارج.
+                    </div>
+                </div>
+
+                <div class="final-profit-box" style="background: rgba(16, 185, 129, 0.1); border: 2px solid #059669; border-radius: 10px; padding: 16px; text-align: center;">
+                    <div class="final-profit-title" style="font-size: 0.95rem; color: var(--text-color, #0f172a); font-weight: 700; margin-bottom: 6px;"><i class="fas fa-award" style="color: #059669; margin-inline-end: 6px;"></i> صافي الربح النهائي (بعد الخوارج والـ 10% لله)</div>
+                    <strong class="final-profit-value" style="color: var(--final-profit-color, #047857); font-size: 1.65rem; font-weight: 800; display: block;">${m(p.finalNetProfit)}</strong>
                 </div>
             </div>
             
@@ -436,6 +463,17 @@ window.showNetProfitDetails = function() {
         const s = document.createElement('style');
         s.id = 'profitDetailsModalStyle';
         s.innerHTML = `
+        :root {
+            --final-profit-color: #047857;
+            --share-god-color: #0284c7;
+        }
+        [data-theme="dark"] {
+            --final-profit-color: #10b981;
+            --share-god-color: #38bdf8;
+        }
+        [data-theme="dark"] .final-profit-box {
+            border-color: #10b981 !important;
+        }
         .confirm-dialog-overlay {
             position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
             background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);

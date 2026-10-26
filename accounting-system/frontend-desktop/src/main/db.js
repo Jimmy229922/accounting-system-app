@@ -494,6 +494,23 @@ function initDB() {
     `);
 
     // ── Performance Indexes ──
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            voucher_number TEXT,
+            amount REAL NOT NULL,
+            transaction_date TEXT DEFAULT CURRENT_DATE,
+            description TEXT,
+            notes TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_voucher_unique
+        ON expenses(voucher_number)
+        WHERE voucher_number IS NOT NULL AND voucher_number != ''
+    `);
+
     db.exec(`CREATE INDEX IF NOT EXISTS idx_items_unit_id ON items(unit_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_items_is_deleted ON items(is_deleted)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_items_barcode ON items(barcode)`);

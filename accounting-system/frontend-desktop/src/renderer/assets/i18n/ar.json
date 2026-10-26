@@ -17,6 +17,9 @@
             "purchaseReturns": "مردودات المشتريات",
             "inventory": "المخزن",
             "finance": "المالية",
+            "financialTransactions": "التعاملات المالية",
+            "financeAndTreasury": "المالية والخزينة",
+            "expenses": "الخوارج",
             "receipt": "تحصيل من عميل",
             "payment": "سداد لمورد",
             "reports": "التقارير",
@@ -414,6 +417,25 @@
             "updateSuccess": "تم تحديث الحركة بنجاح",
             "updateError": "حدث خطأ: {error}"
         }
+    },
+    "expenses": {
+        "pageTitle": "الخوارج",
+        "heroSubtitle": "إدارة وتسجيل حركات الخوارج والمصروفات المالية",
+        "totalExpenses": "إجمالي الخوارج",
+        "todayExpenses": "خوارج اليوم",
+        "expensesCount": "عدد الحركات",
+        "newExpenseBtn": "تسجيل خارج جديد",
+        "newExpenseTitle": "تسجيل حركة خارج جديدة",
+        "amount": "المبلغ",
+        "date": "التاريخ",
+        "category": "التصنيف / البند",
+        "descriptionLabel": "الوصف / البيان",
+        "descriptionPlaceholder": "تفاصيل وبيان المنصرف",
+        "saveExpense": "حفظ الحركة",
+        "cancel": "إلغاء",
+        "close": "إغلاق",
+        "recentExpenses": "سجل حركات الخوارج",
+        "noExpenses": "لا توجد حركات خوارج مسجلة"
     },
     "inventory": {
         "title": "إدارة المخزن",
