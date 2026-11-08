@@ -597,8 +597,50 @@ async function restoreDatabaseFromPath(sourcePath, dbFilePath) {
     }
 }
 
+function persistBackupMetadataToSettings(isoTimestamp, backupMode) {
+    try {
+        const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (@key, @value)');
+        stmt.run({ key: 'last_backup_at', value: String(isoTimestamp || new Date().toISOString()) });
+        if (backupMode) {
+            stmt.run({ key: 'last_backup_mode', value: String(backupMode) });
+        }
+    } catch (_) {
+    }
+}
+
+function syncInitialBackupMetadataToSettings() {
+    try {
+        const existingRow = db.prepare("SELECT value FROM settings WHERE key = 'last_backup_at'").get();
+        const existingIso = existingRow && existingRow.value ? String(existingRow.value).trim() : '';
+        const existingMs = existingIso ? new Date(existingIso).getTime() : 0;
+
+        const manualBackupDir = getSharedBackupRootPath();
+        let newestManualMs = 0;
+        if (fs.existsSync(manualBackupDir)) {
+            const entries = fs.readdirSync(manualBackupDir)
+                .filter((name) => name.toLowerCase().endsWith('.db'));
+            for (const name of entries) {
+                try {
+                    const stat = fs.statSync(path.join(manualBackupDir, name));
+                    const mtimeMs = stat && stat.mtime ? stat.mtime.getTime() : 0;
+                    if (mtimeMs > newestManualMs) {
+                        newestManualMs = mtimeMs;
+                    }
+                } catch (_) {
+                }
+            }
+        }
+
+        if (newestManualMs > 0 && (!Number.isFinite(existingMs) || newestManualMs > existingMs)) {
+            persistBackupMetadataToSettings(new Date(newestManualMs).toISOString(), 'local');
+        }
+    } catch (_) {
+    }
+}
+
 function register() {
     const dbFilePath = db.name || path.join(app.getPath('userData'), 'accounting.db');
+    syncInitialBackupMetadataToSettings();
 
     // --- Backup & Restore Handlers ---
 
@@ -634,6 +676,10 @@ function register() {
                 return { success: false, error: cloudResult.error, path: chosenPath, cloud: cloudResult };
             }
 
+            persistBackupMetadataToSettings(
+                new Date().toISOString(),
+                cloudResult && cloudResult.success ? 'cloud_and_local' : 'local'
+            );
             return { success: true, path: chosenPath, cloud: cloudResult };
         } catch (error) {
             console.error('[backup-database] error:', error);
@@ -659,6 +705,7 @@ function register() {
                 return { success: false, error: cloudResult.error, cloud: cloudResult };
             }
 
+            persistBackupMetadataToSettings(new Date().toISOString(), 'cloud');
             return { success: true, cloud: cloudResult };
         } catch (error) {
             return { success: false, error: error.message };

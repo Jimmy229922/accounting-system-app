@@ -7,6 +7,13 @@ const { t, fmt } = window.i18n?.createPageHelpers?.(() => salesState.ar) || { t:
 const SALES_PRINT_PRINTER_STORAGE_KEY = 'sales.invoicePrinterName';
 let restoredDraftActive = false;
 
+function formatLocalDate(d = new Date()) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 function getNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
         return window.navManager.getTopNavHTML(t);
@@ -66,7 +73,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         initializeElements();
 
         if (salesState.dom.invoiceDateInput) {
-            salesState.dom.invoiceDateInput.valueAsDate = new Date();
+            salesState.dom.invoiceDateInput.value = formatLocalDate();
         }
 
         Promise.all([loadCustomers(), loadItems(), loadInvoiceNumberSuggestions()]).then(async () => {
@@ -836,6 +843,9 @@ async function initializeNewInvoice() {
     salesState.isEditLocked = false;
     setEditLocked(false);
     salesState.originalInvoiceItemTotalsByItemId = {};
+    if (salesState.dom.invoiceDateInput) {
+        salesState.dom.invoiceDateInput.value = formatLocalDate();
+    }
     const nextId = await salesApi.getNextInvoiceNumber();
     const invoiceNumberInput = document.getElementById('invoiceNumber');
     if (invoiceNumberInput) {
@@ -2338,7 +2348,7 @@ async function updateInvoice() {
     }
 
     const customer_id = salesState.dom.customerSelect.value;
-    const invoice_date = salesState.dom.invoiceDateInput.value || new Date().toISOString().slice(0, 10);
+    const invoice_date = salesState.dom.invoiceDateInput.value || formatLocalDate();
     const invoice_number = document.getElementById('invoiceNumber').value;
     const notes = document.getElementById('invoiceNotes').value;
     const payment_type = document.getElementById('paymentType').value;
@@ -2392,7 +2402,7 @@ async function updateInvoice() {
 
 async function saveInvoice() {
     const customer_id = salesState.dom.customerSelect.value;
-    const invoice_date = salesState.dom.invoiceDateInput.value || new Date().toISOString().slice(0, 10);
+    const invoice_date = salesState.dom.invoiceDateInput.value || formatLocalDate();
     const invoice_number = document.getElementById('invoiceNumber').value;
     const notes = document.getElementById('invoiceNotes').value;
     const payment_type = document.getElementById('paymentType').value;
@@ -2500,6 +2510,7 @@ async function resetForm() {
     const paymentTypeInput = document.getElementById('paymentType');
 
     if (invoiceNumberInput) invoiceNumberInput.value = '';
+    if (salesState.dom.invoiceDateInput) salesState.dom.invoiceDateInput.value = formatLocalDate();
     if (notesInput) notesInput.value = '';
     if (paymentTypeInput) paymentTypeInput.value = 'credit';
     if (salesState.dom.discountTypeSelect) salesState.dom.discountTypeSelect.value = 'amount';
@@ -2617,8 +2628,10 @@ async function checkAndRestoreDraft() {
             setEditLocked(!!draft.isEditLocked);
         }
 
-        if (draft.invoiceDate && salesState.dom.invoiceDateInput) {
+        if (draft.editingInvoiceId && draft.invoiceDate && salesState.dom.invoiceDateInput) {
             salesState.dom.invoiceDateInput.value = draft.invoiceDate;
+        } else if (salesState.dom.invoiceDateInput) {
+            salesState.dom.invoiceDateInput.value = formatLocalDate();
         }
 
         if (draft.invoiceNumber) {

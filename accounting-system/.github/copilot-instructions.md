@@ -53,3 +53,8 @@ EXECUTION FLOW (MANDATORY):
 6. Wait for confirmation before applying.
 7. Apply only the approved change.
 8. Do not alter surrounding code.
+
+RELEASE & WHATS NEW MANDATORY RULE:
+- Whenever preparing, bumping, or publishing a new update/release ("ارفع التحديث" or version update), you MUST update the version in `package.json`, `frontend-desktop/package.json`, `backend/package.json`, `frontend-desktop/src/renderer/views/dashboard/dashboard.render.js` (`vX.Y.Z`), and `CURRENT_APP_VERSION` + prepend/update the top release object (index 0) of `WHATS_NEW_RELEASES` in `frontend-desktop/src/renderer/views/settings/settings.js`.
+- Always keep all previous releases in `WHATS_NEW_RELEASES` below the latest release so the full update history remains scrollable.
+- Every release in `WHATS_NEW_RELEASES` MUST always categorize its items using `tagType` into the 3 standard sections rendered by `WHATS_NEW_CATEGORY_GROUPS`: `new` (أولاً: الإضافات والمميزات الجديدة), `improvement` (ثانياً: التعديلات والتحسينات), and `fix` (ثالثاً: الإصلاحات والمعالجات).

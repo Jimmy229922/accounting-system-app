@@ -88,6 +88,9 @@
 - عناصر الواجهة الجديدة داخل `views/dashboard`:
    - IDs: `dashboardFromDate`, `dashboardToDate`, `dashboardApplyBtn`, `dashboardClearBtn`, `dashboardPeriod`.
    - Classes: `filters-panel`, `filters-grid`, `form-group`, `form-control`, `filters-actions`, `btn-primary`, `btn-secondary`.
+- نافذة `تفاصيل مجمل الربح للإيضاح` (`#profitDetailsModal` عبر `window.showNetProfitDetails` في `views/dashboard/dashboard.js`):
+   - تصميم عريض من عمودين (`width: min(980px, 96vw)`, `.profit-modal-card`, `.profit-modal-grid`, `grid-auto-rows: 1fr`) يوحد مقاسات جميع البطاقات الست ويعرض كافة البنود المحاسبية في سطر واحد لكل بند بدون التفاف نصوص أو شريط تمرير رأسي.
+- شريط الآيات القرآنية والأذكار المتجدد تلقائيًا أعلى لوحة التحكم (`#heroSpiritualBanner`, `#heroSpiritualBadge`, `#heroSpiritualText`, `.hero-spiritual-banner`) داخل `.dashboard-hero` يتبدل تلقائيًا كل 12 ثانية عبر `startSpiritualBannerRotation` في `dashboard.js`.
 
 > ملاحظة: `search/search.js` فارغ حاليًا.
 
@@ -167,6 +170,10 @@
       - `settings_modified_by`
       - `settings_change_summary`
    - تحذير عند مغادرة الصفحة إذا كانت هناك تغييرات غير محفوظة (`beforeunload` + تأكيد عند النقر على روابط التنقل) مع bypass مؤقت بعد الموافقة لتجنب قفل التنقل.
+   - مؤشرات معلوماتية تلقائية (قراءة فقط بدون أزرار تفاعلية) داخل بطاقة «معلومات النظام»:
+      - حالة صحة قاعدة البيانات (`#dbHealthInfoItem`, `#dbHealthBadgeEl`, `#dbHealthSubEl`) بالاعتماد على `db_health_ok` و`db_health_status` من `get-settings`.
+      - حجم قاعدة البيانات الفعلي (`#dbSizeInfoItem`, `#dbSizeValueEl`, `#dbSizeSubEl`) بالاعتماد على `db_size_bytes` من `get-settings`.
+      - سجل النسخ الاحتياطي ومؤشر التنبيه الذكي (`#backupStatusInfoItem`, `#backupSmartBadgeEl`, `#lastBackupDateEl`) بالاعتماد على `last_backup_at` و`last_backup_mode` مع تلوين تلقائي: أخضر (حتى 3 أيام: `.status-safe`)، أصفر (من 3 إلى 7 أيام: `.status-warning`)، وأحمر (أكثر من 7 أيام أو بدون نسخة: `.status-danger`).
 
 ---
 
@@ -385,3 +392,4 @@
 6. إذا التعديل يمس قاعدة البيانات أو IPC:
    - طبق نفس التعديل في `backend/src/desktop-compat/` (نسخة التوافق).
 7. تحديث هذا الملف مباشرة في نفس التغيير.
+8. **شرط إلزامي عند أي تحديث جديد للنظام (ارفع التحديث):** يجب تحديث رقم الإصدار في جميع ملفات `package.json` الثلاثة وفي بطاقة حالة النظام داخل `frontend-desktop/src/renderer/views/dashboard/dashboard.render.js` (`vX.Y.Z`) وكذلك `CURRENT_APP_VERSION` وإضافة بيانات التحديث الجديد في أول مصفوفة `WHATS_NEW_RELEASES` (Index 0) داخل `frontend-desktop/src/renderer/views/settings/settings.js` ليكون أحدث إصدار في الأعلى دائماً مع الاحتفاظ بجميع الإصدارات السابقة أسفله في السجل القابل للتمرير (Scroll)، مع تقسيم بنود كل تحديث دائماً إلى الأقسام الثلاثة المعتمدة (`new`: الإضافات والمميزات الجديدة، `improvement`: التعديلات والتحسينات، `fix`: الإصلاحات والمعالجات).

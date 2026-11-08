@@ -1,4 +1,11 @@
 (function () {
+    function formatLocalDate(d = new Date()) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
     function initializeTreasuryVoucherPage(config) {
         let ar = {};
         let allEntities = [];
@@ -93,7 +100,7 @@
         }
 
         function initializeElements() {
-            document.getElementById('date').valueAsDate = new Date();
+            document.getElementById('date').value = formatLocalDate();
             generateVoucherNumber();
             document.getElementById(config.ids.form).addEventListener('submit', handleSubmit);
             document.getElementById('app').addEventListener('click', handleActionClick);
@@ -343,7 +350,7 @@
         }
 
         function calculateStats() {
-            const today = new Date().toISOString().split('T')[0];
+            const today = formatLocalDate();
 
             const todayTotal = recentTransactions
                 .filter((tr) => tr.transaction_date === today)
@@ -404,7 +411,7 @@
                     `${config.numberPrefix}-${Date.now()}`;
                 const data = {
                     type: config.transactionType,
-                    date: document.getElementById('date').value,
+                    date: document.getElementById('date').value || formatLocalDate(),
                     customer_id: document.getElementById(config.ids.entitySelect).value,
                     amount: parseFloat(document.getElementById('amount').value),
                     description:
@@ -442,7 +449,7 @@
                         return;
                     }
                     document.getElementById(config.ids.form).reset();
-                    document.getElementById('date').valueAsDate = new Date();
+                    document.getElementById('date').value = formatLocalDate();
                     await generateVoucherNumber();
                     renderEntityPlaceholder();
                     if (entityAutocomplete) entityAutocomplete.refresh();

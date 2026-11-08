@@ -5,6 +5,13 @@ const purchasesEvents = window.purchasesPageEvents;
 const { t, fmt } = window.i18n?.createPageHelpers?.(() => purchasesState.ar) || { t: (k, f = '') => f, fmt: (t, v = {}) => String(t || '') };
 let restoredDraftActive = false;
 
+function formatLocalDate(d = new Date()) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 function buildTopNavHTML() {
     if (window.navManager && typeof window.navManager.getTopNavHTML === 'function') {
         return window.navManager.getTopNavHTML(t);
@@ -62,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {    // Reset submitti
     initializeElements();
 
     if (purchasesState.dom.invoiceDateInput) {
-        purchasesState.dom.invoiceDateInput.valueAsDate = new Date();
+        purchasesState.dom.invoiceDateInput.value = formatLocalDate();
     }
 
     Promise.all([
@@ -275,6 +282,9 @@ async function initializeNewInvoice() {
     purchasesState.isEditLocked = false;
     setEditLocked(false);
     purchasesState.originalInvoiceItemTotalsByItemId = {};
+    if (purchasesState.dom.invoiceDateInput) {
+        purchasesState.dom.invoiceDateInput.value = formatLocalDate();
+    }
     const nextId = await purchasesApi.getNextInvoiceNumber();
     const invoiceNumberInput = document.getElementById('invoiceNumber');
     if (invoiceNumberInput) {
@@ -1109,7 +1119,7 @@ function buildInvoicePayload(financials) {
     return {
         supplier_id: purchasesState.dom.supplierSelect.value,
         invoice_number: document.getElementById('invoiceNumber').value,
-        invoice_date: purchasesState.dom.invoiceDateInput.value || new Date().toISOString().slice(0, 10),
+        invoice_date: purchasesState.dom.invoiceDateInput.value || formatLocalDate(),
         payment_type: document.getElementById('paymentType').value,
         notes: document.getElementById('invoiceNotes').value,
         discount_type: financials.discountType,
@@ -1199,6 +1209,7 @@ async function resetForm() {
     const paymentTypeInput = document.getElementById('paymentType');
 
     if (invoiceNumberInput) invoiceNumberInput.value = '';
+    if (purchasesState.dom.invoiceDateInput) purchasesState.dom.invoiceDateInput.value = formatLocalDate();
     if (notesInput) notesInput.value = '';
     if (paymentTypeInput) paymentTypeInput.value = 'credit';
     if (purchasesState.dom.discountTypeSelect) purchasesState.dom.discountTypeSelect.value = 'amount';

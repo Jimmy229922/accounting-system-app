@@ -9,6 +9,82 @@ let lastStats = null;
 let chartPeriod = '7';
 let ar = {};
 let currentFilters = { startDate: '', endDate: '' };
+let spiritualRotationTimer = null;
+let currentSpiritualIndex = 0;
+const DASHBOARD_SPIRITUAL_ROTATION_ITEMS = [
+    {
+        type: 'verse',
+        label: 'آية كريمة',
+        icon: 'fa-book-open',
+        text: '﴿وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا • وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ﴾'
+    },
+    {
+        type: 'dhikr',
+        label: 'دعاء وبركة',
+        icon: 'fa-hands-praying',
+        text: '«اللَّهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا، وَرِزْقًا طَيِّبًا، وَعَمَلًا مُتَقَبَّلًا»'
+    },
+    {
+        type: 'verse',
+        label: 'آية كريمة',
+        icon: 'fa-book-open',
+        text: '﴿وَإِذْ تَأَذَّنَ رَبُّكُمْ لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ﴾'
+    },
+    {
+        type: 'dhikr',
+        label: 'دعاء وبركة',
+        icon: 'fa-hands-praying',
+        text: '«اللَّهُمَّ اكْفِنِي بِحَلَالِكَ عَنْ حَرَامِكَ، وَأَغْنِنِي بِفَضْلِكَ عَمَّنْ سِوَاكَ»'
+    },
+    {
+        type: 'verse',
+        label: 'آية كريمة',
+        icon: 'fa-book-open',
+        text: '﴿إِنَّ اللَّهَ هُوَ الرَّزَّاقُ ذُو الْقُوَّةِ الْمَتِينُ﴾'
+    },
+    {
+        type: 'dhikr',
+        label: 'دعاء وبركة',
+        icon: 'fa-hands-praying',
+        text: '«اللَّهُمَّ بَارِكْ لَنَا فِيمَا رَزَقْتَنَا وَاقْنَعْنَا بِهِ»'
+    },
+    {
+        type: 'verse',
+        label: 'آية كريمة',
+        icon: 'fa-book-open',
+        text: '﴿وَقُلِ اعْمَلُوا فَسَيَرَى اللَّهُ عَمَلَكُمْ وَرَسُولُهُ وَالْمُؤْمِنُونَ﴾'
+    },
+    {
+        type: 'dhikr',
+        label: 'ذكر وتوكل',
+        icon: 'fa-star-and-crescent',
+        text: '«بِسْمِ اللَّهِ، تَوَكَّلْتُ عَلَى اللَّهِ، وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ»'
+    },
+    {
+        type: 'verse',
+        label: 'آية كريمة',
+        icon: 'fa-book-open',
+        text: '﴿وَمَا بِكُم مِّن نِّعْمَةٍ فَمِنَ اللَّهِ﴾'
+    },
+    {
+        type: 'dhikr',
+        label: 'تسبيح وذكر',
+        icon: 'fa-star-and-crescent',
+        text: '«سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ»'
+    },
+    {
+        type: 'verse',
+        label: 'آية كريمة',
+        icon: 'fa-book-open',
+        text: '﴿وَأَحَلَّ اللَّهُ الْبَيْعَ وَحَرَّمَ الرِّبَا﴾'
+    },
+    {
+        type: 'dhikr',
+        label: 'حمد وشكر',
+        icon: 'fa-star-and-crescent',
+        text: '«الْحَمْدُ لِلَّهِ حَمْدًا كَثِيرًا طَيِّبًا مُبَارَكًا فِيهِ»'
+    }
+];
 
 function getLocalYMD(d) {
     const year = d.getFullYear();
@@ -144,6 +220,7 @@ function bindEvents() {
     updatePeriodLabel();
 
     startRealTimeClock();
+    startSpiritualBannerRotation();
 
     document.querySelectorAll('.chart-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -170,6 +247,95 @@ function startRealTimeClock() {
 
     update();
     setInterval(update, 1000);
+}
+
+function buildShuffledSpiritualQueue(totalCount, lastShownIndex = -1) {
+    const indices = Array.from({ length: totalCount }, (_, idx) => idx);
+    for (let i = indices.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = indices[i];
+        indices[i] = indices[j];
+        indices[j] = temp;
+    }
+    if (indices.length > 1 && indices[0] === lastShownIndex) {
+        const swapIdx = 1 + Math.floor(Math.random() * (indices.length - 1));
+        const first = indices[0];
+        indices[0] = indices[swapIdx];
+        indices[swapIdx] = first;
+    }
+    return indices;
+}
+
+function pullNextSpiritualIndex() {
+    const totalCount = DASHBOARD_SPIRITUAL_ROTATION_ITEMS.length;
+    if (!totalCount) return 0;
+
+    const queueKey = 'dashboard_spiritual_shuffle_queue';
+    const lastIdxKey = 'dashboard_spiritual_last_index';
+    let queue = [];
+    let lastShown = -1;
+
+    try {
+        const rawLast = sessionStorage.getItem(lastIdxKey);
+        if (rawLast !== null && rawLast !== '') {
+            const parsedLast = Number(rawLast);
+            if (Number.isInteger(parsedLast) && parsedLast >= 0 && parsedLast < totalCount) {
+                lastShown = parsedLast;
+            }
+        }
+        const rawQueue = sessionStorage.getItem(queueKey);
+        if (rawQueue) {
+            const parsedQueue = JSON.parse(rawQueue);
+            if (Array.isArray(parsedQueue)) {
+                queue = parsedQueue.filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < totalCount);
+            }
+        }
+    } catch (_err) {
+        queue = [];
+    }
+
+    if (!queue.length) {
+        queue = buildShuffledSpiritualQueue(totalCount, lastShown);
+    }
+
+    const nextIndex = queue.shift();
+    currentSpiritualIndex = Number.isInteger(nextIndex) ? nextIndex : 0;
+
+    try {
+        sessionStorage.setItem(queueKey, JSON.stringify(queue));
+        sessionStorage.setItem(lastIdxKey, String(currentSpiritualIndex));
+    } catch (_err) {}
+
+    return currentSpiritualIndex;
+}
+
+function startSpiritualBannerRotation() {
+    const bannerEl = document.getElementById('heroSpiritualBanner');
+    const badgeEl = document.getElementById('heroSpiritualBadge');
+    const textEl = document.getElementById('heroSpiritualText');
+    if (!bannerEl || !badgeEl || !textEl || !DASHBOARD_SPIRITUAL_ROTATION_ITEMS.length) return;
+
+    const renderItem = (index) => {
+        const item = DASHBOARD_SPIRITUAL_ROTATION_ITEMS[index % DASHBOARD_SPIRITUAL_ROTATION_ITEMS.length];
+        if (!item) return;
+        badgeEl.innerHTML = `<i class="fas ${item.icon}"></i> ${item.label}`;
+        badgeEl.dataset.type = item.type;
+        textEl.textContent = item.text;
+    };
+
+    renderItem(pullNextSpiritualIndex());
+
+    if (spiritualRotationTimer) {
+        clearInterval(spiritualRotationTimer);
+    }
+
+    spiritualRotationTimer = setInterval(() => {
+        bannerEl.classList.add('is-fading');
+        setTimeout(() => {
+            renderItem(pullNextSpiritualIndex());
+            bannerEl.classList.remove('is-fading');
+        }, 280);
+    }, 12000);
 }
 
 function renderChart(chartData) {
@@ -357,7 +523,7 @@ async function loadDashboardStats(filters = currentFilters) {
 
 window.showNetProfitDetails = function() {
     if (!lastStats || !lastStats.profitDetails) return;
-    
+
     let modal = document.getElementById('profitDetailsModal');
     if (modal) modal.remove();
 
@@ -369,84 +535,134 @@ window.showNetProfitDetails = function() {
     modal.id = 'profitDetailsModal';
     modal.className = 'confirm-dialog-overlay';
     modal.style.zIndex = '999999';
-    
+
     modal.innerHTML = `
-        <div class="confirm-dialog-card" style="width: min(500px, 90%); padding: 0;">
-            <div class="confirm-dialog-header" style="background: var(--nav-bg, #0f172a); border-bottom: 2px solid var(--border-color, rgba(255,255,255,0.05)); display: flex; justify-content: space-between; align-items: center; padding: 15px 20px;">
-                <span style="font-size: 1.1rem; color: #38bdf8;"><i class="fas fa-calculator" style="margin-inline-end: 8px;"></i> تفاصيل مجمل الربح للإيضاح</span>
-                <button onclick="document.getElementById('profitDetailsModal').remove()" style="background: none; border: none; color: var(--text-muted, #94a3b8); cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
+        <div class="confirm-dialog-card profit-modal-card" style="width: min(980px, 96vw); max-width: 980px;">
+            <div class="confirm-dialog-header profit-modal-header">
+                <div class="profit-modal-title-group">
+                    <span class="profit-modal-icon"><i class="fas fa-calculator"></i></span>
+                    <div>
+                        <h3 class="profit-modal-title">تفاصيل مجمل الربح للإيضاح</h3>
+                        <span class="profit-modal-period"><i class="fas fa-calendar-alt"></i> ${t('dashboard.periodLabel', 'الفترة')}: ${periodText}</span>
+                    </div>
+                </div>
+                <button type="button" class="profit-modal-close" onclick="document.getElementById('profitDetailsModal').remove()" aria-label="إغلاق"><i class="fas fa-times"></i></button>
             </div>
-            <div class="confirm-dialog-message" style="padding: 20px; font-size: 0.95rem; line-height: 1.8; color: var(--text-color, #fff);">
-                <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-color, rgba(255,255,255,0.08)); border-radius: 8px; padding: 10px 12px; margin-bottom: 15px; font-size: 0.9rem;">
-                    <i class="fas fa-calendar-alt" style="margin-inline-end: 6px; color: #38bdf8;"></i> ${t('dashboard.periodLabel', 'الفترة')}: ${periodText}
-                </div>
-                
-                <div style="background: var(--secondary-bg, rgba(15,23,42,0.6)); border: 1px solid var(--border-color, rgba(255,255,255,0.05)); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #10b981; font-size: 1rem;"><i class="fas fa-shopping-cart" style="margin-inline-end:5px;"></i> أولاً: المبيعات الفعّالة (الفترة المحددة)</h4>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span style="color: var(--text-muted, #cbd5e1)">إجمالي الفواتير:</span>
-                        <strong style="color: var(--text-color, #fff)">${m(p.salesTotalMonth)}</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span style="color:#ef4444">- مردودات (مرتجعات):</span>
-                        <strong style="color: #ef4444">${m(p.salesReturnsTotalMonth)}</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 10px; border-top: 1px dashed var(--border-color, rgba(255,255,255,0.1)); padding-top: 10px;">
-                        <span style="color:#0ea5e9; font-weight:bold;">= صافي المبيعات:</span>
-                        <strong style="color: #0ea5e9; font-size: 1.1rem;">${m(p.salesMonth)}</strong>
-                    </div>
-                </div>
 
-                <div style="background: var(--secondary-bg, rgba(15,23,42,0.6)); border: 1px solid var(--border-color, rgba(255,255,255,0.05)); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #f59e0b; font-size: 1rem;"><i class="fas fa-boxes" style="margin-inline-end:5px;"></i> ثانياً: تكلفة المبيعات (رأس المال)</h4>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span style="color: var(--text-muted, #cbd5e1)">تكلفة البضاعة الخارجة:</span>
-                        <strong style="color: var(--text-color, #fff)">${m(p.cogsMonthSales)}</strong>
+            <div class="profit-modal-body">
+                <div class="profit-modal-grid">
+                    <div class="profit-section-card card-sales">
+                        <h4 class="profit-section-title text-emerald"><i class="fas fa-shopping-cart"></i> أولاً: المبيعات الفعّالة (الفترة المحددة)</h4>
+                        <div class="profit-rows-wrap">
+                            <div class="profit-row">
+                                <span class="profit-row-label">إجمالي الفواتير:</span>
+                                <strong class="profit-row-value">${m(p.salesTotalMonth)}</strong>
+                            </div>
+                            <div class="profit-row">
+                                <span class="profit-row-label text-danger">- مردودات (مرتجعات):</span>
+                                <strong class="profit-row-value text-danger">${m(p.salesReturnsTotalMonth)}</strong>
+                            </div>
+                        </div>
+                        <div class="profit-row profit-row-total">
+                            <span class="text-sky">= صافي المبيعات:</span>
+                            <strong class="profit-total-num text-sky">${m(p.salesMonth)}</strong>
+                        </div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span style="color:#10b981">- تكلفة المرتجعات:</span>
-                        <strong style="color: #10b981">${m(p.cogsMonthReturns)}</strong>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 10px; border-top: 1px dashed var(--border-color, rgba(255,255,255,0.1)); padding-top: 10px;">
-                        <span style="color:#f59e0b; font-weight:bold;">= التكلفة الفعلية (المخصومة):</span>
-                        <strong style="color: #f59e0b; font-size: 1.1rem;">${m(p.cogsMonth)}</strong>
-                    </div>
-                </div>
 
-                <div style="background: var(--secondary-bg, rgba(15,23,42,0.6)); border: 1px solid var(--border-color, rgba(255,255,255,0.05)); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #ef4444; font-size: 1rem;"><i class="fas fa-receipt" style="margin-inline-end:5px;"></i> ثالثاً: الخوارج المسجلة (المخصومة)</h4>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span style="color: var(--text-muted, #cbd5e1)">إجمالي خوارج الفترة:</span>
-                        <strong style="color: #ef4444">${m(p.expensesTotalMonth)}</strong>
+                    <div class="profit-section-card card-cogs">
+                        <h4 class="profit-section-title text-amber"><i class="fas fa-boxes"></i> ثانياً: تكلفة المبيعات (رأس المال)</h4>
+                        <div class="profit-rows-wrap">
+                            <div class="profit-row">
+                                <span class="profit-row-label">تكلفة البضاعة الخارجة:</span>
+                                <strong class="profit-row-value">${m(p.cogsMonthSales)}</strong>
+                            </div>
+                            <div class="profit-row">
+                                <span class="profit-row-label text-emerald">- تكلفة المرتجعات:</span>
+                                <strong class="profit-row-value text-emerald">${m(p.cogsMonthReturns)}</strong>
+                            </div>
+                        </div>
+                        <div class="profit-row profit-row-total">
+                            <span class="text-amber">= التكلفة الفعلية (المخصومة):</span>
+                            <strong class="profit-total-num text-amber">${m(p.cogsMonth)}</strong>
+                        </div>
                     </div>
-                </div>
 
-                <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 15px; margin-bottom: 12px;">
-                    <h4 class="profit-before-god-title" style="margin: 0 0 5px 0; color: var(--final-profit-color, #047857); font-size: 1rem; font-weight: 700;"><i class="fas fa-coins" style="margin-inline-end:5px;"></i> رابعاً: صافي الربح التقديري (بعد الخوارج)</h4>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                        <span style="color: var(--text-muted, #64748b)">الربح قبل استقطاع نسبة لله:</span>
-                        <strong class="profit-before-god-value" style="color: var(--final-profit-color, #047857); font-size: 1.25rem; font-weight: 800;">${m(p.netProfit)}</strong>
+                    <div class="profit-section-card card-expenses">
+                        <h4 class="profit-section-title text-danger"><i class="fas fa-receipt"></i> ثالثاً: الخوارج المسجلة (المخصومة)</h4>
+                        <div class="profit-rows-wrap">
+                            <div class="profit-row">
+                                <span class="profit-row-label">مجمل الربح (قبل الخوارج):</span>
+                                <strong class="profit-row-value">${m(p.grossProfit)}</strong>
+                            </div>
+                            <div class="profit-row">
+                                <span class="profit-row-label text-danger">- مصروفات وخوارج الفترة:</span>
+                                <strong class="profit-row-value text-danger">${m(p.expensesTotalMonth)}</strong>
+                            </div>
+                        </div>
+                        <div class="profit-row profit-row-total">
+                            <span class="text-danger">= إجمالي الخوارج المخصومة:</span>
+                            <strong class="profit-total-num text-danger">${m(p.expensesTotalMonth)}</strong>
+                        </div>
                     </div>
-                </div>
 
-                <div style="background: rgba(2, 132, 199, 0.06); border: 1px solid rgba(2, 132, 199, 0.25); border-radius: 8px; padding: 15px; margin-bottom: 12px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="share-god-title" style="color: var(--share-god-color, #0284c7); font-weight: 700;"><i class="fas fa-hand-holding-heart" style="margin-inline-end: 6px;"></i> خامساً: المستقطع لوجه الله (10%):</span>
-                        <strong class="share-god-value" style="color: var(--share-god-color, #0284c7); font-size: 1.25rem; font-weight: 800;">${m(p.shareForGod)}</strong>
+                    <div class="profit-section-card card-net-before">
+                        <h4 class="profit-section-title profit-before-god-title"><i class="fas fa-coins"></i> رابعاً: صافي الربح التقديري (بعد الخوارج)</h4>
+                        <div class="profit-rows-wrap">
+                            <div class="profit-row">
+                                <span class="profit-row-label">مجمل الربح المتحقق:</span>
+                                <strong class="profit-row-value">${m(p.grossProfit)}</strong>
+                            </div>
+                            <div class="profit-row">
+                                <span class="profit-row-label text-danger">- إجمالي الخوارج المخصومة:</span>
+                                <strong class="profit-row-value text-danger">${m(p.expensesTotalMonth)}</strong>
+                            </div>
+                        </div>
+                        <div class="profit-row profit-row-total">
+                            <span class="profit-before-god-title">= الربح قبل استقطاع نسبة لله:</span>
+                            <strong class="profit-total-num profit-before-god-value">${m(p.netProfit)}</strong>
+                        </div>
                     </div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted, #64748b); margin-top: 6px;">
-                        تُحسب تلقائياً بنسبة 10% من صافي الربح المتحقق بعد خصم الخوارج.
-                    </div>
-                </div>
 
-                <div class="final-profit-box" style="background: rgba(16, 185, 129, 0.1); border: 2px solid #059669; border-radius: 10px; padding: 16px; text-align: center;">
-                    <div class="final-profit-title" style="font-size: 0.95rem; color: var(--text-color, #0f172a); font-weight: 700; margin-bottom: 6px;"><i class="fas fa-award" style="color: #059669; margin-inline-end: 6px;"></i> صافي الربح النهائي (بعد الخوارج والـ 10% لله)</div>
-                    <strong class="final-profit-value" style="color: var(--final-profit-color, #047857); font-size: 1.65rem; font-weight: 800; display: block;">${m(p.finalNetProfit)}</strong>
+                    <div class="profit-section-card card-god-share">
+                        <h4 class="profit-section-title share-god-title"><i class="fas fa-hand-holding-heart"></i> خامساً: المستقطع لوجه الله (10%)</h4>
+                        <div class="profit-rows-wrap">
+                            <div class="profit-row">
+                                <span class="profit-row-label">صافي الربح الخاضع للنسبة:</span>
+                                <strong class="profit-row-value">${m(p.netProfit)}</strong>
+                            </div>
+                            <div class="profit-row">
+                                <span class="profit-row-label share-god-title">نسبة الاستقطاع التلقائية:</span>
+                                <strong class="profit-row-value share-god-title">10%</strong>
+                            </div>
+                        </div>
+                        <div class="profit-row profit-row-total">
+                            <span class="share-god-title">= المستقطع لوجه الله:</span>
+                            <strong class="profit-total-num share-god-value">${m(p.shareForGod)}</strong>
+                        </div>
+                    </div>
+
+                    <div class="profit-section-card final-profit-box">
+                        <h4 class="profit-section-title final-profit-title"><i class="fas fa-award"></i> سادساً: صافي الربح النهائي (بعد الـ 10% لله)</h4>
+                        <div class="profit-rows-wrap">
+                            <div class="profit-row">
+                                <span class="profit-row-label">صافي الربح (بعد الخوارج):</span>
+                                <strong class="profit-row-value">${m(p.netProfit)}</strong>
+                            </div>
+                            <div class="profit-row">
+                                <span class="profit-row-label share-god-title">- المستقطع لوجه الله (10%):</span>
+                                <strong class="profit-row-value share-god-title">${m(p.shareForGod)}</strong>
+                            </div>
+                        </div>
+                        <div class="profit-row profit-row-total">
+                            <span class="profit-before-god-title">= صافي الربح النهائي:</span>
+                            <strong class="final-profit-value">${m(p.finalNetProfit)}</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <div class="confirm-dialog-actions" style="border-top: 1px solid var(--border-color, rgba(255,255,255,0.05)); padding: 15px 20px; text-align: center; display: block;">
-                <button onclick="document.getElementById('profitDetailsModal').remove()" class="confirm-dialog-btn confirm" style="width: 100%; max-width: 200px;">فهمت، إغلاق</button>
+
+            <div class="confirm-dialog-actions profit-modal-footer">
+                <button type="button" onclick="document.getElementById('profitDetailsModal').remove()" class="confirm-dialog-btn confirm profit-modal-done-btn">فهمت، إغلاق</button>
             </div>
         </div>
     `;
@@ -454,7 +670,7 @@ window.showNetProfitDetails = function() {
     document.body.appendChild(modal);
     requestAnimationFrame(() => modal.classList.add('show'));
     modal.addEventListener('click', (e) => {
-        if(e.target === modal) modal.remove();
+        if (e.target === modal) modal.remove();
     });
 };
 
@@ -471,19 +687,227 @@ window.showNetProfitDetails = function() {
             --final-profit-color: #10b981;
             --share-god-color: #38bdf8;
         }
-        [data-theme="dark"] .final-profit-box {
-            border-color: #10b981 !important;
-        }
         .confirm-dialog-overlay {
             position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-            background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);
+            padding: 16px; background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(5px);
             opacity: 0; transition: opacity 0.2s ease;
         }
         .confirm-dialog-overlay.show { opacity: 1; }
-        .confirm-dialog-card {
-            background: var(--card-bg, #0f172a); border: 1px solid var(--border-color, rgba(255,255,255,0.1));
-            border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-            max-height: 90vh; overflow-y: auto; color: var(--text-color, #fff); direction: rtl;
+        .confirm-dialog-card.profit-modal-card {
+            width: min(980px, 96vw) !important;
+            max-width: 980px !important;
+            max-height: 95vh;
+            overflow: hidden;
+            padding: 0;
+            background: var(--card-bg, #0f172a);
+            border: 1px solid var(--border-color, rgba(148, 163, 184, 0.22));
+            border-radius: 18px;
+            box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.55);
+            color: var(--text-color, #fff);
+            direction: rtl;
+            display: flex;
+            flex-direction: column;
+        }
+        .profit-modal-header {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(16, 185, 129, 0.08));
+            border-bottom: 1px solid var(--border-color, rgba(148, 163, 184, 0.16));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 22px;
+        }
+        .profit-modal-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .profit-modal-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #0ea5e9, #2563eb);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            box-shadow: 0 6px 14px rgba(14, 165, 233, 0.28);
+            flex-shrink: 0;
+        }
+        .profit-modal-title {
+            margin: 0 0 2px 0;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--text-color, #fff);
+            white-space: nowrap;
+        }
+        .profit-modal-period {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--share-god-color, #0284c7);
+            white-space: nowrap;
+        }
+        .profit-modal-close {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color, rgba(148, 163, 184, 0.24));
+            background: var(--secondary-bg, rgba(15, 23, 42, 0.5));
+            color: var(--text-muted, #94a3b8);
+            cursor: pointer;
+            font-size: 1.05rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .profit-modal-close:hover {
+            background: rgba(239, 68, 68, 0.14);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+        .profit-modal-body {
+            padding: 16px 22px;
+            white-space: normal !important;
+            overflow-y: auto;
+        }
+        .profit-modal-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-auto-rows: 1fr;
+            gap: 12px;
+            align-items: stretch;
+        }
+        .profit-section-card {
+            background: var(--secondary-bg, rgba(15, 23, 42, 0.55));
+            border: 1px solid var(--border-color, rgba(148, 163, 184, 0.18));
+            border-radius: 14px;
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .profit-section-card.card-net-before {
+            background: rgba(16, 185, 129, 0.05);
+            border-color: rgba(16, 185, 129, 0.26);
+        }
+        .profit-section-card.card-god-share {
+            background: rgba(2, 132, 199, 0.06);
+            border-color: rgba(2, 132, 199, 0.28);
+        }
+        .profit-section-card.final-profit-box {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.05));
+            border: 2px solid #059669;
+        }
+        [data-theme="dark"] .profit-section-card.final-profit-box {
+            border-color: #10b981 !important;
+        }
+        .profit-section-title {
+            margin: 0 0 8px 0;
+            font-size: 0.94rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+        }
+        .profit-rows-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .text-emerald { color: #10b981; }
+        .text-amber { color: #f59e0b; }
+        .text-danger { color: #ef4444; }
+        .text-sky { color: #0ea5e9; }
+        .profit-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .profit-row-label {
+            color: var(--text-muted, #94a3b8);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .profit-row-value {
+            color: var(--text-color, #fff);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .profit-row-total {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--border-color, rgba(148, 163, 184, 0.22));
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .profit-total-num {
+            font-size: 1.12rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .profit-before-god-title {
+            color: var(--final-profit-color, #047857);
+            white-space: nowrap;
+        }
+        .profit-before-god-value {
+            color: var(--final-profit-color, #047857);
+            font-size: 1.15rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .share-god-title {
+            color: var(--share-god-color, #0284c7);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .share-god-value {
+            color: var(--share-god-color, #0284c7);
+            font-size: 1.15rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .final-profit-title {
+            color: var(--final-profit-color, #047857);
+            white-space: nowrap;
+        }
+        .final-profit-title i {
+            color: #059669;
+        }
+        .final-profit-value {
+            color: var(--final-profit-color, #047857);
+            font-size: 1.24rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .profit-modal-footer {
+            border-top: 1px solid var(--border-color, rgba(148, 163, 184, 0.16));
+            padding: 12px 22px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            background: var(--secondary-bg, rgba(15, 23, 42, 0.35));
+        }
+        .profit-modal-done-btn {
+            width: 100%;
+            max-width: 220px;
+            min-height: 38px;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+        @media (max-width: 768px) {
+            .profit-modal-grid {
+                grid-template-columns: 1fr;
+            }
         }
         .interactive-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.3); border-color: rgba(56, 189, 248, 0.4) !important; }
         `;

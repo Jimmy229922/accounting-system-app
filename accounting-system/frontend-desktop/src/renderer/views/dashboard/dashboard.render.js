@@ -13,6 +13,10 @@
                     <span class="hero-shape shape-4"></span>
                     <span class="hero-shape shape-5"></span>
                 </div>
+                <div class="hero-spiritual-banner" id="heroSpiritualBanner" aria-live="polite">
+                    <span class="hero-spiritual-badge" id="heroSpiritualBadge"><i class="fas fa-book-open"></i> آية كريمة</span>
+                    <span class="hero-spiritual-text" id="heroSpiritualText">﴿وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا • وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ﴾</span>
+                </div>
                 <div class="hero-content">
                     <h1>${t('dashboard.title', 'لوحة التحكم')}</h1>
                     <p>${t('dashboard.subtitle', 'نظرة عامة على أداء نشاطك التجاري')}</p>
@@ -244,7 +248,7 @@
                         </div>
                         <div class="status-row">
                             <span>${t('dashboard.appVersion', 'نسخة البرنامج')}</span>
-                            <span style="font-weight: bold;">v7.0.1</span>
+                            <span style="font-weight: bold;">v7.0.3</span>
                         </div>
                         <div class="status-row">
                             <span>${t('dashboard.customersCount', 'قاعدة العملاء')}</span>

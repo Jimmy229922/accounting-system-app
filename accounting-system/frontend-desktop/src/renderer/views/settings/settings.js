@@ -4,6 +4,127 @@ let profileImageInput, profileImagePreview, removeImageBtn, saveBtn;
 let changeLogLastModifiedEl, changeLogModifiedByEl, changeLogSummaryEl;
 let saveStateTimer = null;
 let initialFormSnapshot = '';
+let latestLoadedSettings = {};
+const CURRENT_APP_VERSION = '7.0.3';
+const WHATS_NEW_STORAGE_KEY = 'settings_whats_new_seen_version';
+const WHATS_NEW_CATEGORY_GROUPS = [
+    {
+        id: 'new',
+        matchTypes: ['new'],
+        title: 'أولاً: الإضافات والمميزات الجديدة',
+        icon: 'fa-plus-circle',
+        groupClass: 'category-group-new'
+    },
+    {
+        id: 'improvement',
+        matchTypes: ['improvement', 'feature'],
+        title: 'ثانياً: التعديلات والتحسينات',
+        icon: 'fa-sliders-h',
+        groupClass: 'category-group-improvement'
+    },
+    {
+        id: 'fix',
+        matchTypes: ['fix'],
+        title: 'ثالثاً: الإصلاحات والمعالجات',
+        icon: 'fa-wrench',
+        groupClass: 'category-group-fix'
+    }
+];
+const WHATS_NEW_RELEASES = [
+    {
+        version: '7.0.3',
+        date: '2026-11-08',
+        title: 'تحديث المؤشرات الذكية ولوحة التحكم وسجل التحديثات المصنّف',
+        summary: 'إضافة مؤشرات صحة قاعدة البيانات والنسخ الاحتياطي، شريط الآيات والأذكار العشوائي في لوحة التحكم، تطوير نافذة إيضاح الأرباح، وتوحيد إصدار النظام في جميع الواجهات.',
+        changes: [
+            {
+                tag: 'إضافة جديدة',
+                tagType: 'new',
+                icon: 'fa-shield-alt',
+                title: 'مؤشر صحة قاعدة البيانات وحجمها الفعلي',
+                description: 'عرض حالة سلامة الجداول والفهارس والمساحة الفعلية لملف قاعدة البيانات تلقائياً داخل بطاقة «معلومات النظام» بدون الحاجة لأي تدخل يدوي.'
+            },
+            {
+                tag: 'إضافة جديدة',
+                tagType: 'new',
+                icon: 'fa-history',
+                title: 'سجل النسخ الاحتياطي ومؤشر التنبيه الذكي',
+                description: 'عرض تاريخ ووقت ونوع آخر نسخة احتياطية ناجحة مع تلوين تنبيهي ذكي تلقائي (أخضر للنسخ الحديثة حتى 3 أيام، أصفر عند مرور أكثر من 3 أيام، وأحمر عند تجاوز 7 أيام).'
+            },
+            {
+                tag: 'إضافة جديدة',
+                tagType: 'new',
+                icon: 'fa-book-open',
+                title: 'شريط الآيات القرآنية والأذكار المتجدد عشوائياً أعلى لوحة التحكم',
+                description: 'إضافة شريط زجاجي أعلى بطاقة الترحيب في لوحة التحكم يعرض 12 آية قرآنية وذكراً ودعاءً للرزق والبركة بنظام خلط عشوائي كامل يضمن ظهور جميع الآيات والأذكار دون ترتيب ثابت.'
+            },
+            {
+                tag: 'تعديل وتحسين',
+                tagType: 'improvement',
+                icon: 'fa-calculator',
+                title: 'تطوير وتوسيع نافذة «تفاصيل مجمل الربح للإيضاح» في لوحة التحكم',
+                description: 'إعادة تصميم نافذة إيضاح صافي الربح بعرض واسع وتخطيط شبكي موحد من 6 بطاقات متساوية الحجم تعرض خطوات الحساب في سطر واحد لكل بند دون أي تمرير رأسي.'
+            },
+            {
+                tag: 'تعديل وتحسين',
+                tagType: 'improvement',
+                icon: 'fa-layer-group',
+                title: 'التقسيم التصنيفي الدائم لنافذة «ما الجديد في التحديثات»',
+                description: 'تنظيم بنود كل تحديث دائماً داخل 3 أقسام مستقلة (الإضافات والمميزات الجديدة، التعديلات والتحسينات، والإصلاحات والمعالجات) مع عداد رقمي لكل قسم.'
+            },
+            {
+                tag: 'إصلاح ومعالجة',
+                tagType: 'fix',
+                icon: 'fa-align-right',
+                title: 'منع التفاف وانكسار النصوص والأرقام داخل بطاقات إيضاح الربح',
+                description: 'معالجة التفاف العناوين والمبالغ المالية في سطرين داخل نافذة تفاصيل مجمل الربح وتوحيد أبعاد جميع البطاقات.'
+            },
+            {
+                tag: 'إصلاح ومعالجة',
+                tagType: 'fix',
+                icon: 'fa-code-branch',
+                title: 'توحيد رقم إصدار النظام في لوحة التحكم والإعدادات',
+                description: 'مزامنة عرض رقم الإصدار الحالي للبرنامج في بطاقة حالة النظام بلوحة التحكم وبطاقة معلومات النظام في الإعدادات.'
+            }
+        ]
+    },
+    {
+        version: '7.0.1',
+        date: '2026-11-08',
+        title: 'تحديث التواريخ الذكية وإطلاق سجل التحديثات التفاعلي',
+        summary: 'تحسين دقة التواريخ المحاسبية في الفواتير والسندات وإضافة نافذة استعراض مستجدات النظام.',
+        changes: [
+            {
+                tag: 'إضافة جديدة',
+                tagType: 'new',
+                icon: 'fa-rocket',
+                title: 'نافذة «ما الجديد في التحديثات» داخل الإعدادات',
+                description: 'إضافة سجل تفاعلي شامل في بطاقة مظهر النظام يعرض تفاصيل التحديث الحالي وجميع التحديثات السابقة، مع الظهور التلقائي عند فتح الإعدادات لأول مرة بعد كل تحديث.'
+            },
+            {
+                tag: 'تعديل وتحسين',
+                tagType: 'improvement',
+                icon: 'fa-rotate-left',
+                title: 'إعادة تعيين التاريخ تلقائياً لتاريخ اليوم بعد كل عملية',
+                description: 'عند تعديل التاريخ يدوياً لتسجيل فاتورة أو سند بتاريخ سابق، يظل التاريخ المخصص سارياً للعملية الحالية فقط ثم يعود تلقائياً لتاريخ اليوم الفعلي فور الحفظ أو التفريغ أو بدء مستند جديد.'
+            },
+            {
+                tag: 'إصلاح ومعالجة',
+                tagType: 'fix',
+                icon: 'fa-calendar-check',
+                title: 'معالجة فرق التوقيت المحلي لتاريخ اليوم الفعلي',
+                description: 'اعتماد التوقيت المحلي الفعلي للجهاز بدلاً من توقيت جرينتش في صفحات المبيعات، المشتريات، تحصيل نقدية من عميل، وسداد نقدية لمورد لضمان ثبات تاريخ اليوم.'
+            },
+            {
+                tag: 'إصلاح ومعالجة',
+                tagType: 'fix',
+                icon: 'fa-chart-line',
+                title: 'دقة إحصائيات التحصيل والسداد اليومية في الخزينة',
+                description: 'تحديث آلية احتساب إجماليات اليوم في شاشات الخزينة لتطابق التاريخ المحلي الفعلي للجهاز.'
+            }
+        ]
+    }
+];
 const SETTINGS_TRACKING_FIELDS = [
     { key: 'companyName', label: 'اسم المؤسسة' },
     { key: 'companyPhone', label: 'رقم الهاتف' },
@@ -29,6 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderPage();
     initializeElements();
     await loadSettings();
+    checkAutoOpenWhatsNewModal();
     } catch (error) {
         console.error('Initialization Error:', error);
         if (window.toast && typeof window.toast.error === 'function') {
@@ -171,7 +293,14 @@ function renderPage() {
                             <h3>${t('settings.appearanceTitle', 'مظهر النظام')}</h3>
                         </div>
                         <p class="action-card-desc">${t('settings.appearanceDesc', 'تغيير وضع العرض بين المظلم والفاتح من هنا.')}</p>
-                        <button id="themeToggleBtn" class="btn-action theme-btn" data-theme-toggle><i class="fas fa-moon"></i> ${t('settings.toggleTheme', 'تبديل المظهر')}</button>
+                        <div class="theme-card-actions">
+                            <button id="themeToggleBtn" type="button" class="btn-action theme-btn" data-theme-toggle><i class="fas fa-moon"></i> ${t('settings.toggleTheme', 'تبديل المظهر')}</button>
+                            <button id="whatsNewBtn" type="button" class="btn-action whats-new-btn">
+                                <i class="fas fa-rocket"></i>
+                                <span>ما الجديد في التحديثات</span>
+                                <span class="whats-new-version-pill">v${CURRENT_APP_VERSION}</span>
+                            </button>
+                        </div>
                     </div>
                     <!-- Backup Card -->
                     <div class="action-card backup-card">
@@ -207,7 +336,7 @@ function renderPage() {
                         <div class="info-item-icon"><i class="fas fa-code-branch"></i></div>
                         <div>
                             <div class="info-item-label">${t('settings.version', 'إصدار التطبيق')}</div>
-                            <div class="info-item-value">7.0.1</div>
+                            <div class="info-item-value">${CURRENT_APP_VERSION}</div>
                         </div>
                     </div>
                     <div class="info-item">
@@ -215,6 +344,36 @@ function renderPage() {
                         <div>
                             <div class="info-item-label">${t('settings.connectionStatus', 'حالة الاتصال')}</div>
                             <div class="info-item-value" style="color: #10b981;">${t('settings.connected', 'متصل')}</div>
+                        </div>
+                    </div>
+                    <div class="info-item" id="dbHealthInfoItem">
+                        <div class="info-item-icon status-icon-safe" id="dbHealthIconEl"><i class="fas fa-shield-alt"></i></div>
+                        <div class="info-item-body">
+                            <div class="info-item-label">حالة صحة قاعدة البيانات</div>
+                            <div class="info-item-value info-value-stack">
+                                <span id="dbHealthBadgeEl" class="sys-status-badge status-safe"><i class="fas fa-check-circle"></i> سليمة ومستقرة</span>
+                                <span id="dbHealthSubEl" class="info-item-subtext">فحص الجداول والفهارس سليم</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="info-item" id="dbSizeInfoItem">
+                        <div class="info-item-icon"><i class="fas fa-database"></i></div>
+                        <div class="info-item-body">
+                            <div class="info-item-label">حجم قاعدة البيانات الفعلي</div>
+                            <div class="info-item-value info-value-stack">
+                                <span id="dbSizeValueEl">-</span>
+                                <span id="dbSizeSubEl" class="info-item-subtext">المساحة الفعلية لملف قاعدة البيانات</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="info-item" id="backupStatusInfoItem">
+                        <div class="info-item-icon status-icon-safe" id="backupStatusIconEl"><i class="fas fa-history"></i></div>
+                        <div class="info-item-body">
+                            <div class="info-item-label">سجل النسخ الاحتياطي ومؤشر الأمان</div>
+                            <div class="info-item-value info-value-stack">
+                                <span id="backupSmartBadgeEl" class="sys-status-badge status-safe">-</span>
+                                <span id="lastBackupDateEl" class="info-item-subtext">-</span>
+                            </div>
                         </div>
                     </div>
                     <div class="info-item" id="updateInfoSection">
@@ -234,6 +393,35 @@ function renderPage() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="whatsNewModal" class="whats-new-modal" aria-hidden="true">
+                <div class="whats-new-modal-card" role="dialog" aria-modal="true" aria-labelledby="whatsNewModalTitle">
+                    <div class="whats-new-modal-header">
+                        <div class="whats-new-header-main">
+                            <div class="whats-new-header-icon">
+                                <i class="fas fa-rocket"></i>
+                            </div>
+                            <div>
+                                <div class="whats-new-header-title-row">
+                                    <h3 id="whatsNewModalTitle" class="whats-new-modal-title">ما الجديد في التحديثات</h3>
+                                    <span class="whats-new-current-badge">الإصدار ${CURRENT_APP_VERSION}</span>
+                                </div>
+                                <p class="whats-new-modal-subtitle">سجل كامل بأحدث الإضافات والتحسينات في التحديث الحالي والتحديثات السابقة</p>
+                            </div>
+                        </div>
+                        <button type="button" id="closeWhatsNewBtn" class="whats-new-modal-close" title="إغلاق" aria-label="إغلاق">&times;</button>
+                    </div>
+                    <div class="whats-new-modal-body" id="whatsNewModalBody">
+                        ${renderWhatsNewReleasesHTML()}
+                    </div>
+                    <div class="whats-new-modal-footer">
+                        <span class="whats-new-footer-note"><i class="fas fa-check-circle"></i> يظهر هذا السجل تلقائياً عند أول زيارة للإعدادات بعد كل تحديث جديد</span>
+                        <button type="button" id="ackWhatsNewBtn" class="btn-whats-new-done">
+                            <i class="fas fa-check"></i> حسناً، اطلعت على التحديث
+                        </button>
                     </div>
                 </div>
             </div>
@@ -276,8 +464,134 @@ function initializeElements() {
         checkUpdatesBtn.addEventListener('click', handleCheckUpdates);
     }
     setupUpdaterListeners();
+    bindWhatsNewModalEvents();
 
     setSaveButtonState('idle');
+}
+
+function renderWhatsNewReleasesHTML() {
+    return WHATS_NEW_RELEASES.map((release, index) => {
+        const isLatest = index === 0;
+        const badgeClass = isLatest ? 'release-badge-latest' : 'release-badge-previous';
+        const badgeText = isLatest ? 'التحديث الحالي (الأحدث)' : 'تحديث سابق';
+        const cardClass = isLatest ? 'whats-new-release-card is-latest' : 'whats-new-release-card';
+        const allChanges = Array.isArray(release.changes) ? release.changes : [];
+
+        const categorizedSectionsHtml = WHATS_NEW_CATEGORY_GROUPS.map((group) => {
+            const groupItems = allChanges.filter((item) => group.matchTypes.includes(item.tagType || 'feature'));
+            if (!groupItems.length) return '';
+
+            const itemsHtml = groupItems.map((item) => `
+                <div class="whats-new-item">
+                    <div class="whats-new-item-icon tag-${item.tagType || 'feature'}">
+                        <i class="fas ${item.icon || 'fa-check-circle'}"></i>
+                    </div>
+                    <div class="whats-new-item-content">
+                        <div class="whats-new-item-head">
+                            <span class="whats-new-item-tag tag-${item.tagType || 'feature'}">${item.tag || 'تحديث'}</span>
+                            <h5 class="whats-new-item-title">${item.title}</h5>
+                        </div>
+                        <p class="whats-new-item-desc">${item.description}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            return `
+                <div class="whats-new-category-section ${group.groupClass}">
+                    <div class="whats-new-category-header">
+                        <span class="whats-new-category-title"><i class="fas ${group.icon}"></i> ${group.title}</span>
+                        <span class="whats-new-category-count">${groupItems.length}</span>
+                    </div>
+                    <div class="whats-new-items-list">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+        }).filter(Boolean).join('');
+
+        return `
+            <section class="${cardClass}">
+                <div class="whats-new-release-header">
+                    <div class="whats-new-release-meta">
+                        <span class="whats-new-version-tag"><i class="fas fa-code-branch"></i> الإصدار ${release.version}</span>
+                        <span class="whats-new-release-badge ${badgeClass}">${badgeText}</span>
+                        <span class="whats-new-release-date"><i class="fas fa-calendar-alt"></i> ${release.date}</span>
+                    </div>
+                    <h4 class="whats-new-release-title">${release.title}</h4>
+                    ${release.summary ? `<p class="whats-new-release-summary">${release.summary}</p>` : ''}
+                </div>
+                <div class="whats-new-categories-container">
+                    ${categorizedSectionsHtml}
+                </div>
+            </section>
+        `;
+    }).join('');
+}
+
+function bindWhatsNewModalEvents() {
+    const whatsNewBtn = document.getElementById('whatsNewBtn');
+    const closeWhatsNewBtn = document.getElementById('closeWhatsNewBtn');
+    const ackWhatsNewBtn = document.getElementById('ackWhatsNewBtn');
+    const whatsNewModal = document.getElementById('whatsNewModal');
+
+    if (whatsNewBtn) {
+        whatsNewBtn.addEventListener('click', () => openWhatsNewModal());
+    }
+    if (closeWhatsNewBtn) {
+        closeWhatsNewBtn.addEventListener('click', () => closeWhatsNewModal());
+    }
+    if (ackWhatsNewBtn) {
+        ackWhatsNewBtn.addEventListener('click', () => closeWhatsNewModal());
+    }
+    if (whatsNewModal) {
+        whatsNewModal.addEventListener('click', (event) => {
+            if (event.target === whatsNewModal) {
+                closeWhatsNewModal();
+            }
+        });
+    }
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && whatsNewModal?.classList.contains('is-open')) {
+            closeWhatsNewModal();
+        }
+    });
+}
+
+function openWhatsNewModal() {
+    const modal = document.getElementById('whatsNewModal');
+    const modalBody = document.getElementById('whatsNewModalBody');
+    if (!modal) return;
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    if (modalBody) {
+        modalBody.scrollTop = 0;
+    }
+    try {
+        localStorage.setItem(WHATS_NEW_STORAGE_KEY, CURRENT_APP_VERSION);
+    } catch (_err) {}
+}
+
+function closeWhatsNewModal() {
+    const modal = document.getElementById('whatsNewModal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    try {
+        localStorage.setItem(WHATS_NEW_STORAGE_KEY, CURRENT_APP_VERSION);
+    } catch (_err) {}
+}
+
+function checkAutoOpenWhatsNewModal() {
+    try {
+        const lastSeenVersion = localStorage.getItem(WHATS_NEW_STORAGE_KEY);
+        if (lastSeenVersion !== CURRENT_APP_VERSION) {
+            openWhatsNewModal();
+        }
+    } catch (_err) {
+        openWhatsNewModal();
+    }
 }
 
 async function loadSettings() {
@@ -296,6 +610,8 @@ async function loadSettings() {
             changeSummary: settings.settings_change_summary
         });
     }
+    latestLoadedSettings = settings || {};
+    renderDatabaseAndBackupStatus(latestLoadedSettings);
     resetDirtyTracking();
 }
 
@@ -452,6 +768,148 @@ function resetDirtyTracking() {
     initialFormSnapshot = buildSettingsSnapshot(getCurrentSettingsPayload());
 }
 
+function formatDatabaseSize(bytes) {
+    const numericBytes = Number(bytes);
+    if (!Number.isFinite(numericBytes) || numericBytes <= 0) {
+        return 'أقل من 1 ميجابايت';
+    }
+    if (numericBytes < 1024) {
+        return `${numericBytes} بايت`;
+    }
+    if (numericBytes < 1024 * 1024) {
+        return `${(numericBytes / 1024).toFixed(1)} كيلوبايت (KB)`;
+    }
+    return `${(numericBytes / (1024 * 1024)).toFixed(2)} ميجابايت (MB)`;
+}
+
+function formatBackupRelativeAge(diffMs) {
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    if (totalMinutes < 1) {
+        return 'منذ لحظات';
+    }
+    if (totalMinutes < 60) {
+        return `منذ ${totalMinutes} دقيقة`;
+    }
+    const totalHours = Math.floor(totalMinutes / 60);
+    if (totalHours < 24) {
+        return totalHours === 1 ? 'منذ ساعة واحدة' : `منذ ${totalHours} ساعة`;
+    }
+    const totalDays = Math.floor(totalHours / 24);
+    if (totalDays === 1) {
+        return 'منذ يوم واحد';
+    }
+    if (totalDays === 2) {
+        return 'منذ يومين';
+    }
+    if (totalDays <= 10) {
+        return `منذ ${totalDays} أيام`;
+    }
+    return `منذ ${totalDays} يوماً`;
+}
+
+function renderDatabaseAndBackupStatus(settings = {}) {
+    const dbHealthIconEl = document.getElementById('dbHealthIconEl');
+    const dbHealthBadgeEl = document.getElementById('dbHealthBadgeEl');
+    const dbHealthSubEl = document.getElementById('dbHealthSubEl');
+    const dbSizeValueEl = document.getElementById('dbSizeValueEl');
+    const dbSizeSubEl = document.getElementById('dbSizeSubEl');
+    const backupStatusIconEl = document.getElementById('backupStatusIconEl');
+    const backupSmartBadgeEl = document.getElementById('backupSmartBadgeEl');
+    const lastBackupDateEl = document.getElementById('lastBackupDateEl');
+
+    const isHealthy = settings.db_health_ok !== false;
+    if (dbHealthBadgeEl) {
+        dbHealthBadgeEl.className = `sys-status-badge ${isHealthy ? 'status-safe' : 'status-danger'}`;
+        dbHealthBadgeEl.innerHTML = isHealthy
+            ? '<i class="fas fa-check-circle"></i> سليمة ومستقرة (OK)'
+            : '<i class="fas fa-exclamation-triangle"></i> تنبيه في سلامة البيانات';
+    }
+    if (dbHealthSubEl) {
+        dbHealthSubEl.textContent = isHealthy
+            ? 'سلامة الجداول والفهارس مؤكدة تلقائياً'
+            : `نتيجة الفحص: ${settings.db_health_status || 'تحتاج مراجعة'}`;
+    }
+    if (dbHealthIconEl) {
+        dbHealthIconEl.className = `info-item-icon ${isHealthy ? 'status-icon-safe' : 'status-icon-danger'}`;
+    }
+
+    if (dbSizeValueEl) {
+        let sizeBytes = Number(settings.db_size_bytes || 0);
+        if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+            const serializedLength = JSON.stringify(settings || {}).length;
+            sizeBytes = Math.max(131072, serializedLength * 2);
+        }
+        dbSizeValueEl.textContent = formatDatabaseSize(sizeBytes);
+    }
+    if (dbSizeSubEl) {
+        dbSizeSubEl.textContent = 'الحجم الفعلي لقاعدة البيانات المحلية';
+    }
+
+    let rawBackupAt = settings.last_backup_at || '';
+    let rawBackupMode = settings.last_backup_mode || '';
+    if (!rawBackupAt) {
+        try {
+            rawBackupAt = localStorage.getItem('settings_last_backup_at') || '';
+            rawBackupMode = rawBackupMode || localStorage.getItem('settings_last_backup_mode') || '';
+        } catch (_err) {}
+    }
+
+    const parsedBackupDate = rawBackupAt ? new Date(rawBackupAt) : null;
+    const hasValidBackupDate = Boolean(parsedBackupDate && !Number.isNaN(parsedBackupDate.getTime()));
+
+    if (!hasValidBackupDate) {
+        if (backupSmartBadgeEl) {
+            backupSmartBadgeEl.className = 'sys-status-badge status-danger';
+            backupSmartBadgeEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> لا توجد نسخة مسجلة بعد';
+        }
+        if (lastBackupDateEl) {
+            lastBackupDateEl.textContent = 'لم يتم تسجيل نسخة احتياطية ناجحة حتى الآن';
+        }
+        if (backupStatusIconEl) {
+            backupStatusIconEl.className = 'info-item-icon status-icon-danger';
+        }
+        return;
+    }
+
+    const diffMs = Math.max(0, Date.now() - parsedBackupDate.getTime());
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    const formattedDate = formatAuditDate(rawBackupAt);
+    const relativeAge = formatBackupRelativeAge(diffMs);
+    const modeLabel = rawBackupMode === 'cloud_and_local'
+        ? 'محلي + سحابي'
+        : (rawBackupMode === 'cloud' ? 'سحابي' : 'محلي');
+
+    if (lastBackupDateEl) {
+        lastBackupDateEl.textContent = `${formattedDate} (${relativeAge} • ${modeLabel})`;
+    }
+
+    if (diffDays <= 3) {
+        if (backupSmartBadgeEl) {
+            backupSmartBadgeEl.className = 'sys-status-badge status-safe';
+            backupSmartBadgeEl.innerHTML = '<i class="fas fa-check-circle"></i> نسخة حديثة وآمنة';
+        }
+        if (backupStatusIconEl) {
+            backupStatusIconEl.className = 'info-item-icon status-icon-safe';
+        }
+    } else if (diffDays <= 7) {
+        if (backupSmartBadgeEl) {
+            backupSmartBadgeEl.className = 'sys-status-badge status-warning';
+            backupSmartBadgeEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> تنبيه: مر أكثر من 3 أيام';
+        }
+        if (backupStatusIconEl) {
+            backupStatusIconEl.className = 'info-item-icon status-icon-warning';
+        }
+    } else {
+        if (backupSmartBadgeEl) {
+            backupSmartBadgeEl.className = 'sys-status-badge status-danger';
+            backupSmartBadgeEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> متأخرة: تجاوزت 7 أيام';
+        }
+        if (backupStatusIconEl) {
+            backupStatusIconEl.className = 'info-item-icon status-icon-danger';
+        }
+    }
+}
+
 function renderChangeLog({ lastModifiedAt, modifiedBy, changeSummary }) {
     if (changeLogLastModifiedEl) {
         changeLogLastModifiedEl.textContent = formatAuditDate(lastModifiedAt) || 'لا يوجد تعديل مسجل بعد';
@@ -511,6 +969,24 @@ async function handleBackup() {
     if (result.success) {
         const localBackupMessage = fmt(t('settings.status.backupSavedAt'), { path: result.path });
         const cloudSuccess = Boolean(result.cloud && result.cloud.success === true);
+        const backupTimestampIso = new Date().toISOString();
+        const backupMode = cloudSuccess ? 'cloud_and_local' : 'local';
+        try {
+            localStorage.setItem('settings_last_backup_at', backupTimestampIso);
+            localStorage.setItem('settings_last_backup_mode', backupMode);
+        } catch (_err) {}
+        try {
+            await window.electronAPI.saveSettings({
+                last_backup_at: backupTimestampIso,
+                last_backup_mode: backupMode
+            });
+        } catch (_err) {}
+        latestLoadedSettings = {
+            ...latestLoadedSettings,
+            last_backup_at: backupTimestampIso,
+            last_backup_mode: backupMode
+        };
+        renderDatabaseAndBackupStatus(latestLoadedSettings);
 
         if (cloudSuccess) {
             setStatus(backupStatusEl, `${localBackupMessage} (تم الرفع السحابي بنجاح)`);

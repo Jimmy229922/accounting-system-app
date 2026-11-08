@@ -14,6 +14,23 @@ function register() {
             rows.forEach(row => {
                 settings[row.key] = row.value;
             });
+            try {
+                const pageCount = Number(db.pragma('page_count', { simple: true }) || 0);
+                const pageSize = Number(db.pragma('page_size', { simple: true }) || 0);
+                settings.db_size_bytes = pageCount * pageSize;
+            } catch (_) {
+                settings.db_size_bytes = 0;
+            }
+            try {
+                const quickCheckRows = db.pragma('quick_check(1)');
+                const firstRow = Array.isArray(quickCheckRows) && quickCheckRows[0] ? quickCheckRows[0] : null;
+                const statusValue = firstRow ? String(Object.values(firstRow)[0] || '') : 'ok';
+                settings.db_health_ok = statusValue.toLowerCase() === 'ok';
+                settings.db_health_status = settings.db_health_ok ? 'ok' : statusValue;
+            } catch (healthErr) {
+                settings.db_health_ok = false;
+                settings.db_health_status = healthErr.message || 'error';
+            }
             return settings;
         } catch (error) {
             console.error('[get-settings] Error:', error);
